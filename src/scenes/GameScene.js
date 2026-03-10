@@ -47,8 +47,9 @@ export default class GameScene extends Phaser.Scene {
 
         // --- 콤보 시스템 ---
         this.comboCount = 0;
-
-
+        this.bossVariant = 'normal';
+        this.treasureIslandBuff = null;
+        this.activeCatchBuff = null;
 
         // --- 보스 어종 ---
         this.isBossFight = false;
@@ -82,6 +83,9 @@ export default class GameScene extends Phaser.Scene {
         this.drawPath = [];
         this.drawUserPath = [];
         this.isDrawing = false;
+        this.bossVariant = 'normal';
+        this.treasureIslandBuff = null;
+        this.activeCatchBuff = null;
 
         this.isBossFight = false;
         this.bossTimeLimit = 0;
@@ -288,6 +292,66 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    showFloatingNotice(message, color = '#FFD700', yRatio = 0.3, fontSize = '28px') {
+        const notice = this.add.text(this.scale.width / 2, this.scale.height * yRatio, message, {
+            fontSize,
+            fontFamily: 'Arial',
+            color,
+            stroke: '#000000',
+            strokeThickness: 5,
+            align: 'center'
+        }).setOrigin(0.5).setDepth(120);
+
+        this.tweens.add({
+            targets: notice,
+            y: notice.y - 50,
+            alpha: 0,
+            duration: 1400,
+            ease: 'Power2',
+            onComplete: () => notice.destroy()
+        });
+    }
+
+    getBossEncounterData(playerModel) {
+        const clearedBefore = !!playerModel.bossDefeated[this.region];
+        const defeatedCount = playerModel.bossDefeatedCount[this.region] || 0;
+
+        let variant = null;
+        if (!clearedBefore && this.regionFishCount >= 5 && Math.random() < 0.1) {
+            variant = 'first';
+        } else if (clearedBefore && this.regionFishCount >= 8 && Math.random() < 0.06) {
+            variant = defeatedCount >= 3 && Math.random() < 0.35 ? 'empowered' : 'returning';
+        }
+
+        if (!variant) return null;
+
+        const regionList = FISH_TYPES.filter(f => f.region === this.region);
+        const ssrFishes = regionList.filter(f => f.grade === 'SSR');
+        const bossIndex = ssrFishes.length > 0 ? (defeatedCount % ssrFishes.length) : Math.max(0, regionList.length - 1);
+        const fish = ssrFishes.length > 0 ? ssrFishes[bossIndex] : regionList[regionList.length - 1];
+
+        return { variant, fish };
+    }
+
+    getBossConfig() {
+        const configs = {
+            first: { catchMultiplier: 2.4, timeLimit: 18, rewardMultiplier: 1.8, startRatio: 0.18 },
+            returning: { catchMultiplier: 2.0, timeLimit: 18, rewardMultiplier: 1.6, startRatio: 0.22 },
+            empowered: { catchMultiplier: 2.6, timeLimit: 17, rewardMultiplier: 2.1, startRatio: 0.2 }
+        };
+
+        return configs[this.bossVariant] || configs.first;
+    }
+
+    consumeTreasureIslandBuff() {
+        if (!this.treasureIslandBuff) return;
+
+        this.treasureIslandBuff.remaining = Math.max(0, (this.treasureIslandBuff.remaining || 1) - 1);
+        if (this.treasureIslandBuff.remaining <= 0) {
+            this.treasureIslandBuff = null;
+        }
+    }
+
 
     createWanderingFishes() {
         this.wanderingFishes = [];
@@ -463,9 +527,41 @@ export default class GameScene extends Phaser.Scene {
         const waitTime = Phaser.Math.Between(800, maxWait);
 
         const pm = window.gameManagers.playerModel;
+        const bossEncounter = this.getBossEncounterData(pm);
+
+        if (bossEncounter) {
+            this.isBossFight = true;
+            this.bossVariant = bossEncounter.variant;
+            this.currentFish = bossEncounter.fish;
+            this.regionFishCount = 0;
+
+            const bossLabel = this.bossVariant === 'empowered'
+                ? '?슚 媛뺥솕 蹂댁뒪 異쒗쁽! ?슚'
+                : (this.bossVariant === 'returning' ? '?슚 蹂댁뒪 ?ъ벑?? ?슚' : '?슚 留덉솗 異쒗쁽 寃쎄퀬! ?슚');
+
+            this.uiElements.instruction.setText(`${bossLabel}\n?쒓컙 ?댁뿉 ?≪븘??!`);
+            this.cameras.main.shake(1500, 0.02);
+            this.cameras.main.flash(500, 255, 0, 0);
+            window.gameManagers.soundManager.playError();
+        } else {
+            this.isBossFight = false;
+            this.bossVariant = 'normal';
+
+            const rodLuckLevel = pm.stats.rodLuck;
+            const comboCount = pm.comboCount || 0;
+            let rareFishBoost = 1;
+
+            if (this.treasureIslandBuff && this.treasureIslandBuff.type === 'ssrBoost' && this.treasureIslandBuff.remaining > 0) {
+                rareFishBoost = 3;
+                this.consumeTreasureIslandBuff();
+                this.showFloatingNotice('蹂대Ъ???됰줉! ?ш? 臾쇨퀬湲??좏솗 ?낅줈!', '#8be9fd');
+            }
+
+            this.currentFish = getRandomFish(rodLuckLevel, this.region, this.castingBonus, comboCount, rareFishBoost);
+        }
 
         // --- 10% 확률로 보스(마왕) 출현 (지역당 5회 낚시 이후 + 아직 안 잡았을 때) ---
-        if (this.regionFishCount >= 5 && Math.random() < 0.1 && !pm.bossDefeated[this.region]) {
+        if (false) {
             this.isBossFight = true;
             const regionList = FISH_TYPES.filter(f => f.region === this.region);
             const ssrFishes = regionList.filter(f => f.grade === 'SSR');
@@ -474,7 +570,7 @@ export default class GameScene extends Phaser.Scene {
             this.cameras.main.shake(1500, 0.02);
             this.cameras.main.flash(500, 255, 0, 0);
             window.gameManagers.soundManager.playError(); // 씬 진입 경고음
-        } else {
+        } else if (!this.currentFish) {
             this.isBossFight = false;
             // 물고기 종류 결정 (캐스팅 보너스 + 콤보 적용)
             const rodLuckLevel = pm.stats.rodLuck;
@@ -712,6 +808,26 @@ export default class GameScene extends Phaser.Scene {
         }
 
         // --- Fever Time 적용 체크 ---
+        if (this.isBossFight) {
+            const bossConfig = this.getBossConfig();
+            this.catchMax = (this.currentFish.catchMax || 100) * bossConfig.catchMultiplier;
+            this.bossTimeLimit = bossConfig.timeLimit;
+            this.bossTimer = 0;
+            this.catchGauge = this.catchMax * bossConfig.startRatio;
+
+            const pm = window.gameManagers.playerModel;
+            if (pm.bossFailed[this.region]) {
+                this.catchGauge = Math.max(this.catchGauge, this.catchMax * 0.35);
+            }
+        }
+
+        this.activeCatchBuff = null;
+        if (this.treasureIslandBuff && this.treasureIslandBuff.type === 'gaugeImmunity' && this.treasureIslandBuff.remaining > 0) {
+            this.activeCatchBuff = { ...this.treasureIslandBuff };
+            this.consumeTreasureIslandBuff();
+            this.showFloatingNotice('蹂대Ъ???됰줉! ?좎떆 寃뚯씠吏媛 以꾩? ?딆븘??', '#7fdcff');
+        }
+
         if (this.consecutiveFails >= 3) {
             this.activateFeverTime();
         }
@@ -1016,6 +1132,7 @@ export default class GameScene extends Phaser.Scene {
         this.uiElements.tensionWarn.setVisible(false);
         this.lure.setVisible(false);
         this.lineTension = 0;
+        this.activeCatchBuff = null;
 
 
         // 보스 타이머 숨김
@@ -1032,12 +1149,15 @@ export default class GameScene extends Phaser.Scene {
         // 보스전 승리 처리
         const pm = window.gameManagers.playerModel;
         let isBossCatch = false;
+        let bossRewardMultiplier = 1;
         if (this.isBossFight) {
             pm.bossDefeated[this.region] = true;
             pm.bossDefeatedCount[this.region] = (pm.bossDefeatedCount[this.region] || 0) + 1;
             pm.notify();
-            this.isBossFight = false;
             isBossCatch = true;
+            bossRewardMultiplier = this.getBossConfig().rewardMultiplier;
+            this.isBossFight = false;
+            this.bossVariant = 'normal';
         }
 
         // 콤보 UI 표시
@@ -1145,7 +1265,7 @@ export default class GameScene extends Phaser.Scene {
             if (isBossCatch) {
                 const bCount = pm.bossDefeatedCount[this.region];
                 // 1회, 2회, 3회차 대사 중 알맞은 것 선택. 3회 이후는 3회차 반복 또는 스킵
-                if (BOSS_STORIES[this.region]) {
+                if (BOSS_STORIES[this.region] && bCount <= 3) {
                     const storyIndex = Math.min(bCount - 1, 2);
                     milestoneStoryData = BOSS_STORIES[this.region][storyIndex];
                 }
@@ -1157,6 +1277,10 @@ export default class GameScene extends Phaser.Scene {
             particles.destroy();
 
             let finalGold = baseGold;
+            if (isBossCatch) {
+                finalGold = Math.floor(finalGold * bossRewardMultiplier);
+                this.showFloatingNotice(`蹂댁뒪 蹂댁긽 x${bossRewardMultiplier.toFixed(1)}!`, '#ffb74d');
+            }
 
             if (this.currentFish.isSpecialItem) {
                 // 특별 아이템은 퀴즈를 진행하지 않고 즉시 보상 혹은 텍스트 판정
@@ -1206,12 +1330,13 @@ export default class GameScene extends Phaser.Scene {
                 }
             } else {
                 // 50% 확률 수학 퀴즈 팝업 (UIManager 연동)
-                const quizResult = await window.gameManagers.uiManager.showMathQuiz(this.region);
+                const quizResult = await window.gameManagers.uiManager.showMathQuizSecondChance(this.region);
                 let showTypingQuiz = false;
 
-                if (quizResult === true) {
+                if (quizResult && quizResult.correct) {
                     // 정답 시 20% 추가 보상
-                    finalGold = Math.floor(finalGold * 1.2);
+                    const mathBonusMultiplier = quizResult.attempt === 2 ? 1.1 : 1.2;
+                    finalGold = Math.floor(finalGold * mathBonusMultiplier);
                     this.cameras.main.flash(300, 255, 215, 0); // 황금색 플래시 보너스 피드백
 
                     // 수학 퀴즈 맞춘 후 타이핑 퀴즈 (N등급 제외, 보물섬은 50%, 기본 35%)
@@ -1219,9 +1344,9 @@ export default class GameScene extends Phaser.Scene {
                     if (this.currentFish.grade !== 'N' && Math.random() < typingQuizChance) {
                         showTypingQuiz = true;
                     }
-                } else if (quizResult === false) {
+                } else if (quizResult && !quizResult.correct) {
                     // 오답 시 50% 삭감
-                    finalGold = Math.floor(baseGold * 0.5);
+                    // No penalty on a missed quiz; just continue without the bonus.
                     this.cameras.main.shake(300, 0.02); // 오답 피드백 흔들림
                 }
 
@@ -1237,6 +1362,13 @@ export default class GameScene extends Phaser.Scene {
             }
 
             // --- Rod Luck 보너스 코인 주머니 ---
+            if (this.treasureIslandBuff && this.treasureIslandBuff.type === 'doubleReward' && this.treasureIslandBuff.remaining > 0) {
+                finalGold *= 2;
+                this.consumeTreasureIslandBuff();
+                this.showFloatingNotice('蹂대Ъ???됰줉! 蹂댁긽 2諛?!', '#ffd54f');
+                this.cameras.main.flash(300, 255, 235, 59);
+            }
+
             const rodLuckLevel = window.gameManagers.playerModel.stats.rodLuck;
             const bonusChance = rodLuckLevel * 0.05; // 레벨당 5% 확률
             if (Math.random() < bonusChance) {
@@ -1388,6 +1520,7 @@ export default class GameScene extends Phaser.Scene {
         this.lure.setVisible(false);
         this.fish.setVisible(false);
         this.lineTension = 0;
+        this.activeCatchBuff = null;
         this.clearApproachFishes();
 
         // UI 초기화
@@ -1414,6 +1547,7 @@ export default class GameScene extends Phaser.Scene {
             pm.bossFailed[this.region] = (pm.bossFailed[this.region] || 0) + 1;
             pm.notify();
             this.isBossFight = false;
+            this.bossVariant = 'normal';
         }
 
         // 지역별 랜덤 실패 메시지 생성
@@ -1462,7 +1596,7 @@ export default class GameScene extends Phaser.Scene {
             this.uiElements.instruction.setText(finalMsg);
         }
 
-        this.cameras.main.shake(200, 0.01);
+        this.cameras.main.shake(300, 0.02);
         window.gameManagers.soundManager.playFail();
 
         this.time.delayedCall(1500, () => {
@@ -1630,9 +1764,29 @@ export default class GameScene extends Phaser.Scene {
                     this.updateGoalText();
                 }
             }
+            ,
+            {
+                name: '?좊졊??議곗슦',
+                emoji: '?뫛',
+                message: '?덇컻 ?띿뿉?쒕룄 ?좊졊?좎씠 吏?섍컯?듬땲?? ?ㅼ쓬 ???낆쭏媛 鍮좊Ⅴ寃? ?ㅼ뼱?ㅼ삱?ㅺ굔???숈븘??',
+                effect: () => {
+                    this.treasureIslandBuff = { type: 'gaugeImmunity', remaining: 1, duration: 4000 };
+                }
+            }
         ];
 
         const event = events[Math.floor(Math.random() * events.length)];
+        const eventCardIds = {
+            '?댁쟻??紐⑷꺽': 'event_pirate',
+            '??뺣Ц???듦꺽': 'event_octopus',
+            '?몄뼱???몃옒': 'event_mermaid',
+            '臾댁?媛?異쒗쁽': 'event_rainbow',
+            '?좊졊??議곗슦': 'event_ghost'
+        };
+        const eventCardId = eventCardIds[event.name];
+        if (eventCardId) {
+            window.gameManagers.playerModel.registerEventCard(eventCardId);
+        }
         event.effect();
 
         // 이벤트 알림 텍스트 (화면 중심에 크게)
@@ -1642,31 +1796,112 @@ export default class GameScene extends Phaser.Scene {
             stroke: '#000000', strokeThickness: 6, fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(100);
 
-        const eventMsg = this.add.text(this.scale.width / 2, this.scale.height * 0.42,
-            event.message, {
-            fontSize: '20px', fontFamily: 'Arial', color: '#FFFFFF',
-            stroke: '#000000', strokeThickness: 4,
-            wordWrap: { width: this.scale.width * 0.8 }, align: 'center'
-        }).setOrigin(0.5).setDepth(100);
+        this.showFloatingNotice(event.message, '#FFFFFF', 0.42, '20px');
 
         this.cameras.main.flash(400, 255, 215, 0);
         window.gameManagers.soundManager.playSuccess();
 
         // 2.5초 후 자동 페이드아웃
         this.tweens.add({
-            targets: [eventText, eventMsg],
+            targets: [eventText],
             alpha: 0,
             y: eventText.y - 50,
             duration: 1000,
             delay: 2000,
-            onComplete: () => { eventText.destroy(); eventMsg.destroy(); }
+            onComplete: () => { eventText.destroy(); }
+        });
+    }
+
+    triggerTreasureIslandEvent() {
+        const events = [
+            {
+                key: 'event_pirate',
+                name: '해적선 발견',
+                emoji: '🏴‍☠️',
+                message: '다음 한 번은 보상을 2배로 챙길 수 있어!',
+                effect: () => {
+                    this.treasureIslandBuff = { type: 'doubleReward', remaining: 1 };
+                }
+            },
+            {
+                key: 'event_octopus',
+                name: '대왕 문어 습격',
+                emoji: '🐙',
+                message: '다음 포획에서는 3초 동안 게이지가 줄지 않아!',
+                effect: () => {
+                    this.treasureIslandBuff = { type: 'gaugeImmunity', remaining: 1, duration: 3000 };
+                }
+            },
+            {
+                key: 'event_mermaid',
+                name: '인어의 노래',
+                emoji: '🧜',
+                message: '전설 물고기가 가까이 왔어! 다음 한 번 SSR 확률이 크게 올라가!',
+                effect: () => {
+                    this.treasureIslandBuff = { type: 'ssrBoost', remaining: 1 };
+                }
+            },
+            {
+                key: 'event_rainbow',
+                name: '무지개 출현',
+                emoji: '🌈',
+                message: '행운이 반짝! 즉시 1000G를 얻었어!',
+                effect: () => {
+                    window.gameManagers.playerModel.addGold(1000);
+                    this.updateGoalText();
+                }
+            },
+            {
+                key: 'event_ghost',
+                name: '유령선 조우',
+                emoji: '👻',
+                message: '으스스한 바람이 지켜줘! 다음 포획에서 4초 동안 게이지를 보호해!',
+                effect: () => {
+                    this.treasureIslandBuff = { type: 'gaugeImmunity', remaining: 1, duration: 4000 };
+                }
+            }
+        ];
+
+        const event = events[Math.floor(Math.random() * events.length)];
+        window.gameManagers.playerModel.registerEventCard(event.key);
+        event.effect();
+
+        const eventText = this.add.text(
+            this.scale.width / 2,
+            this.scale.height * 0.38,
+            `${event.emoji} ${event.name}\n${event.message}`,
+            {
+                fontSize: '28px',
+                fontFamily: 'Arial',
+                color: '#FFD700',
+                stroke: '#000000',
+                strokeThickness: 6,
+                fontStyle: 'bold',
+                align: 'center',
+                wordWrap: { width: this.scale.width * 0.82 }
+            }
+        ).setOrigin(0.5).setDepth(100);
+
+        this.cameras.main.flash(400, 255, 215, 0);
+        window.gameManagers.soundManager.playSuccess();
+
+        this.tweens.add({
+            targets: [eventText],
+            alpha: 0,
+            y: eventText.y - 50,
+            duration: 1000,
+            delay: 2000,
+            onComplete: () => { eventText.destroy(); }
         });
     }
 
     resetFishing() {
         this.gameState = 'IDLE';
         this.catchGauge = 0;
+        this.currentFish = null;
         this.lineTension = 0;
+        this.activeCatchBuff = null;
+        this.bossVariant = 'normal';
         this.isCharging = false;
         const regionNames = { 1: "민물", 2: "연안", 3: "먼 바다", 4: "보물섬" };
         this.uiElements.instruction.setText(`${regionNames[this.region]}을 탭(클릭)해서 찌를 던지세요!`);
@@ -1731,7 +1966,15 @@ export default class GameScene extends Phaser.Scene {
             }
 
             // 피버 타임이 아닐 때만 게이지 하락
-            if (!this.isFeverTime) {
+            const hasGaugeImmunity = !!(this.activeCatchBuff && this.activeCatchBuff.type === 'gaugeImmunity' && this.activeCatchBuff.duration > 0);
+            if (hasGaugeImmunity) {
+                this.activeCatchBuff.duration -= delta;
+                if (this.activeCatchBuff.duration <= 0) {
+                    this.activeCatchBuff = null;
+                }
+            }
+
+            if (!this.isFeverTime && !hasGaugeImmunity) {
                 const reelLevel = window.gameManagers.playerModel.stats.reelSpeed;
 
                 // 등급별로 방해 요소(게이지 하락률) 차등 적용

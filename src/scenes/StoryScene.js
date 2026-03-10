@@ -126,7 +126,7 @@ export default class StoryScene extends Phaser.Scene {
         this.speakerText.setText(data.speaker);
         this.dialogText.setText(data.text);
 
-        if (data.portrait) {
+        if (data.portrait && this.textures.exists(data.portrait)) {
             this.portraitImage.setTexture(data.portrait);
             this.portraitImage.setVisible(true);
 

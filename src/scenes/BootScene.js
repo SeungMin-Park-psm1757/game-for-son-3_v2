@@ -62,6 +62,7 @@ export default class BootScene extends Phaser.Scene {
         this.load.image('char_mom', 'assets/images/char_mom.png');
         this.load.image('char_seyeon', 'assets/images/char_seyeon.png');
         this.load.image('char_jeongwoo', 'assets/images/char_jeongwoo.png');
+        this.load.image('char_shopkeeper', 'assets/images/char_shopkeeper.png');
 
         // 특별 아이템
         this.load.image('item_shoe', 'assets/images/item_shoe.png');

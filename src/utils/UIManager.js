@@ -156,6 +156,184 @@ export default class UIManager {
     }
 
     // --- 주문 외우기 (타이핑 퀴즈 리디자인) ---
+    showMathQuizSecondChance(currentRegion = 1) {
+        return new Promise((resolve) => {
+            if (this.isQuizActive) { resolve(null); return; }
+
+            const quizChance = currentRegion === 4 ? 0.60 : 0.50;
+            if (Math.random() > quizChance) { resolve(null); return; }
+
+            this.isQuizActive = true;
+            this.container.style.pointerEvents = 'auto';
+
+            const isChapter4 = currentRegion === 4;
+            let n1, n2, operatorSymbol, correctAnswer;
+
+            if (isChapter4) {
+                const opType = Math.random();
+                if (opType < 0.33) {
+                    n1 = Math.floor(Math.random() * 4) + 2;
+                    n2 = Math.floor(Math.random() * 9) + 1;
+                    operatorSymbol = '×';
+                    correctAnswer = n1 * n2;
+                } else if (opType < 0.66) {
+                    n1 = Math.floor(Math.random() * 21) + 10;
+                    n2 = Math.floor(Math.random() * 16) + 5;
+                    operatorSymbol = '+';
+                    correctAnswer = n1 + n2;
+                } else {
+                    n1 = Math.floor(Math.random() * 21) + 15;
+                    n2 = Math.floor(Math.random() * 11) + 5;
+                    if (n2 > n1) { const tmp = n1; n1 = n2; n2 = tmp; }
+                    operatorSymbol = '-';
+                    correctAnswer = n1 - n2;
+                }
+            } else {
+                const rnd1 = Math.floor(Math.random() * 10) + 3;
+                const rnd2 = Math.floor(Math.random() * 8) + 1;
+                const isAddition = Math.random() > 0.5;
+                n1 = Math.max(rnd1, rnd2);
+                n2 = Math.min(rnd1, rnd2);
+                if (isAddition) {
+                    operatorSymbol = '+';
+                    correctAnswer = n1 + n2;
+                } else {
+                    operatorSymbol = '-';
+                    correctAnswer = n1 - n2;
+                }
+            }
+
+            const renderFishIcons = (count) => {
+                if (isChapter4) return '';
+                let html = '';
+                for (let i = 0; i < count; i++) {
+                    html += '<span class="quiz-fish-icon">🐟</span>';
+                }
+                return html;
+            };
+
+            const choiceSet = new Set([correctAnswer]);
+            while (choiceSet.size < 4) {
+                const offset = Math.floor(Math.random() * (isChapter4 ? 8 : 5)) + 1;
+                const direction = Math.random() > 0.5 ? 1 : -1;
+                const candidate = Math.max(0, correctAnswer + (offset * direction));
+                choiceSet.add(candidate);
+            }
+            const choices = [...choiceSet].sort(() => Math.random() - 0.5);
+
+            const quizTitle = isChapter4 ? '🏴‍☠️ 보물섬 퀴즈! 🏴‍☠️' : '🐟 보너스 퀴즈 타임! 🐟';
+            const quizHint = '틀려도 한 번 더 생각할 수 있어요!';
+
+            const fishIconArea = isChapter4 ? '' : `
+                    <div class="quiz-icon-area">
+                        <div class="quiz-fish-group">
+                            ${renderFishIcons(n1)}
+                        </div>
+                        <div class="quiz-operator">${operatorSymbol}</div>
+                        <div class="quiz-fish-group">
+                            ${renderFishIcons(n2)}
+                        </div>
+                        <div class="quiz-operator">=</div>
+                        <div class="quiz-answer-mark">?</div>
+                    </div>`;
+
+            const choiceButtonsHTML = choices.map(c =>
+                `<button class="choice-btn" data-answer="${c}">${c}</button>`
+            ).join('\n                        ');
+
+            const popupHTML = `
+                <div id="quiz-popup" class="popup-box quiz-shake">
+                    <h2>${quizTitle}</h2>
+                    <p style="font-size:18px; color:#666; margin-bottom:10px;">${quizHint}</p>
+                    ${fishIconArea}
+                    <p class="quiz-question" style="font-size:28px; margin-top:10px;">${n1} ${operatorSymbol} ${n2} = ?</p>
+                    <div class="quiz-choices">
+                        ${choiceButtonsHTML}
+                    </div>
+                    <div id="quiz-feedback"></div>
+                </div>
+            `;
+
+            this.container.innerHTML = popupHTML;
+            this.currentPopup = document.getElementById('quiz-popup');
+
+            const buttons = [...this.container.querySelectorAll('.choice-btn')];
+            const feedback = document.getElementById('quiz-feedback');
+            let usedSecondChance = false;
+            let settled = false;
+
+            const showFeedback = (message, className) => {
+                feedback.className = className;
+                feedback.textContent = message;
+            };
+
+            const disableAllButtons = () => {
+                buttons.forEach(btn => { btn.disabled = true; });
+            };
+
+            const finishQuiz = (result) => {
+                if (settled) return;
+                settled = true;
+                setTimeout(() => {
+                    this.closePopup();
+                    resolve(result);
+                }, 1300);
+            };
+
+            const removeOneWrongChoice = (clickedBtn) => {
+                const removableButtons = buttons.filter(btn => {
+                    if (btn === clickedBtn || btn.disabled) return false;
+                    return parseInt(btn.getAttribute('data-answer'), 10) !== correctAnswer;
+                });
+
+                if (removableButtons.length === 0) return;
+
+                const removedBtn = removableButtons[Math.floor(Math.random() * removableButtons.length)];
+                removedBtn.disabled = true;
+                removedBtn.classList.add('eliminated');
+                removedBtn.textContent = 'X';
+            };
+
+            buttons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    if (settled) return;
+
+                    const clickedBtn = e.currentTarget;
+                    const selected = parseInt(clickedBtn.getAttribute('data-answer'), 10);
+
+                    if (selected === correctAnswer) {
+                        window.gameManagers.soundManager.playSuccess();
+                        disableAllButtons();
+                        clickedBtn.classList.add('correct');
+                        if (usedSecondChance) {
+                            showFeedback('정답! 다시 생각해서 맞췄어요! 보너스 +10%', 'praise-text');
+                            finishQuiz({ correct: true, attempt: 2 });
+                        } else {
+                            showFeedback('정답! 보너스 +20% 획득!', 'praise-text');
+                            finishQuiz({ correct: true, attempt: 1 });
+                        }
+                        return;
+                    }
+
+                    window.gameManagers.soundManager.playError();
+                    clickedBtn.disabled = true;
+                    clickedBtn.classList.add('wrong');
+
+                    if (!usedSecondChance) {
+                        usedSecondChance = true;
+                        removeOneWrongChoice(clickedBtn);
+                        showFeedback('괜찮아! 틀린 보기 하나를 지웠어요. 한 번 더!', 'hint-text');
+                        return;
+                    }
+
+                    disableAllButtons();
+                    showFeedback('아쉽지만 괜찮아! 이번엔 보너스 없이 진행해요.', 'penalty-text');
+                    finishQuiz({ correct: false, attempt: 2 });
+                });
+            });
+        });
+    }
+
     showTypingQuiz() {
         return new Promise((resolve) => {
             if (this.isQuizActive) { resolve(false); return; }
@@ -388,6 +566,20 @@ export default class UIManager {
         const ENDING_ITEM_COST = 30000;
         // 낚싯대(Rod Power) 레벨에 따른 NPC 아바타 변화 로직
         const rodLevel = s.rodPower;
+        let shopkeeperBadge = '첫 단골';
+        if (rodLevel >= 15) {
+            shopkeeperBadge = '전설 손님';
+        } else if (rodLevel >= 10) {
+            shopkeeperBadge = '단골 손님';
+        } else if (rodLevel >= 5) {
+            shopkeeperBadge = '유망주';
+        }
+        const shopkeeperPortraitHTML = `
+            <div class="npc-avatar npc-avatar-portrait" id="npc-avatar-display">
+                <img src="assets/images/char_shopkeeper.png" alt="상점 할아버지" class="npc-avatar-img">
+                <span class="npc-avatar-badge">${shopkeeperBadge}</span>
+            </div>
+        `;
         let npcAvatar = '👴'; // Lv 1~4
         if (rodLevel >= 15) {
             npcAvatar = '👑'; // Lv 15~ (만렙 근처)
@@ -488,7 +680,7 @@ export default class UIManager {
                     <!-- 장비 탭 -->
                     <div id="content-upgrade" class="tab-content" style="display:block;">
                         <div class="shop-npc">
-                            <div class="npc-avatar" id="npc-avatar-display">${npcAvatar}</div>
+                            ${shopkeeperPortraitHTML}
                             <div class="npc-bubble">"${randomQuote}"</div>
                         </div>
                         <div class="upgrade-list">

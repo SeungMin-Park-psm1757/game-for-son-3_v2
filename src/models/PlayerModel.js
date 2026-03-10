@@ -67,10 +67,10 @@ export default class PlayerModel {
 
         // 챕터별 목표 금액
         this.chapterGoals = {
-            1: 3000,
-            2: 8000,
-            3: 20000,
-            4: 30000
+            1: 2000,
+            2: 6500,
+            3: 15000,
+            4: 28000
         };
     }
 

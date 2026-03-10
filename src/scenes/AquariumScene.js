@@ -88,10 +88,11 @@ class AquariumScene extends Phaser.Scene {
         this.fishes = [];
 
         Object.keys(collection).forEach(fishId => {
-            if (collection[fishId] >= 15) {
+            const count = collection[fishId] || 0;
+            if (count >= 5) {
                 const fData = FISH_TYPES.find(f => f.id === fishId);
                 if (fData && !fData.isSpecialItem) {
-                    this.createFish(fData);
+                    this.createFish(fData, count);
                 }
             }
         });
@@ -101,6 +102,7 @@ class AquariumScene extends Phaser.Scene {
                 fontSize: '24px', fontFamily: 'Arial', color: '#FFFFFF',
                 stroke: '#000000', strokeThickness: 4, align: 'center', wordWrap: { width: width * 0.8 }
             }).setOrigin(0.5).setDepth(5);
+            this.noFishText.setText('?꾩쭅 臾쇨퀬湲곌? ?놁뼱??\n(媛숈? 臾쇨퀬湲곕? 5留덈━ ?댁긽 ?≪쑝硫??섑??⑸땲??');
         }
 
         this.setupMagnifier();
@@ -180,9 +182,10 @@ class AquariumScene extends Phaser.Scene {
         this.magMask.geometryMask.setPosition(x, y);
     }
 
-    createFish(fData) {
+    createFish(fData, count = 5) {
         const width = this.scale.width;
         const regionIdx = fData.region - 1;
+        const growthStage = count >= 30 ? 2 : (count >= 15 ? 1 : 0);
 
         let minY = this.regionYStarts[regionIdx] + (this.regionHeights[regionIdx] * 0.15);
         let maxY = this.regionYStarts[regionIdx] + this.regionHeights[regionIdx] - (this.regionHeights[regionIdx] * 0.15);
@@ -192,7 +195,24 @@ class AquariumScene extends Phaser.Scene {
 
         const fish = this.add.image(x, y, fData.id).setDepth(2);
         const maxScale = fData.scale || 1.0;
-        fish.setScale(maxScale * Phaser.Math.FloatBetween(0.6, 0.8));
+        const growthScale = [1.0, 1.18, 1.38][growthStage];
+        fish.setScale(maxScale * Phaser.Math.FloatBetween(0.6, 0.8) * growthScale);
+
+        if (growthStage > 0) {
+            const auraColor = growthStage === 2 ? 0xffd54f : 0x7fdcff;
+            fish.growthAura = this.add.ellipse(fish.x, fish.y, fish.displayWidth * 1.1, fish.displayHeight * 0.8, auraColor, 0.18)
+                .setDepth(1.5);
+            this.tweens.add({
+                targets: fish.growthAura,
+                alpha: { from: 0.08, to: growthStage === 2 ? 0.24 : 0.18 },
+                scaleX: { from: 0.92, to: 1.08 },
+                scaleY: { from: 0.92, to: 1.08 },
+                yoyo: true,
+                repeat: -1,
+                duration: growthStage === 2 ? 900 : 1200,
+                ease: 'Sine.easeInOut'
+            });
+        }
 
         // 곰치 특별 처리: 보물섬 좌하단 고정
         if (fData.id === 'fish_moray_eel') {
@@ -208,15 +228,17 @@ class AquariumScene extends Phaser.Scene {
             else if (fData.grade === 'R') baseSpeed = 50;
             else baseSpeed = 70;
 
-            fish.speed = baseSpeed * Phaser.Math.FloatBetween(0.8, 1.2);
+            const speedBoost = growthStage === 2 ? 1.15 : (growthStage === 1 ? 1.05 : 1);
+            fish.speed = baseSpeed * Phaser.Math.FloatBetween(0.8, 1.2) * speedBoost;
             fish.direction = (Math.random() > 0.5) ? 1 : -1;
             fish.flipX = fish.direction === 1;
         }
 
+        fish.growthStage = growthStage;
         fish.startY = fish.y;
         fish.sinCount = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        fish.sinSpeed = Phaser.Math.FloatBetween(0.5, 2);
-        fish.sinRadius = Phaser.Math.FloatBetween(5, 15);
+        fish.sinSpeed = Phaser.Math.FloatBetween(0.5, 2) * (growthStage === 2 ? 1.2 : 1);
+        fish.sinRadius = Phaser.Math.FloatBetween(5, 15) * (growthStage === 2 ? 1.15 : 1);
         fish.changeDirTimer = 0;
         fish.changeDirDelay = Phaser.Math.Between(3000, 8000);
 
@@ -233,6 +255,9 @@ class AquariumScene extends Phaser.Scene {
             fish.x += fish.speed * fish.direction * dt;
             fish.sinCount += fish.sinSpeed * dt;
             fish.y = fish.startY + Math.sin(fish.sinCount) * fish.sinRadius;
+            if (fish.growthAura) {
+                fish.growthAura.setPosition(fish.x, fish.y);
+            }
 
             if (fish.x > width + 50) {
                 fish.x = width + 50;
