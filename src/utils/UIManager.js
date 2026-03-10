@@ -1,6 +1,7 @@
 // DOM 오버레이를 담당하는 UI 모듈
 // 상점, 퀴즈 팝업 등 Canvas 외부의 HTML 요소를 제어합니다.
 import { FISH_TYPES } from '../models/FishData.js';
+import { SPELLING_QUIZZES } from '../data/SpellingQuizData.js';
 
 export default class UIManager {
     constructor(playerModel) {
@@ -8,6 +9,64 @@ export default class UIManager {
         this.container = document.getElementById('ui-layer');
         this.isQuizActive = false;
         this.currentPopup = null;
+        this.activeSpeechUtterance = null;
+    }
+
+    shuffleArray(items) {
+        const shuffled = [...items];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    }
+
+    pickRandom(items) {
+        return items[Math.floor(Math.random() * items.length)];
+    }
+
+    getRandomSpellingQuestion() {
+        return this.pickRandom(SPELLING_QUIZZES);
+    }
+
+    stopSpeech() {
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+        this.activeSpeechUtterance = null;
+    }
+
+    speakKoreanText(text) {
+        if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
+
+        this.stopSpeech();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ko-KR';
+        utterance.rate = 0.92;
+        utterance.pitch = 1;
+
+        const voices = window.speechSynthesis.getVoices();
+        const koreanVoice = voices.find((voice) => (voice.lang || '').toLowerCase().startsWith('ko'));
+        if (koreanVoice) utterance.voice = koreanVoice;
+
+        this.activeSpeechUtterance = utterance;
+        window.speechSynthesis.speak(utterance);
+        return true;
+    }
+
+    resetPopupState(restorePersistentUI = true) {
+        this.stopSpeech();
+        if (this.currentPopup) {
+            this.currentPopup.remove();
+            this.currentPopup = null;
+        }
+        this.container.innerHTML = '';
+        this.container.style.pointerEvents = restorePersistentUI ? 'none' : 'auto';
+        this.isQuizActive = false;
+        if (restorePersistentUI) {
+            this.renderPersistentUI();
+        }
     }
 
     // --- 수학 퀴즈 시스템 (도상학 기반 물고기 아이콘 시각화) ---
@@ -413,12 +472,221 @@ export default class UIManager {
         });
     }
 
+    openSpellingPracticeHub() {
+        if (this.isQuizActive) return;
+
+        this.hidePersistentUI();
+        this.container.style.pointerEvents = 'auto';
+
+        const popupHTML = `
+            <div id="spelling-hub-popup" class="popup-box spelling-hub-popup">
+                <h2>받침 맞춤법 연습</h2>
+                <p class="spelling-hub-copy">총 ${SPELLING_QUIZZES.length}문제예요. 음성을 듣고 보기 4개 중에서 맞는 말을 골라 보세요.</p>
+                <div class="spelling-hub-actions">
+                    <button id="spelling-practice-random-btn" class="choice-btn spelling-action-btn">랜덤 1문제</button>
+                    <button id="spelling-practice-list-btn" class="choice-btn spelling-action-btn secondary-choice-btn">50문제 보기</button>
+                    <button id="spelling-practice-close-btn" class="choice-btn spelling-action-btn secondary-choice-btn">닫기</button>
+                </div>
+            </div>
+        `;
+
+        this.container.innerHTML = popupHTML;
+        this.currentPopup = document.getElementById('spelling-hub-popup');
+
+        document.getElementById('spelling-practice-random-btn').onclick = () => {
+            this.showSpellingQuiz({ practiceMode: true });
+        };
+        document.getElementById('spelling-practice-list-btn').onclick = () => {
+            this.showSpellingQuizList();
+        };
+        document.getElementById('spelling-practice-close-btn').onclick = () => {
+            this.closePopup();
+        };
+    }
+
+    showSpellingQuizList() {
+        if (this.isQuizActive) return;
+
+        this.hidePersistentUI();
+        this.container.style.pointerEvents = 'auto';
+
+        const listHTML = SPELLING_QUIZZES.map((question, index) => `
+            <div class="spelling-list-card">
+                <div class="spelling-list-header">
+                    <strong>${index + 1}번</strong>
+                    <button class="secondary-choice-btn spelling-list-test-btn" data-question-index="${index}">이 문제 풀기</button>
+                </div>
+                <p class="spelling-list-sentence">${question.spokenText}</p>
+                <p class="spelling-list-prompt">${question.promptText}</p>
+                <div class="spelling-list-choices">
+                    ${question.choices.map((choice) => `
+                        <span class="spelling-choice-chip ${choice === question.answer ? 'correct-choice-chip' : ''}">${choice}</span>
+                    `).join('')}
+                </div>
+                <p class="spelling-list-answer">정답: ${question.answer}</p>
+            </div>
+        `).join('');
+
+        const popupHTML = `
+            <div id="spelling-list-popup" class="popup-box spelling-list-popup">
+                <div class="spelling-list-toolbar">
+                    <div>
+                        <h2>맞춤법 50문제 목록</h2>
+                        <p>카드에서 정답을 바로 확인하거나 원하는 문제를 바로 테스트할 수 있어요.</p>
+                    </div>
+                    <div class="spelling-list-toolbar-actions">
+                        <button id="spelling-list-random-btn" class="secondary-choice-btn">랜덤 문제</button>
+                        <button id="spelling-list-back-btn" class="secondary-choice-btn">연습 메뉴</button>
+                        <button id="spelling-list-close-btn" class="secondary-choice-btn">닫기</button>
+                    </div>
+                </div>
+                <div class="spelling-list-grid">
+                    ${listHTML}
+                </div>
+            </div>
+        `;
+
+        this.container.innerHTML = popupHTML;
+        this.currentPopup = document.getElementById('spelling-list-popup');
+
+        document.getElementById('spelling-list-random-btn').onclick = () => {
+            this.showSpellingQuiz({ practiceMode: true, returnToList: true });
+        };
+        document.getElementById('spelling-list-back-btn').onclick = () => {
+            this.openSpellingPracticeHub();
+        };
+        document.getElementById('spelling-list-close-btn').onclick = () => {
+            this.closePopup();
+        };
+
+        this.container.querySelectorAll('.spelling-list-test-btn').forEach((button) => {
+            button.addEventListener('click', () => {
+                const questionIndex = parseInt(button.getAttribute('data-question-index'), 10);
+                this.showSpellingQuiz({
+                    practiceMode: true,
+                    questionIndex,
+                    returnToList: true
+                });
+            });
+        });
+    }
+
+    showSpellingQuiz({ practiceMode = false, questionIndex = null, returnToList = false } = {}) {
+        return new Promise((resolve) => {
+            if (this.isQuizActive) { resolve(false); return; }
+
+            const baseQuestion = Number.isInteger(questionIndex)
+                ? SPELLING_QUIZZES[questionIndex]
+                : this.getRandomSpellingQuestion();
+
+            if (!baseQuestion) { resolve(false); return; }
+
+            this.isQuizActive = true;
+            this.hidePersistentUI();
+            this.container.style.pointerEvents = 'auto';
+
+            const question = {
+                ...baseQuestion,
+                choices: this.shuffleArray(baseQuestion.choices)
+            };
+            const supportsTts = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+            const popupHTML = `
+                <div id="quiz-popup" class="popup-box spelling-quiz-popup quiz-shake">
+                    <h2>받침 맞춤법 퀴즈</h2>
+                    <p class="spelling-quiz-copy">
+                        ${practiceMode ? '연습 모드예요. 음성을 듣고 빈칸에 들어갈 말을 골라 보세요.' : '보너스 퀴즈예요. 맞히면 추가 보너스 +20%!'}
+                    </p>
+                    <div class="spelling-quiz-audio-row">
+                        <button id="spelling-replay-btn" class="secondary-choice-btn" ${supportsTts ? '' : 'disabled'}>
+                            ${supportsTts ? '다시 듣기' : '이 브라우저는 음성 재생 없음'}
+                        </button>
+                        <span class="spelling-quiz-count">총 ${SPELLING_QUIZZES.length}문제</span>
+                    </div>
+                    <div class="typing-word-area spelling-prompt-card">
+                        <span class="typing-target spelling-target">${question.promptText}</span>
+                    </div>
+                    <div class="quiz-choices spelling-choice-grid">
+                        ${question.choices.map((choice) => `
+                            <button class="choice-btn spelling-choice-btn" data-choice="${choice}">${choice}</button>
+                        `).join('')}
+                    </div>
+                    <div id="spelling-feedback" class="spelling-feedback"></div>
+                </div>
+            `;
+
+            this.container.innerHTML = popupHTML;
+            this.currentPopup = document.getElementById('quiz-popup');
+
+            const replayBtn = document.getElementById('spelling-replay-btn');
+            const feedback = document.getElementById('spelling-feedback');
+            const choiceButtons = [...this.container.querySelectorAll('.spelling-choice-btn')];
+
+            const finishQuiz = (isCorrect) => {
+                setTimeout(() => {
+                    if (returnToList) {
+                        this.resetPopupState(false);
+                        this.showSpellingQuizList();
+                    } else {
+                        this.closePopup();
+                    }
+                    resolve(isCorrect);
+                }, 1500);
+            };
+
+            const playPromptAudio = () => {
+                if (!supportsTts) return;
+                this.speakKoreanText(question.spokenText);
+            };
+
+            if (replayBtn) {
+                replayBtn.onclick = () => {
+                    playPromptAudio();
+                };
+            }
+
+            setTimeout(() => {
+                playPromptAudio();
+            }, 150);
+
+            choiceButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const selected = button.getAttribute('data-choice');
+                    const isCorrect = selected === question.answer;
+
+                    this.stopSpeech();
+                    choiceButtons.forEach((choiceButton) => {
+                        choiceButton.disabled = true;
+                    });
+
+                    if (isCorrect) {
+                        window.gameManagers.soundManager.playSuccess();
+                        button.classList.add('correct');
+                        feedback.className = 'spelling-feedback praise-text';
+                        feedback.textContent = practiceMode
+                            ? `정답! "${question.answer}"가 맞아요.`
+                            : `정답! 추가 보너스 +20%!`;
+                    } else {
+                        window.gameManagers.soundManager.playError();
+                        button.classList.add('wrong');
+                        const correctButton = choiceButtons.find((choiceButton) =>
+                            choiceButton.getAttribute('data-choice') === question.answer
+                        );
+                        if (correctButton) {
+                            correctButton.classList.add('correct');
+                        }
+                        feedback.className = 'spelling-feedback penalty-text';
+                        feedback.textContent = `정답은 "${question.answer}"예요.`;
+                    }
+
+                    finishQuiz(isCorrect);
+                });
+            });
+        });
+    }
+
     closePopup() {
-        if (this.currentPopup) { this.currentPopup.remove(); this.currentPopup = null; }
-        this.container.innerHTML = '';
-        this.container.style.pointerEvents = 'none';
-        this.isQuizActive = false;
-        this.renderPersistentUI();
+        this.resetPopupState(true);
     }
 
     // --- 낚시 실패 모달 (Phase 6 팝업) ---
@@ -478,6 +746,12 @@ export default class UIManager {
         this.shopBtn.className = 'persistent-btn pulse-anim';
 
         // 음소거 토글 버튼
+        this.spellingBtn = document.createElement('button');
+        this.spellingBtn.id = 'spelling-open-btn';
+        this.spellingBtn.innerText = '맞춤법';
+        this.spellingBtn.className = 'persistent-btn';
+        this.spellingBtn.onclick = () => this.openSpellingPracticeHub();
+
         this.muteBtn = document.createElement('button');
         this.muteBtn.id = 'mute-btn';
         this.muteBtn.innerText = '🔊';
@@ -496,6 +770,7 @@ export default class UIManager {
 
         this.persistentContainer.appendChild(this.goldDisplay);
         this.persistentContainer.appendChild(this.bookBtn);
+        this.persistentContainer.appendChild(this.spellingBtn);
         this.persistentContainer.appendChild(this.muteBtn);
         this.persistentContainer.appendChild(this.shopBtn);
         document.body.appendChild(this.persistentContainer);
@@ -549,37 +824,23 @@ export default class UIManager {
 
         // 한국 어부 아저씨 NPC 대사 10가지
         const npcQuotes = [
-            "오늘 물때가 아주 기가 막혀~ 대물 한 마리 낚아보겠나?",
-            "어이구, 우리 정우 왔구나! 낚시 도구 좀 손봐줄까?",
-            "바다 사나이는 낚싯대 하나로 말하는 법이지!",
-            "허허, 그놈 참... 낚시꾼 눈빛이 예사롭지 않은걸?",
-            "이봐, 이 릴은 내가 젊었을 때 고래도 잡던 거야!",
-            "미끼가 좋아야 큰 놈이 무는 법이지. 좀 둘러보게나.",
-            "낚시는 기다림의 미학이라네... 하지만 장비가 좋으면 덜 기다려도 되지!",
-            "왔구나 정우야! 오늘은 어떤 바다로 나갈 겐가?",
-            "허허, 자네 실력이 날로 느는구먼. 뿌듯하구먼!",
-            "바다가 주는 선물은 소중히 다뤄야 한다네. 알겠지?"
+            "오늘은 물결이 좋구나. 손맛 제대로 볼 것 같은데?",
+            "왔구나 정우야. 장비 한 번 점검하고 힘차게 나가 보자꾸나.",
+            "급할수록 큰 고기는 놓치는 법이지. 차분하게 골라 보게.",
+            "허허, 자네 눈빛 보니 오늘도 빈손으로는 안 돌아오겠어.",
+            "릴 소리만 들어도 컨디션이 보인다니까. 오늘은 아주 좋구먼.",
+            "낚싯대는 주인 손을 닮는다더니, 자네 것도 점점 든든해지네.",
+            "기다림도 실력이지만, 준비가 좋으면 기다림이 짧아지는 법이지.",
+            "바다가 날마다 표정이 다르니 장비도 그때그때 맞춰 줘야 해.",
+            "정우야, 오늘은 욕심보다 감각이 먼저다. 감이 오면 바로 채는 거야.",
+            "허허, 실력이 붙을수록 장비 욕심도 나는 법이지. 잘 왔네."
         ];
-        const randomQuote = npcQuotes[Math.floor(Math.random() * npcQuotes.length)];
+        const randomQuote = this.pickRandom(npcQuotes);
 
         // 세연이를 위한 최고급 장난감 (30,000골드 이상 해금)
         const ENDING_ITEM_COST = 30000;
         // 낚싯대(Rod Power) 레벨에 따른 NPC 아바타 변화 로직
         const rodLevel = s.rodPower;
-        let shopkeeperBadge = '첫 단골';
-        if (rodLevel >= 15) {
-            shopkeeperBadge = '전설 손님';
-        } else if (rodLevel >= 10) {
-            shopkeeperBadge = '단골 손님';
-        } else if (rodLevel >= 5) {
-            shopkeeperBadge = '유망주';
-        }
-        const shopkeeperPortraitHTML = `
-            <div class="npc-avatar npc-avatar-portrait" id="npc-avatar-display">
-                <img src="assets/images/char_shopkeeper.png" alt="상점 할아버지" class="npc-avatar-img">
-                <span class="npc-avatar-badge">${shopkeeperBadge}</span>
-            </div>
-        `;
         let npcAvatar = '👴'; // Lv 1~4
         if (rodLevel >= 15) {
             npcAvatar = '👑'; // Lv 15~ (만렙 근처)
@@ -588,6 +849,12 @@ export default class UIManager {
         } else if (rodLevel >= 5) {
             npcAvatar = '😎'; // Lv 5~9
         }
+        const shopkeeperPortraitHTML = `
+            <div class="npc-avatar npc-avatar-portrait shopkeeper-avatar-card" id="npc-avatar-display" aria-label="상점 할아버지">
+                <div class="shopkeeper-avatar-emoji">${npcAvatar}</div>
+                <span class="npc-avatar-badge">상점 할아버지</span>
+            </div>
+        `;
 
         const canBuyEnding = this.playerModel.gold >= ENDING_ITEM_COST;
         const showEndingItem = this.playerModel.highestChapter >= 4;
@@ -807,11 +1074,14 @@ export default class UIManager {
                         }
                     } else {
                         const successQuotes = [
-                            '"허허, 아주 좋은 선택이야!"',
-                            '"그렇지, 장비에 투자할 줄 알아야 진짜 강태공이지!"',
-                            '"자네라면 이 도구를 잘 써줄 줄 알았네!"'
+                            '"허허, 아주 알뜰하게 잘 골랐구나!"',
+                            '"좋아, 이런 업그레이드가 손맛을 확 바꿔 주지!"',
+                            '"자네라면 이 장비를 제대로 써먹을 줄 알았네!"',
+                            '"한 단계씩 단단해지는구먼. 이제 더 큰 놈도 버티겠어!"',
+                            '"그래, 실력만큼 장비도 받쳐줘야지!"',
+                            '"오늘 선택이 아주 야무지다. 마음에 드는구먼!"'
                         ];
-                        bubble.innerText = successQuotes[Math.floor(Math.random() * successQuotes.length)];
+                        bubble.innerText = this.pickRandom(successQuotes);
                         bubble.classList.add('quiz-shake');
                         setTimeout(() => bubble.classList.remove('quiz-shake'), 400);
                     }
@@ -829,7 +1099,11 @@ export default class UIManager {
                     this.openShop('upgrade');
                 } else {
                     window.gameManagers.soundManager.playError();
-                    bubble.innerText = '"골드가 부족하잖냐! 더 낚시하고 와!"';
+                    bubble.innerText = this.pickRandom([
+                        '"아직 골드가 조금 모자라는구나. 한 번 더 다녀오게!"',
+                        '"허허, 이 장비는 지금 사기엔 돈이 조금 부족하네!"',
+                        '"조금만 더 낚아 오면 바로 장만할 수 있겠어!"'
+                    ]);
                     bubble.style.color = '#FF0000';
                     btn.classList.add('quiz-shake');
                     setTimeout(() => { btn.classList.remove('quiz-shake'); bubble.style.color = '#333'; }, 400);
@@ -889,39 +1163,39 @@ export default class UIManager {
 
                             const SEYEON_SNACK_EVENTS = {
                                 'snack1': [
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 소금빵을 51개나 산 거야?!' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '응! 세상에서 제일 맛있는 소금빵 다 사왔지!' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '이거 다 먹으면 나 진짜 굴러다니겠다... 냉장고 터지겠어!' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '헤헤, 내가 매일 낚시해서 더 사줄게!' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '(어이없음) 고마운데... 내 지갑 안부도 좀 물어봐줘...' }
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠, 소금빵이 무려 51개야?! 빵집을 통째로 털어 온 거야?' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '헤헤, 하나만 사 오기엔 아쉬워서 종류별로 잔뜩 담아 왔지!' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '고소한 냄새가 온 집안에 퍼졌어... 행복한데 조금 무섭다!' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '내일 아침도 소금빵, 간식도 소금빵! 완전 소금빵 축제야!' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '좋아, 그럼 우유도 같이 준비해 줘! 목 막히면 오빠 책임이야!' }
                                 ],
                                 'snack2': [
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠! 아이스크림 51개 실화야?!' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '내가 냉동고 꽉꽉 채워놨지! 종류별로 다 있어!' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '으아아! 엄마한테 등짝 스매싱 맞을 각인데...' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '안 들키게 하루에 10개씩 먹으면 돼!' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '그러다 배탈 나!! 진짜 못말려... 🍦' }
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '아이스크림이 51개나 된다고?! 냉동고 문이 안 닫히겠는데!' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '초코, 딸기, 바닐라, 민트까지 다 챙겼어. 골라 먹는 재미가 있어야지!' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '기분은 최고인데 엄마한테 들키면 둘 다 혼날 것 같은 느낌이야...' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '괜찮아! 윗칸부터 차근차근 먹으면 티 안 날지도 몰라!' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '티 엄청 나거든?! 그래도 하나는 지금 바로 먹을래! 🍦' }
                                 ],
                                 'snack3': [
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '헉... 케이크가 51개?! 오늘 내 생일이야?!' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '아니! 그냥 먹고 싶을까봐 스케일 크게 사봤어!' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '우리 집이 무슨 뷔페야?! 🍰 다 못 먹고 썩으면 어떡해!' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '내가 낚시하다 배고플 때마다 와서 같이 먹을게!' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠만 살찌겠네~ 그래도 고마워! 😍' }
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '헉... 케이크가 51개면 오늘이 내 생일 51번인 거야?!' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '딸기 케이크도 있고 초코 케이크도 있어! 보기만 해도 배부르지?' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '우리 집 거실이 진짜 디저트 가게처럼 변했어... 너무 달콤해!' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '하루에 한 조각씩 먹으면 오래오래 행복할 수 있잖아!' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '그건 좋은데, 촛불은 안 꽂을 거지? 괜히 또 이벤트 시작될까 봐!' }
                                 ],
                                 'snack4': [
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '오라버니... 딸기를 51박스나 사온 이유가 뭡니까?' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '딸기 축제를 열자! 온통 딸기밭이야!' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '방 안이 상큼한 냄새로 진동을 해! 🍓' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '다 먹고 나면 딸기잼 만들어서 팔자!' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '알았어 알았어, 일단 씻어서 먹어보자! 헤헤' }
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '딸기를 51박스나?! 방이 아니라 거의 과일 창고가 됐잖아!' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '향이 너무 좋아서 그냥 지나칠 수가 없었어. 봐, 빨갛고 반짝반짝하잖아!' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '진짜다... 방 안 가득 딸기 향이 퍼져서 기분이 몽글몽글해!' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '먹고 남으면 잼도 만들고, 우유에 갈아서 주스도 만들자!' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '좋아! 오늘은 딸기 파티다. 대신 꼭 깨끗이 씻어 먹자!' }
                                 ],
                                 'snack5': [
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠, 나 원숭이야?! 바나나를 51개나 사오면 어떡해!' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '바나나 먹으면 나한테 반하나?! 🍌' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '(정적) ...진짜 아재 개그 최악이야...' },
-                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '아 왜~ 웃기잖아! 빨리 하나 까먹어봐!' },
-                                    { speaker: '세연', portrait: 'char_seyeon', text: '어휴... 🍌 냠냠. 맛은 있네 흥!' }
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '바나나가 51개면 이건 간식이 아니라 미션급이야, 오빠!' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '노랗고 튼튼해서 배 탈 때 챙겨 먹기 딱 좋잖아. 실속 최고지!' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '그럴듯하게 말해도 너무 많이 샀어! 그래도 보기만 해도 든든하긴 하다.' },
+                                    { speaker: '정우', portrait: 'char_jeongwoo', text: '바나나 우유, 바나나 토스트, 그냥 바나나까지 완벽 코스야!' },
+                                    { speaker: '세연', portrait: 'char_seyeon', text: '알겠어, 오늘은 내가 져준다. 대신 아재 개그는 금지! 🍌' }
                                 ]
                             };
 
@@ -942,21 +1216,49 @@ export default class UIManager {
                         }
 
                         if (currentItemCount >= 50) {
-                            reactionMsg = `"나 이제 못 먹어 오빠... ${itemName} 다 냉장고에 넣을 거야... 😅"`;
+                            reactionMsg = this.pickRandom([
+                                `"${itemName}가 산처럼 쌓였어! 이제 냉장고 자리부터 비워야겠다... 😅"`,
+                                `"오빠, ${itemName}만 봐도 배부를 정도야! 그래도 든든해서 좋다!"`,
+                                `"이쯤 되면 ${itemName} 박물관 열 수 있겠어. 진짜 많이 샀다! 😆"`
+                            ]);
                         } else if (currentItemCount >= 10) {
-                            reactionMsg = `"우와! ${itemName} 벌써 10개째야!! 오빠 지갑 괜찮아?! 😲"`;
+                            reactionMsg = this.pickRandom([
+                                `"우와, ${itemName}가 벌써 열 개야! 오빠 오늘 완전 큰손이네! 😲"`,
+                                `"${itemName} 모으는 속도가 장난 아니야. 내일도 먹을 수 있겠다!"`,
+                                `"열 개나 됐어! 기분 좋은데 오빠 지갑은 괜찮은 거지?"`
+                            ]);
                         } else if (currentItemCount >= 5) {
-                            reactionMsg = `"와아! ${itemName} 5개나 샀네! 아껴 먹어야지~ 😋"`;
+                            reactionMsg = this.pickRandom([
+                                `"${itemName}가 벌써 다섯 개야! 조금씩 아껴 먹으면 오래 행복하겠다~ 😋"`,
+                                `"와아, ${itemName} 다섯 개나 모였어! 간식 창고가 생긴 기분이야!"`,
+                                `"오빠 덕분에 ${itemName} 걱정은 한동안 없겠다. 너무 좋아! 🥰"`
+                            ]);
                         } else {
-                            reactionMsg = `"앗, ${itemName} 사줬네! 오빠 고마워! 잘 먹을게! 🥰"`;
+                            reactionMsg = this.pickRandom([
+                                `"앗, ${itemName} 사 왔구나! 오빠 고마워, 맛있게 먹을게! 🥰"`,
+                                `"우와, ${itemName}다! 지금 딱 먹고 싶었는데 정말 고마워!"`,
+                                `"헤헤, ${itemName} 선물 받았다! 오늘 기분 최고야! ✨"`
+                            ]);
                         }
                     } else {
                         if (currentItemCount >= 10) {
-                            reactionMsg = `"${itemName} 너무 많아! 완전 다 가졌어 오빠!! (MAX) ✨"`;
+                            reactionMsg = this.pickRandom([
+                                `"${itemName}가 방을 가득 채웠어! 이제 거의 완벽한 방이야! ✨"`,
+                                `"오빠 덕분에 ${itemName} 컬렉션 완성! 정말 근사해 보여!"`,
+                                `"이 정도면 ${itemName}는 마스터 달성이지! 방이 반짝반짝해!"`
+                            ]);
                         } else if (currentItemCount >= 5) {
-                            reactionMsg = `"헤헤, ${itemName} 5개나 모았다! 방이 예뻐졌어! 💖"`;
+                            reactionMsg = this.pickRandom([
+                                `"${itemName}가 벌써 다섯 개야! 방 분위기가 훨씬 아늑해졌어! 💖"`,
+                                `"헤헤, ${itemName} 덕분에 방이 점점 예뻐지고 있어!"`,
+                                `"오빠 안목 좋은데? ${itemName}가 들어오니까 방이 살아난다!"`
+                            ]);
                         } else {
-                            reactionMsg = `"우와! ${itemName} 사줘서 고마워 오빠! 방에 예쁘게 놓을게! 😍"`;
+                            reactionMsg = this.pickRandom([
+                                `"우와, ${itemName} 너무 마음에 들어! 예쁜 자리에 바로 둘게! 😍"`,
+                                `"${itemName} 사줘서 고마워! 방이 한층 더 포근해졌어!"`,
+                                `"이 ${itemName} 진짜 귀엽다! 오빠 센스 최고야!"`
+                            ]);
                         }
                     }
 
@@ -982,7 +1284,11 @@ export default class UIManager {
                     }
                 } else {
                     window.gameManagers.soundManager.playError();
-                    sBubble.innerText = '"오빠... 돈 모자라 ㅠㅠ 아쉬워!"';
+                    sBubble.innerText = this.pickRandom([
+                        '"오빠, 골드가 조금 모자라네... 다음에 다시 사자!"',
+                        '"조금만 더 낚시하면 살 수 있겠다! 우리 다시 모아 보자!"',
+                        '"아쉽다... 이번엔 참았다가 다음에 크게 사자!"'
+                    ]);
                     sBubble.style.color = '#FF0000';
                     btn.classList.add('quiz-shake');
                     setTimeout(() => { btn.classList.remove('quiz-shake'); sBubble.style.color = '#C71585'; }, 400);
@@ -1154,11 +1460,11 @@ export default class UIManager {
         this.container.style.pointerEvents = 'auto';
 
         const eventData = [
-            { id: 'event_pirate', name: '해적선 목격', desc: '멀리서 해적선이 지나가는 것을 목격했다!', emoji: '🏴‍☠️' },
-            { id: 'event_octopus', name: '대왕문어 습격', desc: '엄청나게 거대한 문어 다리가 배를 스치고 지나갔다!', emoji: '🐙' },
-            { id: 'event_mermaid', name: '인어의 노래', desc: '아름다운 노랫소리가 바다 안개 너머로 들려왔다.', emoji: '🧜‍♀️' },
-            { id: 'event_rainbow', name: '쌍무지개 출현', desc: '비가 그친 후 밤하늘에 별빛 쌍무지개가 피어올랐다.', emoji: '🌈' },
-            { id: 'event_ghost', name: '유령선 조우', desc: '안개 속에서 나타난 낡은 배... 아무도 타고 있지 않았다.', emoji: '👻' }
+            { id: 'event_pirate', name: '해적선 발견', desc: '멀리 지나가는 해적선에서 반짝이는 보물 상자를 발견했다.', emoji: '🏴‍☠️' },
+            { id: 'event_octopus', name: '대왕 문어 습격', desc: '거대한 촉수가 배 옆을 스치며 바다를 크게 흔들어 놓았다.', emoji: '🐙' },
+            { id: 'event_mermaid', name: '인어의 노래', desc: '안개 너머에서 들려온 신비한 노랫소리가 바다를 잔잔하게 감쌌다.', emoji: '🧜‍♀️' },
+            { id: 'event_rainbow', name: '무지개 출현', desc: '비가 그친 뒤 하늘 끝에 밝은 무지개가 떠올라 행운을 비춰 주었다.', emoji: '🌈' },
+            { id: 'event_ghost', name: '유령선 조우', desc: '짙은 안개 속에서 낡은 배가 소리 없이 다가왔다가 다시 사라졌다.', emoji: '👻' }
         ];
 
         const cards = this.playerModel.eventCards || {};

@@ -282,9 +282,9 @@ export default class IntroScene extends Phaser.Scene {
                     this.scene.start('StoryScene', {
                         storyData: [
                             { speaker: '아빠', portrait: 'char_dad', text: '정우야, 아빠는 나라를 지키러 부대로 간단다. 엄마랑 세연이 잘 부탁해!' },
-                            { speaker: '엄마', portrait: 'char_mom', text: '여보 조심히 다녀와요~ 정우야, 엄마는 집안일을 해야하니까 세연이랑 놀고있으렴.' },
-                            { speaker: '세연', portrait: 'char_seyeon', text: '오빠... 나 배고파... 까까 사먹고 싶어!!' },
-                            { speaker: '정우', portrait: 'char_jeongwoo', text: '걱정마 세연아! 오빠가 낚시로 물고기를 잡아서 돈을 벌어올게!!' }
+                            { speaker: '엄마', portrait: 'char_mom', text: '여보, 조심히 다녀와요. 정우야, 엄마는 집안일을 해야 하니까 세연이랑 잘 놀아 주렴.' },
+                            { speaker: '세연', portrait: 'char_seyeon', text: '오빠... 나 배고파... 맛있는 까까 사 먹고 싶어!!' },
+                            { speaker: '정우', portrait: 'char_jeongwoo', text: '걱정 마, 세연아! 오빠가 낚시해서 물고기도 잡고 돈도 벌어 올게!!' }
                         ],
                         nextScene: 'GameScene',
                         nextSceneData: { region: regionCode }

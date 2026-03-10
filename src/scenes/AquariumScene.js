@@ -102,7 +102,6 @@ class AquariumScene extends Phaser.Scene {
                 fontSize: '24px', fontFamily: 'Arial', color: '#FFFFFF',
                 stroke: '#000000', strokeThickness: 4, align: 'center', wordWrap: { width: width * 0.8 }
             }).setOrigin(0.5).setDepth(5);
-            this.noFishText.setText('?꾩쭅 臾쇨퀬湲곌? ?놁뼱??\n(媛숈? 臾쇨퀬湲곕? 5留덈━ ?댁긽 ?≪쑝硫??섑??⑸땲??');
         }
 
         this.setupMagnifier();

@@ -454,6 +454,52 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // --- Phase 1: 李??섏?湲?(Approach) + ?ㅽ궗???먯젙 ---
+    clearDrawGuides(resetPath = false) {
+        if (this.drawGraphics) {
+            this.drawGraphics.clear();
+            this.drawGraphics.setVisible(false);
+        }
+        if (this.drawUserGraphics) {
+            this.drawUserGraphics.clear();
+            this.drawUserGraphics.setVisible(false);
+        }
+        this.isDrawing = false;
+        this.drawUserPath = [];
+        if (resetPath) {
+            this.drawPath = null;
+        }
+    }
+
+    renderDrawGuidePath() {
+        if (!this.drawGraphics) {
+            this.drawGraphics = this.add.graphics().setDepth(15).setVisible(false);
+        }
+        if (!this.drawUserGraphics) {
+            this.drawUserGraphics = this.add.graphics().setDepth(16).setVisible(false);
+        }
+
+        this.drawGraphics.clear();
+        this.drawUserGraphics.clear();
+
+        if (!this.drawPath || this.drawPath.length === 0) {
+            this.drawGraphics.setVisible(false);
+            this.drawUserGraphics.setVisible(false);
+            return;
+        }
+
+        this.drawGraphics.setVisible(true);
+        this.drawUserGraphics.setVisible(true);
+        this.drawGraphics.lineStyle(6, 0xaaaaaa, 0.5);
+        this.drawGraphics.beginPath();
+        this.drawGraphics.moveTo(this.drawPath[0].x, this.drawPath[0].y);
+        for (let i = 1; i < this.drawPath.length; i++) {
+            this.drawGraphics.lineTo(this.drawPath[i].x, this.drawPath[i].y);
+        }
+        this.drawGraphics.strokePath();
+        this.drawGraphics.fillStyle(0xffff00, 1);
+        this.drawGraphics.fillCircle(this.drawPath[0].x, this.drawPath[0].y, 8);
+    }
+
     startApproach(targetX, targetY) {
         this.gameState = 'APPROACH';
         this.regionFishCount++;
@@ -567,7 +613,7 @@ export default class GameScene extends Phaser.Scene {
             const regionList = FISH_TYPES.filter(f => f.region === this.region);
             const ssrFishes = regionList.filter(f => f.grade === 'SSR');
             this.currentFish = ssrFishes.length > 0 ? ssrFishes[0] : regionList[regionList.length - 1];
-            this.uiElements.instruction.setText('?슚 留덉솗 異쒗쁽 寃쎄퀬! ?슚\n?쒓컙 ?댁뿉 ?≪븘??!');
+            this.uiElements.instruction.setText('보스 물고기 등장!\n집중해서 잡아 보자!');
             this.cameras.main.shake(1500, 0.02);
             this.cameras.main.flash(500, 255, 0, 0);
             window.gameManagers.soundManager.playError(); // ??吏꾩엯 寃쎄퀬??
@@ -837,7 +883,7 @@ export default class GameScene extends Phaser.Scene {
         this.miniGameType = 'mash';
 
         if (this.miniGameType === 'timing') {
-            this.uiElements.instruction.setText('珥덈줉 援ш컙?먯꽌 ??븯?몄슂!');
+            this.uiElements.instruction.setText('초록 구간에서 눌러 주세요!');
             this.timingHits = 0;
             this.timingRequired = Phaser.Math.Between(3, 5);
             const gw = this.gaugeWidth || 400;
@@ -847,7 +893,7 @@ export default class GameScene extends Phaser.Scene {
             this.timingBarX = 0;
             this.timingBarDir = 1;
         } else if (this.miniGameType === 'draw') {
-            this.uiElements.instruction.setText('?섑??섎뒗 紐⑥뼇???곕씪 洹몃━?몄슂!');
+            this.uiElements.instruction.setText('보이는 모양을 따라 그려 주세요!');
             this.drawUserPath = [];
             this.isDrawing = false;
             this.generateDrawPath();
@@ -868,13 +914,12 @@ export default class GameScene extends Phaser.Scene {
 
         // 洹몃━湲?誘몃땲寃뚯엫 洹몃옒??以鍮?
         if (!this.drawGraphics) {
-            this.drawGraphics = this.add.graphics().setDepth(15);
+            this.drawGraphics = this.add.graphics().setDepth(15).setVisible(false);
         }
         if (!this.drawUserGraphics) {
-            this.drawUserGraphics = this.add.graphics().setDepth(16);
+            this.drawUserGraphics = this.add.graphics().setDepth(16).setVisible(false);
         }
-        this.drawGraphics.clear();
-        this.drawUserGraphics.clear();
+        this.clearDrawGuides();
 
         if (this.miniGameType === 'draw' && this.drawPath) {
             this.drawGraphics.lineStyle(6, 0xaaaaaa, 0.5);
@@ -936,6 +981,7 @@ export default class GameScene extends Phaser.Scene {
         } else if (this.miniGameType === 'draw') {
             this.isDrawing = true;
             this.drawUserPath = [{ x: pointer.x, y: pointer.y }];
+            this.drawUserGraphics.setVisible(true);
             this.drawUserGraphics.clear();
             this.drawUserGraphics.lineStyle(8, 0x00ff00, 1);
             this.drawUserGraphics.beginPath();
@@ -1005,13 +1051,11 @@ export default class GameScene extends Phaser.Scene {
         this.updateGaugeUI();
         if (this.catchGauge >= this.catchMax) {
             this.successFishing();
-            if (this.drawGraphics) this.drawGraphics.clear();
-            if (this.drawUserGraphics) this.drawUserGraphics.clear();
+            this.clearDrawGuides(true);
         } else if (this.catchGauge <= 0) {
             this.catchGauge = 0;
             this.failFishing('모양이 조금 달랐어...');
-            if (this.drawGraphics) this.drawGraphics.clear();
-            if (this.drawUserGraphics) this.drawUserGraphics.clear();
+            this.clearDrawGuides(true);
         } else {
             // ?ㅼ쓬 臾몄젣
             this.generateDrawPath();
@@ -1020,19 +1064,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     startCatchGraphicsForDraw() {
-        this.drawGraphics.clear();
-        this.drawUserGraphics.clear();
-        if (this.drawPath) {
-            this.drawGraphics.lineStyle(6, 0xaaaaaa, 0.5);
-            this.drawGraphics.beginPath();
-            this.drawGraphics.moveTo(this.drawPath[0].x, this.drawPath[0].y);
-            for (let i = 1; i < this.drawPath.length; i++) {
-                this.drawGraphics.lineTo(this.drawPath[i].x, this.drawPath[i].y);
-            }
-            this.drawGraphics.strokePath();
-            this.drawGraphics.fillStyle(0xffff00, 1);
-            this.drawGraphics.fillCircle(this.drawPath[0].x, this.drawPath[0].y, 8);
-        }
+        this.renderDrawGuidePath();
     }
 
     // ??대컢 ??誘몃땲寃뚯엫 泥섎━
@@ -1126,6 +1158,7 @@ export default class GameScene extends Phaser.Scene {
     successFishing() {
         this.gameState = 'REWARD';
         this.cameras.main.zoomTo(1, 300);
+        this.clearDrawGuides(true);
         this.uiElements.gaugeBg.setVisible(false);
         this.uiElements.gaugeBar.setVisible(false);
         this.uiElements.tensionBg.setVisible(false);
@@ -1163,7 +1196,7 @@ export default class GameScene extends Phaser.Scene {
 
         // 肄ㅻ낫 UI ?쒖떆
         if (combo >= 2) {
-            this.uiElements.comboText.setText(`?뵦 肄ㅻ낫 x${combo}!`);
+            this.uiElements.comboText.setText(`콤보 x${combo}!`);
             this.uiElements.comboText.setVisible(true);
             this.tweens.add({
                 targets: this.uiElements.comboText,
@@ -1226,15 +1259,15 @@ export default class GameScene extends Phaser.Scene {
 
             let title = '';
             if (count === 10 && !model.fishMilestonesSeen[fishId][10]) {
-                const titles10 = ['새싹 낚시꾼', '물고기 친구', '강태공 입문', '첫 수집왕', '낚시 천재'];
+                const titles10 = ['새싹 낚시꾼', '물결 친구', '첫 수집가', '낚시 유망주', '입문 강태공'];
                 title = titles10[Math.floor(Math.random() * titles10.length)];
                 model.fishMilestonesSeen[fishId][10] = true;
             } else if (count === 20 && !model.fishMilestonesSeen[fishId][20]) {
-                const titles20 = ['베테랑 낚시꾼', '바다 탐험가', '수집 고수', '릴 감기 달인', '챔피언'];
+                const titles20 = ['베테랑 낚시꾼', '바다 탐험가', '수집 달인', '릴 감기 명수', '파도 챔피언'];
                 title = titles20[Math.floor(Math.random() * titles20.length)];
                 model.fishMilestonesSeen[fishId][20] = true;
             } else if (count === 50 && !model.fishMilestonesSeen[fishId][50]) {
-                const titles50 = ['전설의 낚시왕', '바다의 수호자', '수집 마스터', '황금 손', '진짜 강태공'];
+                const titles50 = ['전설의 낚시왕', '바다의 수호자', '수집 마스터', '황금 손', '파도 정복자'];
                 title = titles50[Math.floor(Math.random() * titles50.length)];
                 model.fishMilestonesSeen[fishId][50] = true;
             }
@@ -1243,18 +1276,18 @@ export default class GameScene extends Phaser.Scene {
                 model.notify(); // ???
                 if (count === 10) {
                     milestoneStoryData = [
-                        { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: `허허! ${fishName}를 벌써 ${count}마리나 잡았구나!\n이제부터 넌 [ ${fishName} ${title} ] 이다!` },
-                        { speaker: '정우', portrait: 'char_jeongwoo', text: `감사합니다! 저는 이제 ${fishName} ${title}예요!` }
+                        { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: `허허, ${fishName}를 벌써 ${count}마리나 모았구나!\n오늘부터는 [ ${fishName} ${title} ] 라고 불러도 되겠는걸?` },
+                        { speaker: '정우', portrait: 'char_jeongwoo', text: `우와, 이름이 정말 멋져요! 더 많이 잡아서 더 근사한 칭호도 받을래요!` }
                     ];
                 } else if (count === 20) {
                     milestoneStoryData = [
-                        { speaker: '아빠', portrait: 'char_dad', text: `정우가 잡은 ${fishName} 이야기가 동네에 퍼졌단다!\n이제 [ ${fishName} ${title} ] 라고 불러도 되겠어!` },
-                        { speaker: '정우', portrait: 'char_jeongwoo', text: `우와! 진짜 유명해진 것 같아!` }
+                        { speaker: '아빠', portrait: 'char_dad', text: `정우가 잡은 ${fishName} 이야기가 동네에 자자하단다.\n이제 [ ${fishName} ${title} ] 라고 불러도 손색이 없겠구나!` },
+                        { speaker: '정우', portrait: 'char_jeongwoo', text: `헤헤, 진짜 낚시꾼 같아졌나 봐요! 다음에도 더 멋지게 잡아 볼게요!` }
                     ];
                 } else if (count === 50) {
                     milestoneStoryData = [
-                        { speaker: '세연', portrait: 'char_seyeon', text: `오빠! 이제 모두가 오빠를 [ ${fishName} ${title} ] 라고 불러!` },
-                        { speaker: '정우', portrait: 'char_jeongwoo', text: `좋아! 이제 바다의 ${fishName}는 내가 다 모을 거야!` }
+                        { speaker: '세연', portrait: 'char_seyeon', text: `오빠, 이제 다들 오빠를 [ ${fishName} ${title} ] 라고 부른대! 진짜 전설 같아!` },
+                        { speaker: '정우', portrait: 'char_jeongwoo', text: `좋았어! 여기서 멈추지 않고 더 많은 물고기를 만나 보겠어!` }
                     ];
                 }
             } else if (count === 1 && FIRST_CATCH_STORIES[fishId]) {
@@ -1305,26 +1338,26 @@ export default class GameScene extends Phaser.Scene {
                     window.gameManagers.soundManager.playSuccess();
                 } else if (this.currentFish.id === 'item_shoe') {
                     const shoeMessages = [
-                        '어라... 누가 버린 작은 신발이네?',
-                        '물고기인 줄 알았는데 신발이었어!',
-                        '구멍 난 신발이 파도에 둥둥 떠다녔나 봐.',
-                        '낚시 중에도 바다 쓰레기를 줄여야겠어!',
-                        '이 신발의 주인은 어디에 있을까?'
+                        '어라? 조그만 신발이 걸렸네. 누가 잃어버린 걸까?',
+                        '물고기인 줄 알았는데 신발이었어! 그래도 그냥 두면 안 되지.',
+                        '파도에 떠밀려온 신발인가 봐. 바다가 조금 속상했겠다.',
+                        '오늘은 신발을 건졌네. 쓰레기도 잘 챙기는 낚시꾼이 되어야지!',
+                        '신발 한 짝이네? 주인을 다시 만날 수 있으면 좋겠다.'
                     ];
                     const randomMsg = shoeMessages[Math.floor(Math.random() * shoeMessages.length)];
                     this.uiElements.instruction.setText(randomMsg);
                 } else if (this.currentFish.id === 'item_trash') {
                     const trashMessages = [
-                        '앗.. 빈 깡통이 낚였어. 바다를 깨끗하게 해야겠어!',
-                        '반짝반짝한 게 보여서 기대했는데 쓰레기였네!',
-                        '물고기 대신 쓰레기가 나오다니... 바다가 아플 것 같아.',
-                        '이런! 바닷속에 쓰레기가 아직 많구나.',
-                        '빈 병이 흘러왔네. 꼭 분리수거해야지!',
-                        '누가 먹고 버린 포장지 같아. 바다가 슬퍼하겠어.',
-                        '바다 요정이 보면 속상해할 것 같아.',
-                        '바다거북이 잘못 먹을 수도 있겠어. 쓰레기는 정말 싫다!',
-                        '낡은 부품이네. 어디에서 떠내려왔을까?',
-                        '세연이랑 같이 바다 청소도 해보고 싶다!'
+                        '앗, 빈 깡통이 낚였어. 바다를 더 깨끗하게 지켜야겠어!',
+                        '반짝여서 기대했는데 쓰레기였네. 괜히 바다만 힘들었겠다.',
+                        '물고기 대신 쓰레기가 걸렸어... 이러면 바다가 아프지.',
+                        '이런, 아직도 바닷속에 쓰레기가 많구나. 그냥 지나치면 안 되겠어.',
+                        '빈 병이 떠밀려왔네. 집에 가면 꼭 분리수거해야지!',
+                        '누가 버린 포장지인가 봐. 물고기들이 놀랐겠다.',
+                        '바다 요정이 봤으면 속상했을 거야. 내가 치워 줄게!',
+                        '바다거북이 잘못 먹을 수도 있겠어. 쓰레기는 정말 위험해!',
+                        '낡은 부품까지 흘러왔네. 바다가 쓰레기통이 되면 안 되지.',
+                        '세연이랑 같이 바다 청소도 해 보면 좋겠다. 깨끗한 바다가 제일 멋져!'
                     ];
                     const randomMsg = trashMessages[Math.floor(Math.random() * trashMessages.length)];
                     this.uiElements.instruction.setText(randomMsg);
@@ -1332,7 +1365,7 @@ export default class GameScene extends Phaser.Scene {
             } else {
                 // 50% ?뺣쪧 ?섑븰 ?댁쫰 ?앹뾽 (UIManager ?곕룞)
                 const quizResult = await window.gameManagers.uiManager.showMathQuizSecondChance(this.region);
-                let showTypingQuiz = false;
+                let bonusQuizType = null;
 
                 if (quizResult && quizResult.correct) {
                     // ?뺣떟 ??20% 異붽? 蹂댁긽
@@ -1340,10 +1373,11 @@ export default class GameScene extends Phaser.Scene {
                     finalGold = Math.floor(finalGold * mathBonusMultiplier);
                     this.cameras.main.flash(300, 255, 215, 0); // ?⑷툑???뚮옒??蹂대꼫???쇰뱶諛?
 
-                    // ?섑븰 ?댁쫰 留욎텣 ????댄븨 ?댁쫰 (N?깃툒 ?쒖쇅, 蹂대Ъ?ъ? 50%, 湲곕낯 35%)
-                    const typingQuizChance = this.region === 4 ? 0.50 : 0.35;
-                    if (this.currentFish.grade !== 'N' && Math.random() < typingQuizChance) {
-                        showTypingQuiz = true;
+                    // 수학 퀴즈 정답 후 학습 보너스 퀴즈를 추가로 진행
+                    const bonusLearningQuizChance = this.region === 4 ? 0.50 : 0.35;
+                    const quizTypeRoll = Math.random();
+                    if (this.currentFish.grade !== 'N' && quizTypeRoll < bonusLearningQuizChance) {
+                        bonusQuizType = quizTypeRoll < bonusLearningQuizChance / 2 ? 'typing' : 'spelling';
                     }
                 } else if (quizResult && !quizResult.correct) {
                     // ?ㅻ떟 ??50% ??컧
@@ -1352,12 +1386,18 @@ export default class GameScene extends Phaser.Scene {
                 }
 
                 // ??댄븨 ?댁쫰 ?ㅽ뻾 (?섑븰 ?댁쫰 ?뺣떟 ??35% ?뺣쪧)
-                if (showTypingQuiz) {
+                if (bonusQuizType === 'typing') {
                     const typingResult = await window.gameManagers.uiManager.showTypingQuiz();
                     if (typingResult) {
                         // ??댄븨 ?댁쫰 ?뺣떟 ??湲곗〈 蹂댁긽媛?finalGold)??20% 異붽? ?곸듅 (蹂듬━ 怨꾩궛)
                         finalGold = Math.floor(finalGold * 1.2);
                         this.cameras.main.flash(300, 255, 20, 147); // ?묓겕???뚮옒??蹂대꼫???쇰뱶諛?
+                    }
+                } else if (bonusQuizType === 'spelling') {
+                    const spellingResult = await window.gameManagers.uiManager.showSpellingQuiz();
+                    if (spellingResult) {
+                        finalGold = Math.floor(finalGold * 1.2);
+                        this.cameras.main.flash(300, 102, 205, 170);
                     }
                 }
             }
@@ -1366,7 +1406,7 @@ export default class GameScene extends Phaser.Scene {
             if (this.treasureIslandBuff && this.treasureIslandBuff.type === 'doubleReward' && this.treasureIslandBuff.remaining > 0) {
                 finalGold *= 2;
                 this.consumeTreasureIslandBuff();
-                this.showFloatingNotice('보물섬 버프 발동! 이번 보상은 2배!', '#ffd54f');
+                this.showFloatingNotice('보물섬 버프 발동! 이번 보상은 두 배야!', '#ffd54f');
                 this.cameras.main.flash(300, 255, 235, 59);
             }
 
@@ -1393,7 +1433,7 @@ export default class GameScene extends Phaser.Scene {
 
             // ?꾩뿭 PlayerModel??怨⑤뱶 異붽?
             window.gameManagers.playerModel.addGold(finalGold);
-            console.log(`?띾뱷 怨⑤뱶: ${finalGold} (?꾩옱 珥앺빀: ${window.gameManagers.playerModel.gold})`);
+            console.log(`획득 골드: ${finalGold} (현재 총합: ${window.gameManagers.playerModel.gold})`);
 
             // --- ?띾뱷 湲덉븸 ?뚮줈???띿뒪???좊땲硫붿씠??異붽? ---
             const floatingText = this.add.text(this.scale.width / 2, this.scale.height * 0.5, `+${finalGold}G`, {
@@ -1434,24 +1474,24 @@ export default class GameScene extends Phaser.Scene {
                         let midStoryData = [];
                         if (model.currentChapter === 1) {
                             midStoryData = [
-                                { speaker: '엄마', portrait: 'char_mom', text: '정우야, 벌써 목표의 절반이나 모았네! 정말 잘하고 있어.' },
-                                { speaker: '정우', portrait: 'char_jeongwoo', text: '좋아! 조금만 더 잡으면 다음 지역으로 갈 수 있어!' }
+                                { speaker: '엄마', portrait: 'char_mom', text: '정우야, 벌써 목표의 절반까지 왔네. 차근차근 정말 잘하고 있어.' },
+                                { speaker: '정우', portrait: 'char_jeongwoo', text: '좋아요! 이 흐름이면 다음 지역도 금방 갈 수 있을 것 같아요!' }
                             ];
                         } else if (model.currentChapter === 2) {
                             midStoryData = [
-                                { speaker: '상점 할아버지', portrait: null, text: '허허, 벌써 절반 가까이 모았구나. 흐름이 아주 좋다!' },
-                                { speaker: '정우', portrait: 'char_jeongwoo', text: '기다려 주세요! 이 바다의 멋진 물고기를 더 잡아 올릴게요!' }
+                                { speaker: '상점 할아버지', portrait: null, text: '허허, 절반쯤 왔구나. 손맛도 살아 있고 흐름도 아주 좋아!' },
+                                { speaker: '정우', portrait: 'char_jeongwoo', text: '네! 이번엔 더 멋진 물고기까지 꼭 만나 볼게요!' }
                             ];
                         } else if (model.currentChapter === 3) {
                             midStoryData = [
-                                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 이제 정말 끝이 보이기 시작했어!' },
-                                { speaker: '정우', portrait: 'char_jeongwoo', text: '응! 조금만 더 하면 보물섬으로 갈 수 있을 거야!' }
+                                { speaker: '세연', portrait: 'char_seyeon', text: '오빠, 이제 진짜 끝이 보이기 시작했어! 조금만 더 힘내자!' },
+                                { speaker: '정우', portrait: 'char_jeongwoo', text: '응! 이 기세 그대로면 보물섬도 금방이야!' }
                             ];
                         } else if (model.currentChapter === 4) {
                             midStoryData = [
-                                { speaker: '아빠', portrait: 'char_dad', text: '(전화) 정우야, 보물섬은 정말 위험할 수도 있어. 조심해야 한다!' },
-                                { speaker: '정우', portrait: 'char_jeongwoo', text: '아빠 걱정 마세요! 저 거대한 오징어도 이겨냈는걸요!' },
-                                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 보물도 꼭 찾아 줘!!' }
+                                { speaker: '아빠', portrait: 'char_dad', text: '(전화) 정우야, 보물섬에선 끝까지 침착해야 한다. 무리하지 말고 조심해라!' },
+                                { speaker: '정우', portrait: 'char_jeongwoo', text: '네, 아빠! 이번엔 더 신중하게 끝까지 해낼게요!' },
+                                { speaker: '세연', portrait: 'char_seyeon', text: '오빠, 멋진 보물 찾으면 돌아와서 꼭 제일 먼저 보여 줘!' }
                             ];
                         }
 
@@ -1477,25 +1517,25 @@ export default class GameScene extends Phaser.Scene {
 
             if (cCount === 10) {
                 comboStoryData = [
-                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 10번이나 연속으로 성공했어!\n오늘 감이 엄청 좋은데?' },
-                    { speaker: '정우', portrait: 'char_jeongwoo', text: '좋았어! 오늘은 한 마리도 놓치지 않을 거야!' }
+                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠, 벌써 10번 연속 성공이야!\n오늘 손끝 감각이 완전 반짝반짝해!' },
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: '좋아! 이 리듬 그대로 한 마리도 놓치지 않을 거야!' }
                 ];
             } else if (cCount === 20) {
                 comboStoryData = [
-                    { speaker: '아빠', portrait: 'char_dad', text: '우리 정우 대단하구나!!\n20번 연속 성공이라니 멋지다!' },
-                    { speaker: '정우', portrait: 'char_jeongwoo', text: '헤헤! 아빠한테 배운 기술 덕분이에요!' }
+                    { speaker: '아빠', portrait: 'char_dad', text: '우리 정우 대단하구나!\n20번 연속 성공이라니 집중력이 정말 훌륭하다!' },
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: '헤헤, 아빠한테 배운 대로 침착하게 하니까 더 잘돼요!' }
                 ];
             } else if (cCount === 30) {
                 comboStoryData = [
-                    { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: '허허... 30연속 콤보라니...\n이제 바다가 널 인정한 것 같구나.' },
-                    { speaker: '정우', portrait: 'char_jeongwoo', text: '정말요?! 그럼 이제 바다 챔피언으로 불러 주세요!' }
+                    { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: '허허, 30연속 콤보라니...\n이쯤 되면 바다도 자네를 반기는 것 같구나.' },
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: '정말요? 그럼 오늘은 제가 바다 대표 선수예요!' }
                 ];
             } else if (cCount >= 50 && cCount % 50 === 0) {
                 comboStoryData = [
-                    { speaker: '정우', portrait: 'char_jeongwoo', text: `우와아!! 기적의 ${cCount}콤보!!\n오늘은 정말 바다의 주인공이 된 기분이야!!!` },
-                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠 너무 멋있어~ 물고기들이 다 따라오나 봐!' },
-                    { speaker: '아빠', portrait: 'char_dad', text: '하하... 정우의 집중력이 정말 대단하구나.' },
-                    { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: '허허... 이건 진짜 전설이 될 기록이야.' }
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: `우와!! ${cCount}콤보라니!\n오늘은 진짜 파도까지 내 편인 것 같아!` },
+                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠 너무 멋있어! 물고기들이 먼저 줄 서는 것 같아!' },
+                    { speaker: '아빠', portrait: 'char_dad', text: '하하, 이 정도면 실력도 끈기도 모두 최고구나.' },
+                    { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: '허허, 이런 기록은 오래오래 이야기로 남겠는걸.' }
                 ];
             }
 
@@ -1520,6 +1560,7 @@ export default class GameScene extends Phaser.Scene {
         this.uiElements.exclamation.setVisible(false);
         this.lure.setVisible(false);
         this.fish.setVisible(false);
+        this.clearDrawGuides(true);
         this.lineTension = 0;
         this.activeCatchBuff = null;
         this.clearApproachFishes();
@@ -1562,22 +1603,45 @@ export default class GameScene extends Phaser.Scene {
                     '민물고기가 재빨리 도망가 버렸어!',
                     '앗, 이번엔 타이밍이 조금 늦었어!',
                     '조금만 더 집중하면 바로 잡을 수 있어!',
-                    '괜찮아! 다음엔 더 큰 물고기가 올 거야!'
+                    '괜찮아! 다음엔 더 큰 물고기가 올 거야!',
+                    '물살이 살짝 빨랐나 봐. 다음엔 더 침착하게 해 보자!',
+                    '아쉽지만 감은 나쁘지 않았어. 조금만 더 다듬으면 돼!'
                 ];
                 finalMsg = freshMessages[Math.floor(Math.random() * freshMessages.length)];
+            } else if (this.region === 2) {
+                const coastMessages = [
+                    '파도가 살짝 흔들려서 타이밍이 어긋났어!',
+                    '연안 물고기가 재빠르게 옆으로 빠져나갔어!',
+                    '괜찮아, 지금 감이면 다음엔 바로 잡을 수 있어!',
+                    '아쉬웠지만 손맛은 느껴졌어. 한 번 더 도전하자!',
+                    '바닷바람이 장난쳤나 봐. 다시 차분하게 던져 보자!'
+                ];
+                finalMsg = coastMessages[Math.floor(Math.random() * coastMessages.length)];
+            } else if (this.region === 3) {
+                const deepSeaMessages = [
+                    '먼 바다 물고기는 역시 만만치 않네!',
+                    '조금만 더 버텼으면 잡을 수 있었는데 아쉬워!',
+                    '깊은 바다 녀석답게 힘이 셌어. 다음엔 더 단단히 잡자!',
+                    '아깝다! 그래도 흐름은 좋았어. 다시 한 번 해 보자!',
+                    '파도는 거셌지만 실수는 아니었어. 다음엔 성공할 거야!'
+                ];
+                finalMsg = deepSeaMessages[Math.floor(Math.random() * deepSeaMessages.length)];
             } else if (this.region === 4) {
                 const treasureMessages = [
                     '해적의 그림자가 물고기를 놀라게 했나 봐!',
                     '보물섬 바람이 오늘은 조금 심하네!',
                     '바다 깊은 곳의 기운이 방해한 것 같아!',
                     '보물섬 수호자가 한번 시험한 걸지도 몰라!',
-                    '괜찮아! 다음엔 더 멋진 보물이 나타날 거야!'
+                    '괜찮아! 다음엔 더 멋진 보물이 나타날 거야!',
+                    '조금 아쉽지만, 보물섬은 원래 쉽게 마음을 열지 않지!',
+                    '이번엔 놓쳤어도 괜찮아. 다음 파도엔 더 큰 기회가 올 거야!'
                 ];
                 finalMsg = treasureMessages[Math.floor(Math.random() * treasureMessages.length)];
             } else {
                 const seaMessages = [
                     '아쉽지만 이번엔 놓쳤어!',
-                    '괜찮아, 다음 물고기는 더 쉽게 잡을 수 있을 거야!'
+                    '괜찮아, 다음 물고기는 더 쉽게 잡을 수 있을 거야!',
+                    '손끝 감각은 좋았어. 다시 던지면 바로 기회가 올 거야!'
                 ];
                 finalMsg = seaMessages[Math.floor(Math.random() * seaMessages.length)];
             }
@@ -1586,8 +1650,8 @@ export default class GameScene extends Phaser.Scene {
         // ?곗냽 ?ㅽ뙣 UI ?쇰뱶諛?
         if (this.consecutiveFails >= 2) {
             const warnText = this.consecutiveFails >= 3
-                ? '다음 낚시에서는 FEVER 타임이 찾아올지도 몰라!'
-                : `연속 실패 ${this.consecutiveFails}번...`;
+                ? '다음 낚시에서는 FEVER 타임이 열릴지도 몰라!'
+                : `연속 실패 ${this.consecutiveFails}번... 그래도 흐름은 다시 바꿀 수 있어!`;
             finalMsg += `\n${warnText}`;
         }
 
@@ -1648,33 +1712,33 @@ export default class GameScene extends Phaser.Scene {
 
         if (currentCh === 1) {
             storyData = [
-                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 오늘 저녁 반찬 기대해도 되는 거지?' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '그럼! 이제 연안으로 가서 더 멋진 물고기를 잡아 올게!' },
-                { speaker: '엄마', portrait: 'char_mom', text: '연안은 민물보다 더 넓고 파도도 있어. 조심해야 해.' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '걱정 마세요, 엄마! 더 큰 물고기도 문제없어요!' }
+                { speaker: '세연', portrait: 'char_seyeon', text: '오빠, 오늘도 멋진 물고기 잡아 온 거지? 저녁이 벌써 기대돼!' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '그럼! 이제 연안으로 가서 더 멋진 물고기를 만나 보고 올게!' },
+                { speaker: '엄마', portrait: 'char_mom', text: '연안은 민물보다 넓고 파도도 있으니, 더 침착하게 해야 해.' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '네, 엄마! 차분하게 해서 더 큰 물고기도 꼭 잡아 볼게요!' }
             ];
         } else if (currentCh === 2) {
             storyData = [
-                { speaker: '세연', portrait: 'char_seyeon', text: '오빠 이번에도 큰 물고기를 잡았네!! 최고야!' },
-                { speaker: '엄마', portrait: 'char_mom', text: '우리 정우, 이제는 진짜 바다 탐험가 같구나.' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '이제 더 멀리 나가서 전설의 물고기도 만나 볼래!' }
+                { speaker: '세연', portrait: 'char_seyeon', text: '오빠, 이번에도 진짜 멋진 물고기를 잡았네! 완전 바다 영웅 같아!' },
+                { speaker: '엄마', portrait: 'char_mom', text: '우리 정우, 이제는 바다가 낯설지 않은 진짜 탐험가 같구나.' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '좋아! 다음엔 더 멀리 나가서 전설 같은 물고기도 만나 볼래!' }
             ];
         } else if (currentCh === 3) {
             storyData = [
-                { speaker: '수수께끼 목소리', portrait: null, text: '보물섬으로 올 용기가 있는 자는 앞으로 나아오라...' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '누구지?! 저 멀리서 목소리가 들렸어!' },
-                { speaker: '수수께끼 목소리', portrait: null, text: '깊은 바다를 이겨 낸 낚시꾼만이 보물섬에 닿을 수 있다...' },
-                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 보물섬이라니!! 진짜 가는 거야?' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '물론이지! 마지막 모험을 시작하자!' }
+                { speaker: '수수께끼 목소리', portrait: null, text: '보물섬으로 향할 용기가 있는 자, 앞으로 나아오라...' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '누구지?! 멀리서 이상한 목소리가 들려왔어!' },
+                { speaker: '수수께끼 목소리', portrait: null, text: '깊은 바다를 견뎌 낸 낚시꾼만이 보물섬에 닿을 수 있다...' },
+                { speaker: '세연', portrait: 'char_seyeon', text: '오빠, 보물섬이라니! 진짜 마지막 모험이 시작되는 거야?' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '응! 여기까지 왔으니 끝까지 가 봐야지. 마지막 모험을 시작하자!' }
             ];
         } else if (currentCh === 4) {
             storyData = [
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '해냈다! 보물섬의 모든 시련을 이겨 냈어!!' },
-                { speaker: '아빠', portrait: 'char_dad', text: '정우야, 여기까지 오다니 정말 대단하구나!' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '아빠! 황금 물고기까지 만났어요! 꿈만 같아요!' },
-                { speaker: '엄마', portrait: 'char_mom', text: '우리 정우가 이렇게 씩씩하게 해낼 줄 알았어!' },
-                { speaker: '세연', portrait: 'char_seyeon', text: '오빠 최고!! 이제 진짜 전설의 낚시왕이야!!' },
-                { speaker: '아빠', portrait: 'char_dad', text: '하하, 이제 집으로 돌아가서 축하 파티를 하자!' }
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '해냈다! 보물섬의 모든 시련을 끝까지 이겨 냈어!!' },
+                { speaker: '아빠', portrait: 'char_dad', text: '정우야, 여기까지 오다니 정말 대단하구나. 아빠가 다 뿌듯하다!' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '아빠! 황금 물고기까지 만났어요! 아직도 꿈만 같아요!' },
+                { speaker: '엄마', portrait: 'char_mom', text: '우리 정우가 이렇게 씩씩하고 멋지게 해낼 줄 알았어.' },
+                { speaker: '세연', portrait: 'char_seyeon', text: '오빠 최고야!! 이제 진짜 전설의 낚시왕이라고 불러도 되겠다!' },
+                { speaker: '아빠', portrait: 'char_dad', text: '하하, 이제 집으로 돌아가서 다 같이 크게 축하하자!' }
             ];
         }
 
@@ -1713,7 +1777,7 @@ export default class GameScene extends Phaser.Scene {
                 key: 'event_pirate',
                 name: '해적선 발견',
                 emoji: '🏴‍☠️',
-                message: '다음 한 번은 보상을 2배로 챙길 수 있어!',
+                message: '해적선의 비밀 상자를 찾았어! 다음 보상은 두 배야!',
                 effect: () => {
                     this.treasureIslandBuff = { type: 'doubleReward', remaining: 1 };
                 }
@@ -1722,7 +1786,7 @@ export default class GameScene extends Phaser.Scene {
                 key: 'event_octopus',
                 name: '대왕 문어 습격',
                 emoji: '🐙',
-                message: '다음 포획에서는 3초 동안 게이지가 줄지 않아!',
+                message: '거대한 촉수가 길을 열어 줬어! 다음 포획은 3초 동안 안전해!',
                 effect: () => {
                     this.treasureIslandBuff = { type: 'gaugeImmunity', remaining: 1, duration: 3000 };
                 }
@@ -1731,7 +1795,7 @@ export default class GameScene extends Phaser.Scene {
                 key: 'event_mermaid',
                 name: '인어의 노래',
                 emoji: '🧜',
-                message: '전설 물고기가 가까이 왔어! 다음 한 번 SSR 확률이 크게 올라가!',
+                message: '신비한 노랫소리가 퍼졌어! 다음 한 번은 전설 물고기를 만날 확률이 크게 올라가!',
                 effect: () => {
                     this.treasureIslandBuff = { type: 'ssrBoost', remaining: 1 };
                 }
@@ -1740,7 +1804,7 @@ export default class GameScene extends Phaser.Scene {
                 key: 'event_rainbow',
                 name: '무지개 출현',
                 emoji: '🌈',
-                message: '행운이 반짝! 즉시 1000G를 얻었어!',
+                message: '무지개 끝에서 행운이 쏟아졌어! 즉시 1000G 획득!',
                 effect: () => {
                     window.gameManagers.playerModel.addGold(1000);
                     this.updateGoalText();
@@ -1750,7 +1814,7 @@ export default class GameScene extends Phaser.Scene {
                 key: 'event_ghost',
                 name: '유령선 조우',
                 emoji: '👻',
-                message: '으스스한 바람이 지켜줘! 다음 포획에서 4초 동안 게이지를 보호해!',
+                message: '으스스한 안개가 감싸 줬어! 다음 포획은 4초 동안 게이지가 줄지 않아!',
                 effect: () => {
                     this.treasureIslandBuff = { type: 'gaugeImmunity', remaining: 1, duration: 4000 };
                 }
@@ -1798,6 +1862,7 @@ export default class GameScene extends Phaser.Scene {
         this.activeCatchBuff = null;
         this.bossVariant = 'normal';
         this.isCharging = false;
+        this.clearDrawGuides(true);
         const regionNames = { 1: "민물", 2: "연안", 3: "먼 바다", 4: "보물섬" };
         this.uiElements.instruction.setText(`${regionNames[this.region]}에서 낚시를 시작해 보자!`);
         this.updateGoalText();
@@ -1929,7 +1994,7 @@ export default class GameScene extends Phaser.Scene {
                         this.failFishing('줄이 너무 팽팽해! 놓쳐 버렸어...');
                         return;
                     } else if (this.lineTension >= safeLimit) {
-                        this.uiElements.tensionWarn.setText('?좑툘 ?덈Т ?멸쾶! 以꾩씠 ?딆뼱吏?寃?媛숈븘!');
+                        this.uiElements.tensionWarn.setText('지금 너무 세게 당기고 있어! 줄이 끊어질 것 같아!');
                         this.uiElements.tensionWarn.setVisible(true);
                     } else {
                         this.uiElements.tensionWarn.setText('');

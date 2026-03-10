@@ -84,6 +84,9 @@ export const SPECIAL_ITEMS = [
 // comboCount: 연속 성공 횟수 (SSR 가중치 보너스)
 // castingMultiplier: 보라색 더블 과녁 성공 시 2
 export const getRandomFish = (rodLuckLevel, currentRegion, castingBonus = 1, comboCount = 0, castingMultiplier = 1) => {
+    const pm = window.gameManagers && window.gameManagers.playerModel;
+    const isTutorialBoostActive = pm && typeof pm.isTutorialBoostActive === 'function' && pm.isTutorialBoostActive();
+
     // 1% 확률로 특별 아이템 등장 (보물섬에서는 전용 아이템)
     if (Math.random() < 0.01) {
         let availableItems;
@@ -91,6 +94,9 @@ export const getRandomFish = (rodLuckLevel, currentRegion, castingBonus = 1, com
             availableItems = SPECIAL_ITEMS.filter(item => item.region === 4);
         } else {
             availableItems = SPECIAL_ITEMS.filter(item => !item.region);
+        }
+        if (isTutorialBoostActive) {
+            availableItems = availableItems.filter(item => item.grade === 'N' || item.grade === 'R');
         }
         if (availableItems.length > 0) {
             return availableItems[Math.floor(Math.random() * availableItems.length)];
@@ -145,7 +151,6 @@ export const getRandomFish = (rodLuckLevel, currentRegion, castingBonus = 1, com
         }
 
         // --- 마일스톤 달성 시 N, R 등급 확률 대폭 감소 (1/2, 1/4, 1/8) ---
-        const pm = window.gameManagers && window.gameManagers.playerModel;
         if (pm && pm.fishMilestonesSeen && pm.fishMilestonesSeen[fish.id] && (fish.grade === 'N' || fish.grade === 'R')) {
             const milestones = pm.fishMilestonesSeen[fish.id];
             if (milestones[50]) {
@@ -154,6 +159,15 @@ export const getRandomFish = (rodLuckLevel, currentRegion, castingBonus = 1, com
                 weight = weight * 0.25;  // 1/4
             } else if (milestones[10]) {
                 weight = weight * 0.5;   // 1/2
+            }
+        }
+
+        // --- 최초 10분 보호: 쉬운 등급은 더 자주, 어려운 등급은 등장하지 않음 ---
+        if (isTutorialBoostActive) {
+            if (fish.grade === 'N' || fish.grade === 'R') {
+                weight *= 2;
+            } else if (fish.grade === 'SR' || fish.grade === 'SSR') {
+                weight = 0;
             }
         }
 

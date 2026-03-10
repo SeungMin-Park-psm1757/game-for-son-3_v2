@@ -29,6 +29,9 @@ export default class PlayerModel {
             this.allMaxCelebrated = savedData.allMaxCelebrated || false;
             // --- 신규 필드: 세연이 51개 이벤트 관람 여부 ---
             this.seyeonMaxEventSeen = savedData.seyeonMaxEventSeen || {};
+            // --- 신규 필드: 최초 10분 쉬운 물고기 보호 시간 ---
+            const hasProgress = (savedData.gold || 0) > 0 || Object.keys(this.fishCollection).length > 0;
+            this.tutorialBoostEndsAt = savedData.tutorialBoostEndsAt ?? (hasProgress ? 0 : Date.now() + (10 * 60 * 1000));
 
             // --- Existing player stat migration: ensure focusRing exists ---
             if (this.stats && this.stats.focusRing === undefined) {
@@ -58,6 +61,7 @@ export default class PlayerModel {
             this.maxLevelCelebrated = {};
             this.allMaxCelebrated = false;
             this.seyeonMaxEventSeen = {};
+            this.tutorialBoostEndsAt = Date.now() + (10 * 60 * 1000);
 
         }
         this.listeners = [];
@@ -100,7 +104,8 @@ export default class PlayerModel {
             bossDefeatedCount: this.bossDefeatedCount,
             maxLevelCelebrated: this.maxLevelCelebrated,
             allMaxCelebrated: this.allMaxCelebrated,
-            seyeonMaxEventSeen: this.seyeonMaxEventSeen
+            seyeonMaxEventSeen: this.seyeonMaxEventSeen,
+            tutorialBoostEndsAt: this.tutorialBoostEndsAt
 
         });
     }
@@ -133,6 +138,10 @@ export default class PlayerModel {
         }
         this.fishCollection[fishId] += 1;
         this.notify();
+    }
+
+    isTutorialBoostActive() {
+        return !!this.tutorialBoostEndsAt && Date.now() < this.tutorialBoostEndsAt;
     }
 
     upgradeStat(statName, cost) {

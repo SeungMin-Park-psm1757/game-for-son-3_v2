@@ -333,8 +333,11 @@ body {
     top: 8px;
     right: 8px;
     display: flex;
+    flex-wrap: wrap;
     gap: 5px;
     align-items: center;
+    justify-content: flex-end;
+    max-width: calc(100vw - 16px);
     z-index: 20;
 }
 
@@ -461,6 +464,19 @@ body {
     display: block;
     object-fit: cover;
     image-rendering: pixelated;
+}
+
+.shopkeeper-avatar-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #fff8dc 0%, #f3d37c 100%);
+}
+
+.shopkeeper-avatar-emoji {
+    font-size: 44px;
+    line-height: 1;
+    filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.16));
 }
 
 .npc-avatar-badge {
@@ -865,6 +881,217 @@ body {
 .wrong-input {
     border-color: #DC143C !important;
     background-color: #fff0f0;
+}
+
+.secondary-choice-btn {
+    border: none;
+    border-radius: 12px;
+    background: #2f5d8a;
+    color: #fff;
+    padding: 10px 16px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.secondary-choice-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.spelling-hub-popup {
+    width: min(520px, 92vw);
+    background: linear-gradient(180deg, #fffaf0 0%, #eef7ff 100%);
+    border-color: #4682b4;
+}
+
+.spelling-hub-copy {
+    font-size: 20px;
+    line-height: 1.5;
+    color: #355c7d;
+    margin-bottom: 24px;
+}
+
+.spelling-hub-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.spelling-action-btn {
+    width: 100%;
+    font-size: 24px;
+    padding: 18px 12px;
+}
+
+.spelling-quiz-popup {
+    width: min(620px, 94vw);
+    background: linear-gradient(180deg, #fff8ef 0%, #eef6ff 100%);
+    border-color: #4d8cc8;
+}
+
+.spelling-quiz-copy {
+    font-size: 20px;
+    color: #355c7d;
+    margin-bottom: 16px;
+    line-height: 1.45;
+}
+
+.spelling-quiz-audio-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.spelling-quiz-count {
+    font-size: 16px;
+    font-weight: bold;
+    color: #607d8b;
+}
+
+.spelling-prompt-card {
+    margin-bottom: 20px;
+    background: #ffffff;
+    border: 3px dashed #7aa7d8;
+}
+
+.spelling-target {
+    font-size: clamp(28px, 4vw, 42px);
+    letter-spacing: 1px;
+    line-height: 1.4;
+    word-break: keep-all;
+}
+
+.spelling-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.spelling-choice-btn {
+    font-size: clamp(22px, 3vw, 28px);
+    line-height: 1.3;
+    min-height: 88px;
+    white-space: normal;
+    word-break: keep-all;
+}
+
+.spelling-feedback {
+    min-height: 44px;
+    margin-top: 20px;
+}
+
+.spelling-list-popup {
+    width: min(960px, 96vw);
+    max-height: 92vh;
+    background: linear-gradient(180deg, #fff9f0 0%, #eff7ff 100%);
+    border-color: #4d8cc8;
+}
+
+.spelling-list-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.spelling-list-toolbar h2 {
+    margin-bottom: 8px;
+}
+
+.spelling-list-toolbar p {
+    margin: 0;
+    font-size: 16px;
+    color: #4f6476;
+}
+
+.spelling-list-toolbar-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.spelling-list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    max-height: 68vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.spelling-list-card {
+    background: #fff;
+    border: 2px solid #d7e7f7;
+    border-radius: 16px;
+    padding: 14px;
+    box-shadow: 0 6px 14px rgba(52, 92, 125, 0.08);
+}
+
+.spelling-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.spelling-list-sentence,
+.spelling-list-prompt,
+.spelling-list-answer {
+    margin: 0 0 10px 0;
+    color: #334;
+    line-height: 1.45;
+}
+
+.spelling-list-prompt {
+    font-weight: bold;
+    color: #2b5876;
+}
+
+.spelling-list-answer {
+    margin-bottom: 0;
+    font-weight: bold;
+    color: #d35400;
+}
+
+.spelling-list-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.spelling-choice-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #edf3f8;
+    color: #3b4d5f;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.correct-choice-chip {
+    background: #dff5df;
+    color: #1f7a1f;
+}
+
+@media screen and (max-width: 640px) {
+    .spelling-choice-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .spelling-list-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* NPC 콧수염 이모지 */
