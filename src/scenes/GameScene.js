@@ -4,7 +4,7 @@ import { BOSS_STORIES, FIRST_CATCH_STORIES } from '../models/StoryData.js';
 export default class GameScene extends Phaser.Scene {
     constructor() {
         super('GameScene');
-        // 게임 상태 관리
+        // 寃뚯엫 ?곹깭 愿由?
         this.gameState = 'IDLE'; // IDLE, APPROACH, BITE, CATCH, REWARD
         this.catchGauge = 0;
         this.catchMax = 100;
@@ -14,26 +14,26 @@ export default class GameScene extends Phaser.Scene {
         this.fishingLine = null;
         this.uiElements = {};
 
-        // 디바운싱용 타임스탬프
+        // ?붾컮?댁떛????꾩뒪?ы봽
         this.lastActionTime = 0;
 
-        // 지역(챕터) 정보 (기본값: 1)
+        // 吏??梨뺥꽣) ?뺣낫 (湲곕낯媛? 1)
         this.region = 1;
 
-        // --- 구제 시스템 (Fever Time) ---
+        // --- 援ъ젣 ?쒖뒪??(Fever Time) ---
         this.consecutiveFails = 0;
         this.isFeverTime = false;
         this.feverTimeRemaining = 0;
 
-        // --- 스플라인 물리 + 줄 텐션/끊김 ---
-        this.lineTension = 0; // 0~1 범위
+        // --- ?ㅽ뵆?쇱씤 臾쇰━ + 以??먯뀡/?딄? ---
+        this.lineTension = 0; // 0~1 踰붿쐞
 
-        // --- 캐스팅 스킬샷 ---
-        this.castingBonus = 1; // 0=빗나감, 1=보통, 2=좋음, 3=완벽
+        // --- 罹먯뒪???ㅽ궗??---
+        this.castingBonus = 1; // 0=鍮쀫굹媛? 1=蹂댄넻, 2=醫뗭쓬, 3=?꾨꼍
         this.targetRingX = 0;
         this.targetRingY = 0;
 
-        // --- 3종 미니게임 ---
+        // --- 3醫?誘몃땲寃뚯엫 ---
         this.miniGameType = 'mash'; // 'mash', 'timing', 'draw'
         this.timingBarX = 0;
         this.timingBarDir = 1;
@@ -45,23 +45,23 @@ export default class GameScene extends Phaser.Scene {
         this.drawUserPath = [];
         this.isDrawing = false;
 
-        // --- 콤보 시스템 ---
+        // --- 肄ㅻ낫 ?쒖뒪??---
         this.comboCount = 0;
         this.bossVariant = 'normal';
         this.treasureIslandBuff = null;
         this.activeCatchBuff = null;
 
-        // --- 보스 어종 ---
+        // --- 蹂댁뒪 ?댁쥌 ---
         this.isBossFight = false;
         this.bossTimeLimit = 0;
         this.bossTimer = 0;
-        this.regionFishCount = 0; // 현재 지역 낚시 횟수
+        this.regionFishCount = 0; // ?꾩옱 吏???싳떆 ?잛닔
     }
 
     init(data) {
         this.region = (data && data.region) ? data.region : 1;
 
-        // 씬 재시작 시 상태 완전 초기화
+        // ???ъ떆?????곹깭 ?꾩쟾 珥덇린??
         this.gameState = 'IDLE';
         this.catchGauge = 0;
         this.catchMax = 100;
@@ -94,7 +94,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     create() {
-        // --- 0. 전역 데이터 초기화 (에러 방지용) ---
+        // --- 0. ?꾩뿭 ?곗씠??珥덇린??(?먮윭 諛⑹??? ---
         if (!window.gameManagers.fishData) {
             window.gameManagers.fishData = {
                 region1: FISH_TYPES.filter(f => f.region === 1),
@@ -104,11 +104,11 @@ export default class GameScene extends Phaser.Scene {
             };
         }
 
-        // --- 1. 배경 및 화면 셋업 ---
+        // --- 1. 諛곌꼍 諛??붾㈃ ?뗭뾽 ---
         const width = this.scale.width;
         const height = this.scale.height;
 
-        // 배경 이미지 (화면 꽉 차게)
+        // 諛곌꼍 ?대?吏 (?붾㈃ 苑?李④쾶)
         let bgKey = 'bg_coast';
         if (this.region === 1) bgKey = 'bg_freshwater';
         else if (this.region === 3) bgKey = 'bg_sea';
@@ -116,70 +116,70 @@ export default class GameScene extends Phaser.Scene {
 
         this.bg = this.add.image(width / 2, height / 2, bgKey);
         this.bg.setDisplaySize(width, height);
-        this.bg.setInteractive(); // 배경 클릭으로 낚시 시작
-        this.water = this.bg; // 기존 코드 호환을 위해 water 변수에 할당
+        this.bg.setInteractive(); // 諛곌꼍 ?대┃?쇰줈 ?싳떆 ?쒖옉
+        this.water = this.bg; // 湲곗〈 肄붾뱶 ?명솚???꾪빐 water 蹂?섏뿉 ?좊떦
 
-        // 물고기 돌아다니는 실루엣 생성
+        // 臾쇨퀬湲??뚯븘?ㅻ땲???ㅻ（???앹꽦
         this.createWanderingFishes();
 
-        // 상태창 UI (임시)
+        // ?곹깭李?UI (?꾩떆)
         const regionNames = { 1: "민물", 2: "연안", 3: "먼 바다", 4: "보물섬" };
         const instrFontSize = Math.max(18, Math.round(width * 0.044)) + 'px';
-        this.uiElements.instruction = this.add.text(width / 2, height * 0.08, `${regionNames[this.region]}을 탭(클릭)해서 찌를 던지세요!`, {
+        this.uiElements.instruction = this.add.text(width / 2, height * 0.08, `${regionNames[this.region]}에서 화면 아래를 눌러 낚시해 보자!`, {
             fontSize: instrFontSize, fontFamily: 'Arial', color: '#FFFFFF', stroke: '#000000', strokeThickness: 4,
             wordWrap: { width: width * 0.9 }
         }).setOrigin(0.5);
-        // 현재 챕터 목표 표시 UI
+        // ?꾩옱 梨뺥꽣 紐⑺몴 ?쒖떆 UI
         this.updateGoalText();
 
-        // 지역별 UI 및 캐릭터 위치 설정 (캐릭터가 위에 있으면 UI는 아래로)
+        // 吏??퀎 UI 諛?罹먮┃???꾩튂 ?ㅼ젙 (罹먮┃?곌? ?꾩뿉 ?덉쑝硫?UI???꾨옒濡?
         const uiTop = this.region < 3;
         const feverY = height * (uiTop ? 0.25 : 0.78);
         const gaugeY = height * (uiTop ? 0.18 : 0.85);
         const tensionY = height * (uiTop ? 0.22 : 0.81);
         const tensionWarnY = height * (uiTop ? 0.26 : 0.77);
 
-        // 피버 타임 텍스트
-        this.uiElements.feverText = this.add.text(width / 2, feverY, '🔥 FEVER TIME! 🔥', {
+        // ?쇰쾭 ????띿뒪??
+        this.uiElements.feverText = this.add.text(width / 2, feverY, '?뵦 FEVER TIME! ?뵦', {
             fontSize: '40px', fontFamily: 'Arial', color: '#FF4500',
             stroke: '#FFD700', strokeThickness: 6
         }).setOrigin(0.5).setDepth(20).setVisible(false);
 
-        // 보스 타이머 텍스트
-        this.uiElements.bossTimerText = this.add.text(width / 2, gaugeY - 40, '마왕 제한시간: 15초', {
+        // 蹂댁뒪 ??대㉧ ?띿뒪??
+        this.uiElements.bossTimerText = this.add.text(width / 2, gaugeY - 40, '보스 남은 시간: 15초', {
             fontSize: '24px', fontFamily: 'Arial', color: '#FF0000',
             stroke: '#FFFFFF', strokeThickness: 4, fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(20).setVisible(false);
 
-        // 연타 게이지바 (배경, 게이지)
+        // ?고? 寃뚯씠吏諛?(諛곌꼍, 寃뚯씠吏)
         const gaugeWidth = Math.min(400, Math.round(width * 0.88));
         this.gaugeWidth = gaugeWidth;
         this.uiElements.gaugeBg = this.add.rectangle(width / 2, gaugeY, gaugeWidth, 40, 0x333333).setDepth(10).setVisible(false);
         this.uiElements.gaugeBar = this.add.rectangle(width / 2 - gaugeWidth / 2, gaugeY, 0, 40, 0x00FF00).setOrigin(0, 0.5).setDepth(11).setVisible(false);
 
-        // --- 줄 텐션 경고 바 ---
+        // --- 以??먯뀡 寃쎄퀬 諛?---
         this.uiElements.tensionBg = this.add.rectangle(width / 2, tensionY, gaugeWidth, 16, 0x333333).setDepth(10).setVisible(false);
         this.uiElements.tensionBar = this.add.rectangle(width / 2 - gaugeWidth / 2, tensionY, 0, 16, 0xff4444).setOrigin(0, 0.5).setDepth(11).setVisible(false);
         this.uiElements.tensionWarn = this.add.text(width / 2, tensionWarnY, '', {
             fontSize: '20px', fontFamily: 'Arial', color: '#FF0000', stroke: '#000', strokeThickness: 3
         }).setOrigin(0.5).setDepth(12).setVisible(false);
 
-        // --- 콤보 카운터 ---
+        // --- 肄ㅻ낫 移댁슫??---
         this.uiElements.comboText = this.add.text(width - 20, height * 0.12, '', {
             fontSize: '24px', fontFamily: 'Arial', color: '#FF4500', stroke: '#000', strokeThickness: 4, fontStyle: 'bold'
         }).setOrigin(1, 0.5).setDepth(20).setVisible(false);
 
-        // 캐릭터 렌더링
+        // 罹먮┃???뚮뜑留?
         let charY = height * 0.8;
-        if (this.region === 1) charY = height * 0.85; // 민물 (아래 얕은 물가)
-        else if (this.region === 2) charY = height * 0.75; // 연안 (중하단 갯바위)
-        else if (this.region === 3) charY = height * 0.20; // 먼 바다 (배 위)
-        else if (this.region === 4) charY = height * 0.23; // 보물섬 (섬 위)
+        if (this.region === 1) charY = height * 0.85; // 誘쇰Ъ (?꾨옒 ?뺤? 臾쇨?)
+        else if (this.region === 2) charY = height * 0.75; // ?곗븞 (以묓븯??媛?컮??
+        else if (this.region === 3) charY = height * 0.20; // 癒?諛붾떎 (諛???
+        else if (this.region === 4) charY = height * 0.23; // 蹂대Ъ??(????
 
         const charTexture = this.getCharacterTextureKey();
         this.character = this.add.image(width / 2, charY, charTexture).setDepth(3);
 
-        // 캐릭터 크기 동적 조절 (이전 128px * 1.26 = 161px)
+        // 罹먮┃???ш린 ?숈쟻 議곗젅 (?댁쟾 128px * 1.26 = 161px)
         const targetCharSize = 160;
         const charScale = targetCharSize / this.character.width;
         this.character.setScale(charScale);
@@ -188,26 +188,26 @@ export default class GameScene extends Phaser.Scene {
         this.fishingLine = this.add.graphics();
         this.fishingLine.setDepth(1);
 
-        // 찌 (Lure) 스프라이트 - 초기 숨김
+        // 李?(Lure) ?ㅽ봽?쇱씠??- 珥덇린 ?④?
         this.lure = this.add.image(0, 0, 'lure').setVisible(false).setDepth(2);
         const targetLureSize = 24;
         this.lure.setScale(targetLureSize / this.lure.width);
 
-        // 물고기 (Fish) 스프라이트 - 초기 숨김
+        // 臾쇨퀬湲?(Fish) ?ㅽ봽?쇱씠??- 珥덇린 ?④?
         this.fish = this.add.image(0, 0, 'fish_pirami').setVisible(false).setDepth(1);
 
-        // 큰 느낌표 텍스트 (입질용)
+        // ???먮굦???띿뒪??(?낆쭏??
         this.uiElements.exclamation = this.add.text(0, 0, '!', {
             fontSize: '120px', fontFamily: 'Arial', color: '#FFFF00', stroke: '#FF0000', strokeThickness: 10
         }).setOrigin(0.5).setVisible(false).setDepth(5);
 
-        // --- 캐스팅 스킬샷: 2~3개의 다앙햔 과녁 ---
-        this.targetRings = []; // 과녁들을 저장할 배열
+        // --- 罹먯뒪???ㅽ궗?? 2~3媛쒖쓽 ?ㅼ븰??怨쇰뀅 ---
+        this.targetRings = []; // 怨쇰뀅?ㅼ쓣 ??ν븷 諛곗뿴
         this.repositionTargetRing();
 
-        // 뒤로 가기 버튼 (위치 하향 조정: 24, 80 - 모바일 노치 회피)
+        // ?ㅻ줈 媛湲?踰꾪듉 (?꾩튂 ?섑뼢 議곗젙: 24, 80 - 紐⑤컮???몄튂 ?뚰뵾)
         const backBtnFontSize = width < 360 ? '16px' : '20px';
-        const backBtn = this.add.text(24, 80, '⬅️ 뒤로 가기', {
+        const backBtn = this.add.text(24, 80, '← 집으로', {
             fontSize: backBtnFontSize,
             fontFamily: 'Arial', color: '#FFFFFF',
             stroke: '#000000', strokeThickness: 4,
@@ -224,7 +224,7 @@ export default class GameScene extends Phaser.Scene {
             this.scene.start('IntroScene');
         });
 
-        // --- 2. 입력 이벤트 핸들러 (연타, 드래그, 홀드 등) ---
+        // --- 2. ?낅젰 ?대깽???몃뱾??(?고?, ?쒕옒洹? ????? ---
         this.input.on('pointerdown', (pointer) => {
             const now = this.time.now;
             if (this.gameState === 'CATCH') {
@@ -257,7 +257,7 @@ export default class GameScene extends Phaser.Scene {
             const newTexture = this.getCharacterTextureKey();
             this.character.setTexture(newTexture);
 
-            // 시각적 피드백 (반짝임) - 크기가 동적이므로 변수 사용
+            // ?쒓컖???쇰뱶諛?(諛섏쭩?? - ?ш린媛 ?숈쟻?대?濡?蹂???ъ슜
             const baseScale = this.character.getData('baseScale') || (160 / this.character.width);
             this.character.setData('baseScale', baseScale);
 
@@ -268,7 +268,7 @@ export default class GameScene extends Phaser.Scene {
                 ease: 'Bounce.easeOut'
             });
 
-            // 빛나는 효과 파티클
+            // 鍮쏅굹???④낵 ?뚰떚??
             const particles = this.add.particles(0, 0, 'dummy', {
                 x: this.character.x,
                 y: this.character.y - 20,
@@ -280,7 +280,7 @@ export default class GameScene extends Phaser.Scene {
                 tint: 0xFFD700
             });
 
-            // 파티클 텍스처 (하얀 원)
+            // ?뚰떚???띿뒪泥?(?섏? ??
             const g = this.make.graphics({ x: 0, y: 0, add: false });
             g.fillStyle(0xffffff);
             g.fillCircle(4, 4, 4);
@@ -363,14 +363,14 @@ export default class GameScene extends Phaser.Scene {
             const y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
 
             const fish = this.add.image(x, y, fData.id);
-            fish.setTint(0x000000); // 검은색
-            fish.setAlpha(0.15); // 실루엣 투명도
+            fish.setTint(0x000000); // 寃???
+            fish.setAlpha(0.15); // ?ㅻ（???щ챸??
             fish.setScale(fData.scale);
-            fish.setDepth(0); // 배경 바로 위, 찌보다 아래
+            fish.setDepth(0); // 諛곌꼍 諛붾줈 ?? 李뚮낫???꾨옒
 
             fish.speed = Phaser.Math.Between(20, 60);
             fish.direction = (Math.random() > 0.5) ? 1 : -1;
-            fish.flipX = fish.direction === 1; // 1이면 오른쪽, -1이면 왼쪽 이동
+            fish.flipX = fish.direction === 1; // 1?대㈃ ?ㅻⅨ履? -1?대㈃ ?쇱そ ?대룞
 
             this.wanderingFishes.push(fish);
         }
@@ -386,7 +386,7 @@ export default class GameScene extends Phaser.Scene {
             if (pointer.y > clickableLimitY) {
                 this.startApproach(pointer.x, pointer.y);
             } else {
-                this.uiElements.instruction.setText('물 쪽을 클릭하세요!');
+                this.uiElements.instruction.setText('물가 쪽을 눌러 주세요!');
                 this.time.delayedCall(1500, () => {
                     if (this.gameState === 'IDLE') {
                         const regionNames = { 1: "민물", 2: "연안", 3: "먼 바다", 4: "보물섬" };
@@ -403,14 +403,14 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    // --- 캐스팅 스킬샷: 과녁 위치 랜덤 재배치 ---
+    // --- 罹먯뒪???ㅽ궗?? 怨쇰뀅 ?꾩튂 ?쒕뜡 ?щ같移?---
     repositionTargetRing() {
         const w = this.scale ? this.scale.width : 720;
         const h = this.scale ? this.scale.height : 1280;
         const targetScale = (window.gameManagers.playerModel.stats.focusRing || 1) / 3;
         const outerRadius = 90 * targetScale;
 
-        // 기존 과녁들 삭제
+        // 湲곗〈 怨쇰뀅????젣
         if (this.targetRings) {
             this.targetRings.forEach(ringObj => {
                 ringObj.outer.destroy();
@@ -453,12 +453,12 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    // --- Phase 1: 찌 던지기 (Approach) + 스킬샷 판정 ---
+    // --- Phase 1: 李??섏?湲?(Approach) + ?ㅽ궗???먯젙 ---
     startApproach(targetX, targetY) {
         this.gameState = 'APPROACH';
         this.regionFishCount++;
 
-        // --- 캐스팅 스킬샷 판정 (가장 가까운 과녁 찾기) ---
+        // --- 罹먯뒪???ㅽ궗???먯젙 (媛??媛源뚯슫 怨쇰뀅 李얘린) ---
         const targetScale = (window.gameManagers.playerModel.stats.focusRing || 1) / 3;
         let closestRing = null;
         let minDist = Infinity;
@@ -471,26 +471,26 @@ export default class GameScene extends Phaser.Scene {
             }
         });
 
-        // 결과 배율 제거됨
+        // 寃곌낵 諛곗쑉 ?쒓굅??
         this.castingMultiplier = 1;
 
         if (closestRing && minDist <= 30 * targetScale) {
-            this.castingBonus = 3; // 완벽
-            this.uiElements.instruction.setText(`✨ 완벽한 캐스팅! ✨`);
+            this.castingBonus = 3; // ?꾨꼍
+            this.uiElements.instruction.setText('완벽한 캐스팅!');
             this.cameras.main.flash(200, 255, 215, 0);
         } else if (closestRing && minDist <= 60 * targetScale) {
-            this.castingBonus = 2; // 좋음
-            this.uiElements.instruction.setText(`🎯 좋은 캐스팅!`);
+            this.castingBonus = 2; // 醫뗭쓬
+            this.uiElements.instruction.setText('좋은 캐스팅!');
         } else if (closestRing && minDist <= 90 * targetScale) {
-            this.castingBonus = 1; // 보통
+            this.castingBonus = 1; // 蹂댄넻
             this.uiElements.instruction.setText('기다리는 중...');
         } else {
-            this.castingBonus = 0; // 빗나감
-            this.castingMultiplier = 1; // 빗나가면 배율 없음
-            this.uiElements.instruction.setText('빗나갔어... 작은 물고기가 많을지도?');
+            this.castingBonus = 0; // 鍮쀫굹媛?
+            this.castingMultiplier = 1; // 鍮쀫굹媛硫?諛곗쑉 ?놁쓬
+            this.uiElements.instruction.setText('조금 빗나갔어... 작은 물고기가 올지도 몰라!');
         }
 
-        // 과녁 숨기기
+        // 怨쇰뀅 ?④린湲?
         this.targetRings.forEach(ring => {
             ring.outer.setVisible(false);
             ring.mid.setVisible(false);
@@ -514,13 +514,13 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
-    // Phase 1 -> 2 대기
+    // Phase 1 -> 2 ?湲?
     waitForBite(lureX, lureY) {
         const chanceLevel = window.gameManagers.playerModel.stats.catchChance;
         const baseMaxWait = this.region === 4 ? 5000 : 4000;
         let maxWait = Math.max(1000, baseMaxWait - (chanceLevel * 200));
 
-        // 캐스팅 보너스: 입질 대기시간 단축
+        // 罹먯뒪??蹂대꼫?? ?낆쭏 ?湲곗떆媛??⑥텞
         if (this.castingBonus === 3) maxWait = Math.max(800, maxWait * 0.5);
         else if (this.castingBonus === 2) maxWait = Math.max(900, maxWait * 0.75);
 
@@ -536,10 +536,11 @@ export default class GameScene extends Phaser.Scene {
             this.regionFishCount = 0;
 
             const bossLabel = this.bossVariant === 'empowered'
-                ? '?슚 媛뺥솕 蹂댁뒪 異쒗쁽! ?슚'
-                : (this.bossVariant === 'returning' ? '?슚 蹂댁뒪 ?ъ벑?? ?슚' : '?슚 留덉솗 異쒗쁽 寃쎄퀬! ?슚');
+                ? '강화 보스 출현! 조심!'
+                : (this.bossVariant === 'returning' ? '재등장 보스다! 집중!' : '보스 출현! 조심!');
 
-            this.uiElements.instruction.setText(`${bossLabel}\n?쒓컙 ?댁뿉 ?≪븘??!`);
+            this.uiElements.instruction.setText(`${bossLabel}\n더 빠르게 릴을 감아!`);
+
             this.cameras.main.shake(1500, 0.02);
             this.cameras.main.flash(500, 255, 0, 0);
             window.gameManagers.soundManager.playError();
@@ -554,31 +555,31 @@ export default class GameScene extends Phaser.Scene {
             if (this.treasureIslandBuff && this.treasureIslandBuff.type === 'ssrBoost' && this.treasureIslandBuff.remaining > 0) {
                 rareFishBoost = 3;
                 this.consumeTreasureIslandBuff();
-                this.showFloatingNotice('蹂대Ъ???됰줉! ?ш? 臾쇨퀬湲??좏솗 ?낅줈!', '#8be9fd');
+                this.showFloatingNotice('보물섬 버프 발동! 희귀 물고기 확률이 크게 올랐어!', '#8be9fd');
             }
 
             this.currentFish = getRandomFish(rodLuckLevel, this.region, this.castingBonus, comboCount, rareFishBoost);
         }
 
-        // --- 10% 확률로 보스(마왕) 출현 (지역당 5회 낚시 이후 + 아직 안 잡았을 때) ---
+        // --- 10% ?뺣쪧濡?蹂댁뒪(留덉솗) 異쒗쁽 (吏??떦 5???싳떆 ?댄썑 + ?꾩쭅 ???≪븯???? ---
         if (false) {
             this.isBossFight = true;
             const regionList = FISH_TYPES.filter(f => f.region === this.region);
             const ssrFishes = regionList.filter(f => f.grade === 'SSR');
             this.currentFish = ssrFishes.length > 0 ? ssrFishes[0] : regionList[regionList.length - 1];
-            this.uiElements.instruction.setText('🚨 마왕 출현 경고! 🚨\n시간 내에 잡아라!!');
+            this.uiElements.instruction.setText('?슚 留덉솗 異쒗쁽 寃쎄퀬! ?슚\n?쒓컙 ?댁뿉 ?≪븘??!');
             this.cameras.main.shake(1500, 0.02);
             this.cameras.main.flash(500, 255, 0, 0);
-            window.gameManagers.soundManager.playError(); // 씬 진입 경고음
+            window.gameManagers.soundManager.playError(); // ??吏꾩엯 寃쎄퀬??
         } else if (!this.currentFish) {
             this.isBossFight = false;
-            // 물고기 종류 결정 (캐스팅 보너스 + 콤보 적용)
+            // 臾쇨퀬湲?醫낅쪟 寃곗젙 (罹먯뒪??蹂대꼫??+ 肄ㅻ낫 ?곸슜)
             const rodLuckLevel = pm.stats.rodLuck;
             const comboCount = pm.comboCount || 0;
             this.currentFish = getRandomFish(rodLuckLevel, this.region, this.castingBonus, comboCount);
         }
 
-        // --- 3~5마리 물고기 접근 연출 ---
+        // --- 3~5留덈━ 臾쇨퀬湲??묎렐 ?곗텧 ---
         this.approachFishes = [];
         const numFishes = Phaser.Math.Between(3, 5);
         const biterIndex = Phaser.Math.Between(0, numFishes - 1);
@@ -586,10 +587,10 @@ export default class GameScene extends Phaser.Scene {
         for (let i = 0; i < numFishes; i++) {
             const isBiter = (i === biterIndex);
 
-            // 물고기 종류: 무는 놈은 currentFish, 나머지는 랜덤
+            // 臾쇨퀬湲?醫낅쪟: 臾대뒗 ?덉? currentFish, ?섎㉧吏???쒕뜡
             const fData = isBiter ? this.currentFish : getRandomFish(0, this.region);
 
-            // 사방에서 등장하도록 랜덤 시작 위치
+            // ?щ갑?먯꽌 ?깆옣?섎룄濡??쒕뜡 ?쒖옉 ?꾩튂
             const side = Phaser.Math.Between(0, 3);
             let startX, startY;
             if (side === 0) { startX = lureX + Phaser.Math.Between(150, 300); startY = lureY + Phaser.Math.Between(-80, 80); }
@@ -601,10 +602,10 @@ export default class GameScene extends Phaser.Scene {
             fishSprite.setScale(fData.scale * 1.2);
             fishSprite.setDepth(1);
             fishSprite.setAlpha(0.8);
-            fishSprite.flipX = (startX > lureX); // 찌를 바라보도록
+            fishSprite.flipX = (startX > lureX); // 李뚮? 諛붾씪蹂대룄濡?
 
             if (isBiter) {
-                // === 무는 물고기: 찌까지 직행 ===
+                // === 臾대뒗 臾쇨퀬湲? 李뚭퉴吏 吏곹뻾 ===
                 this.tweens.add({
                     targets: fishSprite,
                     x: lureX,
@@ -615,18 +616,18 @@ export default class GameScene extends Phaser.Scene {
                         this.startBite(lureX, lureY);
                     }
                 });
-                // 메인 fish 스프라이트에도 반영 (입질 연출용)
+                // 硫붿씤 fish ?ㅽ봽?쇱씠?몄뿉??諛섏쁺 (?낆쭏 ?곗텧??
                 this.fish.setTexture(this.currentFish.id);
                 this.fish.setScale(this.currentFish.scale * 1.5);
                 console.log(`[DEBUG FISH] ${this.currentFish.id} | FishData scale: ${this.currentFish.scale} | applied: ${this.currentFish.scale * 1.5} | sprite displayW: ${this.fish.displayWidth}, displayH: ${this.fish.displayHeight}`);
                 this.fish.clearTint();
-                this.fish.setVisible(false); // 접근 중에는 approachFish가 보이므로 숨김
+                this.fish.setVisible(false); // ?묎렐 以묒뿉??approachFish媛 蹂댁씠誘濡??④?
             } else {
-                // === 안 무는 물고기: 다양한 행동 ===
+                // === ??臾대뒗 臾쇨퀬湲? ?ㅼ뼇???됰룞 ===
                 const behavior = Phaser.Math.Between(0, 2);
 
                 if (behavior === 0) {
-                    // (A) 거의 물 뻔하다 턱 돌아감
+                    // (A) 嫄곗쓽 臾?六뷀븯?????뚯븘媛?
                     const nearX = lureX + Phaser.Math.Between(-30, 30);
                     const nearY = lureY + Phaser.Math.Between(-20, 30);
                     const approachTime = Phaser.Math.Between(800, waitTime * 0.7);
@@ -636,7 +637,7 @@ export default class GameScene extends Phaser.Scene {
                         duration: approachTime,
                         ease: 'Sine.easeInOut',
                         onComplete: () => {
-                            // 턱 돌아감
+                            // ???뚯븘媛?
                             fishSprite.flipX = !fishSprite.flipX;
                             this.tweens.add({
                                 targets: fishSprite,
@@ -650,7 +651,7 @@ export default class GameScene extends Phaser.Scene {
                         }
                     });
                 } else if (behavior === 1) {
-                    // (B) 관심 없이 느릿느릿 지나감
+                    // (B) 愿???놁씠 ?먮┸?먮┸ 吏?섍컧
                     const passX = startX > lureX ? lureX - 200 : lureX + 200;
                     this.tweens.add({
                         targets: fishSprite,
@@ -661,7 +662,7 @@ export default class GameScene extends Phaser.Scene {
                         onComplete: () => fishSprite.destroy()
                     });
                 } else {
-                    // (C) 빙글빙글 주위를 맴돌다 떠남
+                    // (C) 鍮숆?鍮숆? 二쇱쐞瑜?留대룎???좊궓
                     const orbitRadius = Phaser.Math.Between(60, 120);
                     const orbitDuration = Phaser.Math.Between(1500, 2500);
                     this.tweens.add({
@@ -696,7 +697,7 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    // 접근 물고기 전부 제거
+    // ?묎렐 臾쇨퀬湲??꾨? ?쒓굅
     clearApproachFishes() {
         if (this.approachFishes) {
             this.approachFishes.forEach(f => {
@@ -709,19 +710,19 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    // --- Phase 2: 입질 (Bite) ---
+    // --- Phase 2: ?낆쭏 (Bite) ---
     startBite(x, y) {
         this.gameState = 'BITE';
-        this.uiElements.instruction.setText('지금 탭하세요!!!');
+        this.uiElements.instruction.setText('지금 바로 눌러!!!');
 
-        // 느낌표를 화면 중앙에 크게 표시 (즉각적 피드백)
+        // ?먮굦?쒕? ?붾㈃ 以묒븰???ш쾶 ?쒖떆 (利됯컖???쇰뱶諛?
         this.uiElements.exclamation.setPosition(this.scale.width / 2, this.scale.height / 2 - 50);
         this.uiElements.exclamation.setVisible(true);
         this.uiElements.exclamation.setRotation(0);
 
         window.gameManagers.soundManager.playBite();
 
-        // 느낌표 애니메이션: 스케일 펄스 + 거친 회전 진동
+        // ?먮굦???좊땲硫붿씠?? ?ㅼ????꾩뒪 + 嫄곗튇 ?뚯쟾 吏꾨룞
         this.tweens.add({
             targets: this.uiElements.exclamation,
             scale: { from: 0.8, to: 2.0 },
@@ -738,10 +739,10 @@ export default class GameScene extends Phaser.Scene {
             ease: 'Sine.easeInOut'
         });
 
-        // 화면 번쩍 (빨간빛으로 위급함 전달)
+        // ?붾㈃ 踰덉찉 (鍮④컙鍮쏆쑝濡??꾧툒???꾨떖)
         this.cameras.main.flash(200, 255, 50, 50, true);
 
-        // 찌 요동치게
+        // 李??붾룞移섍쾶
         this.tweens.add({
             targets: this.lure,
             x: x + 10,
@@ -750,22 +751,22 @@ export default class GameScene extends Phaser.Scene {
             duration: 50
         });
 
-        // 일정 시간 내에 클릭 안 하면 실패 (보물섬은 1.2초로 단축)
+        // ?쇱젙 ?쒓컙 ?댁뿉 ?대┃ ???섎㈃ ?ㅽ뙣 (蹂대Ъ?ъ? 1.2珥덈줈 ?⑥텞)
         const biteTimeout = this.region === 4 ? 1200 : 1500;
         this.time.delayedCall(biteTimeout, () => {
             if (this.gameState === 'BITE') {
-                this.failFishing('물고기가 도망갔어요...');
+                this.failFishing('물고기가 도망가 버렸어...');
             }
         });
     }
 
     activateFeverTime() {
         this.isFeverTime = true;
-        this.catchMax = Math.max(10, this.catchMax * 0.5); // 잡기 더 쉽게 (체력 절반)
-        this.cameras.main.setBackgroundColor('#4a0000'); // 배경 약간 붉은 피버 연출
+        this.catchMax = Math.max(10, this.catchMax * 0.5); // ?↔린 ???쎄쾶 (泥대젰 ?덈컲)
+        this.cameras.main.setBackgroundColor('#4a0000'); // 諛곌꼍 ?쎄컙 遺됱? ?쇰쾭 ?곗텧
 
-        // 피버타임 알림 텍스트 효과
-        const feverText = this.add.text(this.scale.width / 2, this.scale.height * 0.3, '🔥 피버 타임! 낚시가 쉬워집니다! 🔥', {
+        // ?쇰쾭????뚮┝ ?띿뒪???④낵
+        const feverText = this.add.text(this.scale.width / 2, this.scale.height * 0.3, 'FEVER TIME! 낚시가 훨씬 쉬워졌어!', {
             fontSize: '36px', fontFamily: 'Arial', color: '#FF4500', stroke: '#FFFFFF', strokeThickness: 4
         }).setOrigin(0.5).setDepth(100);
 
@@ -782,32 +783,32 @@ export default class GameScene extends Phaser.Scene {
     endFeverTime() {
         this.isFeverTime = false;
         this.consecutiveFails = 0;
-        this.cameras.main.setBackgroundColor('#2c3e50'); // 원래 배경으로 복구
+        this.cameras.main.setBackgroundColor('#2c3e50'); // ?먮옒 諛곌꼍?쇰줈 蹂듦뎄
     }
 
-    // --- Phase 3: 잡기 (Catch) - 3종 미니게임 랜덤 ---
+    // --- Phase 3: ?↔린 (Catch) - 3醫?誘몃땲寃뚯엫 ?쒕뜡 ---
     startCatch() {
         this.gameState = 'CATCH';
         this.lineTension = 0;
-        this.catchGraceTimer = 300; // 0.3초 게이지 하락 무적 시간
+        this.catchGraceTimer = 300; // 0.3珥?寃뚯씠吏 ?섎씫 臾댁쟻 ?쒓컙
 
         this.catchMax = this.currentFish.catchMax || 100;
         this.catchGauge = this.catchMax * 0.15;
 
         if (this.isBossFight) {
-            this.catchMax *= 3; // 보스 catchMax ×3
-            this.bossTimeLimit = 15; // 15초 제한
+            this.catchMax *= 3; // 蹂댁뒪 catchMax 횞3
+            this.bossTimeLimit = 15; // 15珥??쒗븳
             this.bossTimer = 0;
             const pm = window.gameManagers.playerModel;
             if (pm.bossFailed[this.region]) {
-                // 이전 실패 보너스 (힌트/학습 효과)
-                this.catchGauge = this.catchMax * 0.3; // 30%에서 시작
+                // ?댁쟾 ?ㅽ뙣 蹂대꼫??(?뚰듃/?숈뒿 ?④낵)
+                this.catchGauge = this.catchMax * 0.3; // 30%?먯꽌 ?쒖옉
             }
-            // 보스 타이머 UI 초기화 및 숨김 (update에서 다시 표시)
+            // 蹂댁뒪 ??대㉧ UI 珥덇린??諛??④? (update?먯꽌 ?ㅼ떆 ?쒖떆)
             if (this.uiElements.bossTimerText) this.uiElements.bossTimerText.setVisible(false);
         }
 
-        // --- Fever Time 적용 체크 ---
+        // --- Fever Time ?곸슜 泥댄겕 ---
         if (this.isBossFight) {
             const bossConfig = this.getBossConfig();
             this.catchMax = (this.currentFish.catchMax || 100) * bossConfig.catchMultiplier;
@@ -825,47 +826,47 @@ export default class GameScene extends Phaser.Scene {
         if (this.treasureIslandBuff && this.treasureIslandBuff.type === 'gaugeImmunity' && this.treasureIslandBuff.remaining > 0) {
             this.activeCatchBuff = { ...this.treasureIslandBuff };
             this.consumeTreasureIslandBuff();
-            this.showFloatingNotice('蹂대Ъ???됰줉! ?좎떆 寃뚯씠吏媛 以꾩? ?딆븘??', '#7fdcff');
+            this.showFloatingNotice('보물섬 버프 발동! 잠시 동안 게이지가 줄지 않아!', '#7fdcff');
         }
 
         if (this.consecutiveFails >= 3) {
             this.activateFeverTime();
         }
 
-        // --- 미니게임 임시 중단, 연타로 단일화 ---
+        // --- 誘몃땲寃뚯엫 ?꾩떆 以묐떒, ?고?濡??⑥씪??---
         this.miniGameType = 'mash';
 
         if (this.miniGameType === 'timing') {
-            this.uiElements.instruction.setText('초록 구간에서 탭하세요!');
+            this.uiElements.instruction.setText('珥덈줉 援ш컙?먯꽌 ??븯?몄슂!');
             this.timingHits = 0;
             this.timingRequired = Phaser.Math.Between(3, 5);
             const gw = this.gaugeWidth || 400;
-            // 초록 구간 위치 (30~70% 사이 랜덤, 폭 20%)
+            // 珥덈줉 援ш컙 ?꾩튂 (30~70% ?ъ씠 ?쒕뜡, ??20%)
             this.timingGreenStart = Phaser.Math.FloatBetween(0.3, 0.6);
             this.timingGreenEnd = this.timingGreenStart + 0.15;
             this.timingBarX = 0;
             this.timingBarDir = 1;
         } else if (this.miniGameType === 'draw') {
-            this.uiElements.instruction.setText('나타나는 모양을 따라 그리세요!');
+            this.uiElements.instruction.setText('?섑??섎뒗 紐⑥뼇???곕씪 洹몃━?몄슂!');
             this.drawUserPath = [];
             this.isDrawing = false;
             this.generateDrawPath();
 
         } else {
-            this.uiElements.instruction.setText('화면을 마구 클릭하세요!!!');
+            this.uiElements.instruction.setText('화면을 마구 눌러 주세요!!');
         }
 
-        // 기존 이펙트 정리
+        // 湲곗〈 ?댄럺???뺣━
         this.tweens.killTweensOf(this.uiElements.exclamation);
         this.tweens.killTweensOf(this.lure);
         this.uiElements.exclamation.setVisible(false);
         this.clearApproachFishes();
-        // CATCH 단계 초기화
+        // CATCH ?④퀎 珥덇린??
         this.clearApproachFishes();
         this.lure.setVisible(true);
         this.fish.setVisible(false);
 
-        // 그리기 미니게임 그래픽 준비
+        // 洹몃━湲?誘몃땲寃뚯엫 洹몃옒??以鍮?
         if (!this.drawGraphics) {
             this.drawGraphics = this.add.graphics().setDepth(15);
         }
@@ -884,16 +885,16 @@ export default class GameScene extends Phaser.Scene {
             }
             this.drawGraphics.strokePath();
 
-            // 점선 힌트용 파티클 또는 마커
+            // ?먯꽑 ?뚰듃???뚰떚???먮뒗 留덉빱
             this.drawGraphics.fillStyle(0xffff00, 1);
             this.drawGraphics.fillCircle(this.drawPath[0].x, this.drawPath[0].y, 8);
         }
 
-        // 게이지 UI 표시
+        // 寃뚯씠吏 UI ?쒖떆
         this.uiElements.gaugeBg.setVisible(true);
         this.uiElements.gaugeBar.setVisible(true);
-        // 텐션 UI 우선 중단에 따른 숨김 처리
-        if (false) { // 기존 텐션 표시 영역은 무시
+        // ?먯뀡 UI ?곗꽑 以묐떒???곕Ⅸ ?④? 泥섎━
+        if (false) { // 湲곗〈 ?먯뀡 ?쒖떆 ?곸뿭? 臾댁떆
             this.uiElements.tensionBg.setVisible(true);
             this.uiElements.tensionBar.setVisible(true);
             this.uiElements.tensionWarn.setVisible(true);
@@ -903,7 +904,7 @@ export default class GameScene extends Phaser.Scene {
         this.cameras.main.zoomTo(1.1, 300);
     }
 
-    // 따라 그리기 경로 생성
+    // ?곕씪 洹몃━湲?寃쎈줈 ?앹꽦
     generateDrawPath() {
         this.drawPath = [];
         const cx = this.scale.width / 2;
@@ -916,7 +917,7 @@ export default class GameScene extends Phaser.Scene {
                 this.drawPath.push({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
             }
         } else {
-            // 직선 (좌->우 또는 대각선)
+            // 吏곸꽑 (醫?>???먮뒗 ?媛곸꽑)
             const startX = cx - 80;
             const endX = cx + 80;
             const startY = cy - 30;
@@ -928,7 +929,7 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    // --- CATCH 상태 입력 핸들러 (미니게임별 분기) ---
+    // --- CATCH ?곹깭 ?낅젰 ?몃뱾??(誘몃땲寃뚯엫蹂?遺꾧린) ---
     handleCatchInput(pointer) {
         if (this.miniGameType === 'timing') {
             this.handleTimingTap();
@@ -966,12 +967,12 @@ export default class GameScene extends Phaser.Scene {
             this.catchGauge -= this.catchMax * 0.1;
             window.gameManagers.soundManager.playError();
             this.cameras.main.shake(100, 0.01);
-            this.generateDrawPath(); // 다시 그리기
+            this.generateDrawPath(); // ?ㅼ떆 洹몃━湲?
             this.startCatchGraphicsForDraw();
             return;
         }
 
-        // 단순 매칭 평가: 사용자의 선 길이와 시작/끝점이 가이드에 얼마나 일치하는지
+        // ?⑥닚 留ㅼ묶 ?됯?: ?ъ슜?먯쓽 ??湲몄씠? ?쒖옉/?앹젏??媛?대뱶???쇰쭏???쇱튂?섎뒗吏
         let score = 0;
         const targetStart = this.drawPath[0];
         const targetEnd = this.drawPath[this.drawPath.length - 1];
@@ -981,21 +982,21 @@ export default class GameScene extends Phaser.Scene {
 
         const startDist = Phaser.Math.Distance.Between(targetStart.x, targetStart.y, userStart.x, userStart.y);
         const endDist1 = Phaser.Math.Distance.Between(targetEnd.x, targetEnd.y, userEnd.x, userEnd.y);
-        const endDist2 = Phaser.Math.Distance.Between(targetStart.x, targetStart.y, userEnd.x, userEnd.y); // 반대로 그렸을 경우
+        const endDist2 = Phaser.Math.Distance.Between(targetStart.x, targetStart.y, userEnd.x, userEnd.y); // 諛섎?濡?洹몃졇??寃쎌슦
 
-        // 허용 반경 내에 있나
+        // ?덉슜 諛섍꼍 ?댁뿉 ?덈굹
         if (startDist < 60 && Math.min(endDist1, endDist2) < 60) {
             score = 100;
         }
 
         if (score > 50) {
-            // 성공
-            const progress = this.catchMax / 3; // 3번 그리면 성공하도록
+            // ?깃났
+            const progress = this.catchMax / 3; // 3踰?洹몃━硫??깃났?섎룄濡?
             this.catchGauge += progress;
             window.gameManagers.soundManager.playSuccess();
             this.cameras.main.flash(100, 0, 255, 0);
         } else {
-            // 실패
+            // ?ㅽ뙣
             this.catchGauge -= this.catchMax * 0.08;
             window.gameManagers.soundManager.playError();
             this.cameras.main.shake(100, 0.01);
@@ -1008,11 +1009,11 @@ export default class GameScene extends Phaser.Scene {
             if (this.drawUserGraphics) this.drawUserGraphics.clear();
         } else if (this.catchGauge <= 0) {
             this.catchGauge = 0;
-            this.failFishing('모양이 너무 달라요...');
+            this.failFishing('모양이 조금 달랐어...');
             if (this.drawGraphics) this.drawGraphics.clear();
             if (this.drawUserGraphics) this.drawUserGraphics.clear();
         } else {
-            // 다음 문제
+            // ?ㅼ쓬 臾몄젣
             this.generateDrawPath();
             this.startCatchGraphicsForDraw();
         }
@@ -1034,9 +1035,9 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    // 타이밍 탭 미니게임 처리
+    // ??대컢 ??誘몃땲寃뚯엫 泥섎━
     handleTimingTap() {
-        const pos = this.timingBarX; // 0~1 범위
+        const pos = this.timingBarX; // 0~1 踰붿쐞
         const inGreen = pos >= this.timingGreenStart && pos <= this.timingGreenEnd;
 
         if (inGreen) {
@@ -1046,7 +1047,7 @@ export default class GameScene extends Phaser.Scene {
             this.cameras.main.flash(100, 0, 255, 0);
             window.gameManagers.soundManager.playSuccess();
 
-            // 새 초록 구간 랜덤 재배치
+            // ??珥덈줉 援ш컙 ?쒕뜡 ?щ같移?
             this.timingGreenStart = Phaser.Math.FloatBetween(0.2, 0.65);
             this.timingGreenEnd = this.timingGreenStart + 0.15;
         } else {
@@ -1068,18 +1069,18 @@ export default class GameScene extends Phaser.Scene {
         const progress = Math.max(5, (powerLevel * reelLevel) / fishDifficulty);
         this.catchGauge += progress;
 
-        // --- 줄 텐션 증가 임시 중단 ---
+        // --- 以??먯뀡 利앷? ?꾩떆 以묐떒 ---
         // this.lineTension = Phaser.Math.Clamp(this.lineTension + 0.12, 0, 1);
 
-        // --- 줄 끊김 판정 임시 중단 ---
+        // --- 以??딄? ?먯젙 ?꾩떆 以묐떒 ---
         // const safeLimit = this.getTensionSafeLimit();
         // if (this.lineTension >= 0.95) {
-        //     // 줄 끊김!
+        //     // 以??딄?!
         //     this.cameras.main.shake(300, 0.03);
-        //     this.failFishing('앗! 줄이 끊어졌어요! 너무 세게 당겼나봐요...');
+        //     this.failFishing('?? 以꾩씠 ?딆뼱議뚯뼱?? ?덈Т ?멸쾶 ?밴꼈?섎킄??..');
         //     return;
         // } else if (this.lineTension >= safeLimit) {
-        //     this.uiElements.tensionWarn.setText('⚠️ 너무 세게! 줄이 끊어질 것 같아!');
+        //     this.uiElements.tensionWarn.setText('?좑툘 ?덈Т ?멸쾶! 以꾩씠 ?딆뼱吏?寃?媛숈븘!');
         //     this.uiElements.tensionWarn.setVisible(true);
         // } else {
         //     this.uiElements.tensionWarn.setText('');
@@ -1095,7 +1096,7 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    // 어종별 텐션 안전 한계
+    // ?댁쥌蹂??먯뀡 ?덉쟾 ?쒓퀎
     getTensionSafeLimit() {
         const grade = this.currentFish ? this.currentFish.grade : 'N';
         if (grade === 'SSR') return 0.75;
@@ -1112,7 +1113,7 @@ export default class GameScene extends Phaser.Scene {
         if (widthPercent < 0.5) this.uiElements.gaugeBar.fillColor = 0xFFA500;
         else this.uiElements.gaugeBar.fillColor = 0x00FF00;
 
-        // 텐션 바 업데이트
+        // ?먯뀡 諛??낅뜲?댄듃
         if (this.uiElements.tensionBar && this.uiElements.tensionBar.visible) {
             this.uiElements.tensionBar.width = gaugeWidth * this.lineTension;
             const safeLimit = this.getTensionSafeLimit();
@@ -1135,18 +1136,18 @@ export default class GameScene extends Phaser.Scene {
         this.activeCatchBuff = null;
 
 
-        // 보스 타이머 숨김
+        // 蹂댁뒪 ??대㉧ ?④?
         if (this.uiElements.bossTimerText) this.uiElements.bossTimerText.setVisible(false);
 
-        // 피버 타임 해제
+        // ?쇰쾭 ????댁젣
         if (this.isFeverTime) this.endFeverTime();
 
-        // 연속 실패 초기화 + 콤보 증가
+        // ?곗냽 ?ㅽ뙣 珥덇린??+ 肄ㅻ낫 利앷?
         this.consecutiveFails = 0;
         window.gameManagers.playerModel.comboCount = (window.gameManagers.playerModel.comboCount || 0) + 1;
         const combo = window.gameManagers.playerModel.comboCount;
 
-        // 보스전 승리 처리
+        // 蹂댁뒪???밸━ 泥섎━
         const pm = window.gameManagers.playerModel;
         let isBossCatch = false;
         let bossRewardMultiplier = 1;
@@ -1160,9 +1161,9 @@ export default class GameScene extends Phaser.Scene {
             this.bossVariant = 'normal';
         }
 
-        // 콤보 UI 표시
+        // 肄ㅻ낫 UI ?쒖떆
         if (combo >= 2) {
-            this.uiElements.comboText.setText(`🔥 콤보 x${combo}!`);
+            this.uiElements.comboText.setText(`?뵦 肄ㅻ낫 x${combo}!`);
             this.uiElements.comboText.setVisible(true);
             this.tweens.add({
                 targets: this.uiElements.comboText,
@@ -1172,19 +1173,19 @@ export default class GameScene extends Phaser.Scene {
             });
         }
 
-        // 화려한 피드백 (화면 흔들림 크게 + 텍스트)
+        // ?붾젮???쇰뱶諛?(?붾㈃ ?붾뱾由??ш쾶 + ?띿뒪??
         this.cameras.main.shake(300, 0.02);
         this.cameras.main.flash(500, 255, 255, 255);
         window.gameManagers.soundManager.playSuccess();
 
-        // 마일스톤 진동 (모바일 지원시)
+        // 留덉씪?ㅽ넠 吏꾨룞 (紐⑤컮??吏?먯떆)
         if (navigator.vibrate) {
             navigator.vibrate([200, 100, 200]);
         }
 
-        this.uiElements.instruction.setText(`${this.currentFish.name}을(를) 잡았습니다!`);
+        this.uiElements.instruction.setText(`${this.currentFish.name}를 잡았어!`);
 
-        // 임시 파티클 폭죽 (스퀘어 모양)
+        // ?꾩떆 ?뚰떚????＝ (?ㅽ섏뼱 紐⑥뼇)
         const particles = this.add.particles(0, 0, 'dummy', {
             x: this.scale.width / 2,
             y: this.scale.height / 2,
@@ -1196,21 +1197,21 @@ export default class GameScene extends Phaser.Scene {
             tint: [this.currentFish.color, 0xffffff]
         });
 
-        // 폭죽 파티클 텍스처 (하얀 원 모양)
+        // ??＝ ?뚰떚???띿뒪泥?(?섏? ??紐⑥뼇)
         const g = this.make.graphics({ x: 0, y: 0, add: false });
         g.fillStyle(0xffffff);
         g.fillCircle(8, 8, 8);
         g.generateTexture('particleTexture', 16, 16);
         particles.setTexture('particleTexture');
 
-        particles.explode(50); // 한 번 터뜨림
+        particles.explode(50); // ??踰??곕쑉由?
 
-        // 물고기 종류에 따른 기본 보상
+        // 臾쇨퀬湲?醫낅쪟???곕Ⅸ 湲곕낯 蹂댁긽
         const baseGold = this.currentFish.baseReward;
 
-        let milestoneStoryData = null; // 마일스톤 달성 시 재생할 스토리 데이터
+        let milestoneStoryData = null; // 留덉씪?ㅽ넠 ?ъ꽦 ???ъ깮???ㅽ넗由??곗씠??
 
-        // 도감(PlayerModel)에 추가 및 마일스톤(10, 20, 50마리) 체크 (특별 아이템은 제외)
+        // ?꾧컧(PlayerModel)??異붽? 諛?留덉씪?ㅽ넠(10, 20, 50留덈━) 泥댄겕 (?밸퀎 ?꾩씠?쒖? ?쒖쇅)
         if (!this.currentFish.isSpecialItem) {
             window.gameManagers.playerModel.addFish(this.currentFish.id);
 
@@ -1225,46 +1226,46 @@ export default class GameScene extends Phaser.Scene {
 
             let title = '';
             if (count === 10 && !model.fishMilestonesSeen[fishId][10]) {
-                const titles10 = ['사냥꾼', '초보 학살자', '스토커', '단골손님', '원수'];
+                const titles10 = ['새싹 낚시꾼', '물고기 친구', '강태공 입문', '첫 수집왕', '낚시 천재'];
                 title = titles10[Math.floor(Math.random() * titles10.length)];
                 model.fishMilestonesSeen[fishId][10] = true;
             } else if (count === 20 && !model.fishMilestonesSeen[fishId][20]) {
-                const titles20 = ['파멸의 인도자', '재앙', '포식자', '전문 사냥꾼', '공포의 대왕'];
+                const titles20 = ['베테랑 낚시꾼', '바다 탐험가', '수집 고수', '릴 감기 달인', '챔피언'];
                 title = titles20[Math.floor(Math.random() * titles20.length)];
                 model.fishMilestonesSeen[fishId][20] = true;
             } else if (count === 50 && !model.fishMilestonesSeen[fishId][50]) {
-                const titles50 = ['씨를 말린 자', '멸종 위기 주범', '절대신', '마왕', '전설의 학살자'];
+                const titles50 = ['전설의 낚시왕', '바다의 수호자', '수집 마스터', '황금 손', '진짜 강태공'];
                 title = titles50[Math.floor(Math.random() * titles50.length)];
                 model.fishMilestonesSeen[fishId][50] = true;
             }
 
             if (title !== '') {
-                model.notify(); // 저장
+                model.notify(); // ???
                 if (count === 10) {
                     milestoneStoryData = [
-                        { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: `허허! ${fishName}만 ${count}마리를 낚다니!\n너에게 [ ${fishName} ${title} ] 칭호를 주마!` },
-                        { speaker: '정우', portrait: 'char_jeongwoo', text: `감사합니다! 제가 바로 ${fishName} ${title}입니다!!` }
+                        { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: `허허! ${fishName}를 벌써 ${count}마리나 잡았구나!\n이제부터 넌 [ ${fishName} ${title} ] 이다!` },
+                        { speaker: '정우', portrait: 'char_jeongwoo', text: `감사합니다! 저는 이제 ${fishName} ${title}예요!` }
                     ];
                 } else if (count === 20) {
                     milestoneStoryData = [
-                        { speaker: '아빠', portrait: 'char_dad', text: `정우야! 낚시 뉴스에 네 이름이 나왔단다!\n[ ${fishName} ${title} ] 이라고 부르더구나!` },
-                        { speaker: '정우', portrait: 'char_jeongwoo', text: `헉! 텔레비전에 내가 나왔다고?! 대박!` }
+                        { speaker: '아빠', portrait: 'char_dad', text: `정우가 잡은 ${fishName} 이야기가 동네에 퍼졌단다!\n이제 [ ${fishName} ${title} ] 라고 불러도 되겠어!` },
+                        { speaker: '정우', portrait: 'char_jeongwoo', text: `우와! 진짜 유명해진 것 같아!` }
                     ];
                 } else if (count === 50) {
                     milestoneStoryData = [
-                        { speaker: '세연', portrait: 'char_seyeon', text: `오빠! 동네 할아버지가 오빠보고\n[ ${fishName} ${title} ] 래! 무서워~` },
-                        { speaker: '정우', portrait: 'char_jeongwoo', text: `크하하! 바다의 모든 ${fishName}은 내가 접수한다!` }
+                        { speaker: '세연', portrait: 'char_seyeon', text: `오빠! 이제 모두가 오빠를 [ ${fishName} ${title} ] 라고 불러!` },
+                        { speaker: '정우', portrait: 'char_jeongwoo', text: `좋아! 이제 바다의 ${fishName}는 내가 다 모을 거야!` }
                     ];
                 }
             } else if (count === 1 && FIRST_CATCH_STORIES[fishId]) {
-                // 첫 획득 대사
+                // 泥??띾뱷 ???
                 milestoneStoryData = FIRST_CATCH_STORIES[fishId];
             }
 
-            // 보스 조우 대사가 최우선 적용 (마왕 1~3회차)
+            // 蹂댁뒪 議곗슦 ??ш? 理쒖슦???곸슜 (留덉솗 1~3?뚯감)
             if (isBossCatch) {
                 const bCount = pm.bossDefeatedCount[this.region];
-                // 1회, 2회, 3회차 대사 중 알맞은 것 선택. 3회 이후는 3회차 반복 또는 스킵
+                // 1?? 2?? 3?뚯감 ???以??뚮쭪? 寃??좏깮. 3???댄썑??3?뚯감 諛섎났 ?먮뒗 ?ㅽ궢
                 if (BOSS_STORIES[this.region] && bCount <= 3) {
                     const storyIndex = Math.min(bCount - 1, 2);
                     milestoneStoryData = BOSS_STORIES[this.region][storyIndex];
@@ -1272,112 +1273,112 @@ export default class GameScene extends Phaser.Scene {
             }
         }
 
-        // 2초 후 폭죽 파티클 제거 및 퀴즈 연동
+        // 2珥?????＝ ?뚰떚???쒓굅 諛??댁쫰 ?곕룞
         this.time.delayedCall(2000, async () => {
             particles.destroy();
 
             let finalGold = baseGold;
             if (isBossCatch) {
                 finalGold = Math.floor(finalGold * bossRewardMultiplier);
-                this.showFloatingNotice(`蹂댁뒪 蹂댁긽 x${bossRewardMultiplier.toFixed(1)}!`, '#ffb74d');
+                this.showFloatingNotice(`보스 보상 x${bossRewardMultiplier.toFixed(1)}!`, '#ffb74d');
             }
 
             if (this.currentFish.isSpecialItem) {
-                // 특별 아이템은 퀴즈를 진행하지 않고 즉시 보상 혹은 텍스트 판정
+                // ?밸퀎 ?꾩씠?쒖? ?댁쫰瑜?吏꾪뻾?섏? ?딄퀬 利됱떆 蹂댁긽 ?뱀? ?띿뒪???먯젙
                 if (this.currentFish.id === 'item_treasure') {
-                    this.uiElements.instruction.setText('대박! 황금 보물상자를 낚았습니다!');
+                    this.uiElements.instruction.setText('대박! 황금 보물상자를 낚아 올렸어!');
                     this.cameras.main.flash(500, 255, 215, 0);
                     window.gameManagers.soundManager.playSuccess();
                 } else if (this.currentFish.id === 'item_treasure_map') {
-                    this.uiElements.instruction.setText('오! 보물 지도의 한 조각이다! 어딘가에 보물이 숨겨져 있나봐!');
+                    this.uiElements.instruction.setText('오! 보물 지도의 한 조각이야! 어디에 보물이 숨겨져 있을까?');
                     this.cameras.main.flash(500, 222, 184, 135);
                     window.gameManagers.soundManager.playSuccess();
                 } else if (this.currentFish.id === 'item_pirates_sword') {
-                    this.uiElements.instruction.setText('옛날 해적이 쓰던 녹슨 칼이네... 멋있다!');
+                    this.uiElements.instruction.setText('낡은 해적의 검이야... 뭔가 멋진데?');
                 } else if (this.currentFish.id === 'item_pearl') {
-                    this.uiElements.instruction.setText('와!! 엄청 큰 진주다!! 엄마한테 선물해야지!');
+                    this.uiElements.instruction.setText('와!! 엄청 큰 진주다! 엄마께 보여드려야지!');
                     this.cameras.main.flash(500, 255, 250, 240);
                     window.gameManagers.soundManager.playSuccess();
                 } else if (this.currentFish.id === 'item_crown') {
-                    this.uiElements.instruction.setText('전설의 해적왕이 남긴 왕관!! 대박이다!!');
+                    this.uiElements.instruction.setText('전설의 해적왕 왕관이야!! 정말 대단해!');
                     this.cameras.main.flash(800, 255, 215, 0);
                     window.gameManagers.soundManager.playSuccess();
                 } else if (this.currentFish.id === 'item_shoe') {
                     const shoeMessages = [
-                        '에구... 누군가 버린 낡은 신발이네요.',
-                        '아이고~ 물고기인 줄 알았는데 낡은 장화였네요!',
-                        '구멍 난 신발이 올라왔어요. 발 냄새가 나는 것 같아요!',
-                        '낚싯줄에 웬 신발이? 바다에 쓰레기를 버리면 안 돼요!',
-                        '앗! 짝 잃은 신발이네요. 나머지 한 짝은 어디 있을까요?'
+                        '어라... 누가 버린 작은 신발이네?',
+                        '물고기인 줄 알았는데 신발이었어!',
+                        '구멍 난 신발이 파도에 둥둥 떠다녔나 봐.',
+                        '낚시 중에도 바다 쓰레기를 줄여야겠어!',
+                        '이 신발의 주인은 어디에 있을까?'
                     ];
                     const randomMsg = shoeMessages[Math.floor(Math.random() * shoeMessages.length)];
                     this.uiElements.instruction.setText(randomMsg);
                 } else if (this.currentFish.id === 'item_trash') {
                     const trashMessages = [
-                        '앗... 빈 깡통을 낚았습니다. 바다를 깨끗하게!',
-                        '찌글찌글한 고철 덩어리가 올라왔어요. 지구가 아파해요!',
-                        '물고기 대신 쓰레기가... 바다를 더 아껴줘야겠어요.',
-                        '이런! 바닷속에 쓰레기가 너무 많나 봐요.',
-                        '어머나, 빈 병이 올라왔네요. 분리수거를 잘해야겠어요!',
-                        '누가 먹다 버린 아이스크림 막대기네요. 개미들이 좋아하려나?',
-                        '낡은 고무장갑 한 짝? 바다 요정이 설거지하다 놓쳤나 봐요!',
-                        '바다거북인 줄 알았는데... 커다란 비닐봉지였어요!! 쓰레기 미워!',
-                        '녹슨 바퀴 휠! 아빠 자동차 바퀴가 하나 없어졌는지 확인해봐야겠어요.',
-                        '어라? 편지가 든 유리병 고물... "세연아 까까 사줘"라고 적혀있네요?'
+                        '앗.. 빈 깡통이 낚였어. 바다를 깨끗하게 해야겠어!',
+                        '반짝반짝한 게 보여서 기대했는데 쓰레기였네!',
+                        '물고기 대신 쓰레기가 나오다니... 바다가 아플 것 같아.',
+                        '이런! 바닷속에 쓰레기가 아직 많구나.',
+                        '빈 병이 흘러왔네. 꼭 분리수거해야지!',
+                        '누가 먹고 버린 포장지 같아. 바다가 슬퍼하겠어.',
+                        '바다 요정이 보면 속상해할 것 같아.',
+                        '바다거북이 잘못 먹을 수도 있겠어. 쓰레기는 정말 싫다!',
+                        '낡은 부품이네. 어디에서 떠내려왔을까?',
+                        '세연이랑 같이 바다 청소도 해보고 싶다!'
                     ];
                     const randomMsg = trashMessages[Math.floor(Math.random() * trashMessages.length)];
                     this.uiElements.instruction.setText(randomMsg);
                 }
             } else {
-                // 50% 확률 수학 퀴즈 팝업 (UIManager 연동)
+                // 50% ?뺣쪧 ?섑븰 ?댁쫰 ?앹뾽 (UIManager ?곕룞)
                 const quizResult = await window.gameManagers.uiManager.showMathQuizSecondChance(this.region);
                 let showTypingQuiz = false;
 
                 if (quizResult && quizResult.correct) {
-                    // 정답 시 20% 추가 보상
+                    // ?뺣떟 ??20% 異붽? 蹂댁긽
                     const mathBonusMultiplier = quizResult.attempt === 2 ? 1.1 : 1.2;
                     finalGold = Math.floor(finalGold * mathBonusMultiplier);
-                    this.cameras.main.flash(300, 255, 215, 0); // 황금색 플래시 보너스 피드백
+                    this.cameras.main.flash(300, 255, 215, 0); // ?⑷툑???뚮옒??蹂대꼫???쇰뱶諛?
 
-                    // 수학 퀴즈 맞춘 후 타이핑 퀴즈 (N등급 제외, 보물섬은 50%, 기본 35%)
+                    // ?섑븰 ?댁쫰 留욎텣 ????댄븨 ?댁쫰 (N?깃툒 ?쒖쇅, 蹂대Ъ?ъ? 50%, 湲곕낯 35%)
                     const typingQuizChance = this.region === 4 ? 0.50 : 0.35;
                     if (this.currentFish.grade !== 'N' && Math.random() < typingQuizChance) {
                         showTypingQuiz = true;
                     }
                 } else if (quizResult && !quizResult.correct) {
-                    // 오답 시 50% 삭감
+                    // ?ㅻ떟 ??50% ??컧
                     // No penalty on a missed quiz; just continue without the bonus.
-                    this.cameras.main.shake(300, 0.02); // 오답 피드백 흔들림
+                    this.cameras.main.shake(300, 0.02); // ?ㅻ떟 ?쇰뱶諛??붾뱾由?
                 }
 
-                // 타이핑 퀴즈 실행 (수학 퀴즈 정답 시 35% 확률)
+                // ??댄븨 ?댁쫰 ?ㅽ뻾 (?섑븰 ?댁쫰 ?뺣떟 ??35% ?뺣쪧)
                 if (showTypingQuiz) {
                     const typingResult = await window.gameManagers.uiManager.showTypingQuiz();
                     if (typingResult) {
-                        // 타이핑 퀴즈 정답 시 기존 보상값(finalGold)의 20% 추가 상승 (복리 계산)
+                        // ??댄븨 ?댁쫰 ?뺣떟 ??湲곗〈 蹂댁긽媛?finalGold)??20% 異붽? ?곸듅 (蹂듬━ 怨꾩궛)
                         finalGold = Math.floor(finalGold * 1.2);
-                        this.cameras.main.flash(300, 255, 20, 147); // 핑크색 플래시 보너스 피드백
+                        this.cameras.main.flash(300, 255, 20, 147); // ?묓겕???뚮옒??蹂대꼫???쇰뱶諛?
                     }
                 }
             }
 
-            // --- Rod Luck 보너스 코인 주머니 ---
+            // --- Rod Luck 蹂대꼫??肄붿씤 二쇰㉧??---
             if (this.treasureIslandBuff && this.treasureIslandBuff.type === 'doubleReward' && this.treasureIslandBuff.remaining > 0) {
                 finalGold *= 2;
                 this.consumeTreasureIslandBuff();
-                this.showFloatingNotice('蹂대Ъ???됰줉! 蹂댁긽 2諛?!', '#ffd54f');
+                this.showFloatingNotice('보물섬 버프 발동! 이번 보상은 2배!', '#ffd54f');
                 this.cameras.main.flash(300, 255, 235, 59);
             }
 
             const rodLuckLevel = window.gameManagers.playerModel.stats.rodLuck;
-            const bonusChance = rodLuckLevel * 0.05; // 레벨당 5% 확률
+            const bonusChance = rodLuckLevel * 0.05; // ?덈꺼??5% ?뺣쪧
             if (Math.random() < bonusChance) {
                 const bonusGold = Phaser.Math.Between(20, 50 + rodLuckLevel * 10);
                 finalGold += bonusGold;
                 this.cameras.main.flash(200, 255, 255, 0);
 
-                // 보너스 알림 텍스트
-                const bonusText = this.add.text(this.scale.width / 2, this.scale.height * 0.4, `💰 보너스 코인 주머니! +${bonusGold}G`, {
+                // 蹂대꼫???뚮┝ ?띿뒪??
+                const bonusText = this.add.text(this.scale.width / 2, this.scale.height * 0.4, `럭키 코인 보너스! +${bonusGold}G`, {
                     fontSize: '36px', fontFamily: 'Arial', color: '#FFD700',
                     stroke: '#000000', strokeThickness: 5
                 }).setOrigin(0.5).setDepth(50);
@@ -1390,11 +1391,11 @@ export default class GameScene extends Phaser.Scene {
                 });
             }
 
-            // 전역 PlayerModel에 골드 추가
+            // ?꾩뿭 PlayerModel??怨⑤뱶 異붽?
             window.gameManagers.playerModel.addGold(finalGold);
-            console.log(`획득 골드: ${finalGold} (현재 총합: ${window.gameManagers.playerModel.gold})`);
+            console.log(`?띾뱷 怨⑤뱶: ${finalGold} (?꾩옱 珥앺빀: ${window.gameManagers.playerModel.gold})`);
 
-            // --- 획득 금액 플로팅 텍스트 애니메이션 추가 ---
+            // --- ?띾뱷 湲덉븸 ?뚮줈???띿뒪???좊땲硫붿씠??異붽? ---
             const floatingText = this.add.text(this.scale.width / 2, this.scale.height * 0.5, `+${finalGold}G`, {
                 fontSize: '48px',
                 fontFamily: 'Arial',
@@ -1416,45 +1417,45 @@ export default class GameScene extends Phaser.Scene {
 
             this.updateGoalText();
 
-            // --- 챕터 진행 및 중간 이벤트 체크 ---
+            // --- 梨뺥꽣 吏꾪뻾 諛?以묎컙 ?대깽??泥댄겕 ---
             const model = window.gameManagers.playerModel;
             if (model.currentChapter <= 4) {
                 if (model.checkChapterGoal()) {
-                    // 목표 달성 시 챕터 전환
+                    // 紐⑺몴 ?ъ꽦 ??梨뺥꽣 ?꾪솚
                     this.triggerStoryTransition();
                     return;
                 } else {
-                    // 목표액의 50% 달성 시 중간 격려 이벤트 (각 챕터별 1회)
+                    // 紐⑺몴?≪쓽 50% ?ъ꽦 ??以묎컙 寃⑸젮 ?대깽??(媛?梨뺥꽣蹂?1??
                     const goal = model.chapterGoals[model.currentChapter];
                     if (model.gold >= goal / 2 && !model.hasSeenMidChapterEvent[model.currentChapter]) {
                         model.hasSeenMidChapterEvent[model.currentChapter] = true;
-                        model.notify(); // 저장
+                        model.notify(); // ???
 
                         let midStoryData = [];
                         if (model.currentChapter === 1) {
                             midStoryData = [
-                                { speaker: '엄마', portrait: 'char_mom', text: '정우야~ 벌써 목표 금액의 반이나 모았네! 근데 밥은 언제 먹으러 올거니?' },
-                                { speaker: '정우', portrait: 'char_jeongwoo', text: '물고기가 밥인데 무슨 소리세요 엄마! 좀만 더 잡을게요!' }
+                                { speaker: '엄마', portrait: 'char_mom', text: '정우야, 벌써 목표의 절반이나 모았네! 정말 잘하고 있어.' },
+                                { speaker: '정우', portrait: 'char_jeongwoo', text: '좋아! 조금만 더 잡으면 다음 지역으로 갈 수 있어!' }
                             ];
                         } else if (model.currentChapter === 2) {
                             midStoryData = [
-                                { speaker: '상점 할아버지', portrait: null, text: '허허, 꼬마야. 벌써 배 살 돈을 반이나 모았군. 대단혀~' },
-                                { speaker: '정우', portrait: 'char_jeongwoo', text: '할아버지 조금만 기다리세요. 제가 여기 바다 씨를 말려버릴테니까요!' }
+                                { speaker: '상점 할아버지', portrait: null, text: '허허, 벌써 절반 가까이 모았구나. 흐름이 아주 좋다!' },
+                                { speaker: '정우', portrait: 'char_jeongwoo', text: '기다려 주세요! 이 바다의 멋진 물고기를 더 잡아 올릴게요!' }
                             ];
                         } else if (model.currentChapter === 3) {
                             midStoryData = [
-                                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 까까 살 돈 반이나 모아써?!' },
-                                { speaker: '정우', portrait: 'char_jeongwoo', text: '세연아, 원양어선에는 과자 공장이 통째로 실려있단다. 기다려라!!' }
+                                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 이제 정말 끝이 보이기 시작했어!' },
+                                { speaker: '정우', portrait: 'char_jeongwoo', text: '응! 조금만 더 하면 보물섬으로 갈 수 있을 거야!' }
                             ];
                         } else if (model.currentChapter === 4) {
                             midStoryData = [
-                                { speaker: '아빠', portrait: 'char_dad', text: '(전화) 정우야! 보물섬에 갔다며?! 거기 위험하진 않고?' },
-                                { speaker: '정우', portrait: 'char_jeongwoo', text: '아빠 괜찮아요! 저 여기서 대왕오징어도 봤어요!!' },
-                                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 보물 찾으면 나도 줘!!!' }
+                                { speaker: '아빠', portrait: 'char_dad', text: '(전화) 정우야, 보물섬은 정말 위험할 수도 있어. 조심해야 한다!' },
+                                { speaker: '정우', portrait: 'char_jeongwoo', text: '아빠 걱정 마세요! 저 거대한 오징어도 이겨냈는걸요!' },
+                                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 보물도 꼭 찾아 줘!!' }
                             ];
                         }
 
-                        // 이벤트를 보고 난 후 다시 GameScene으로 돌아오도록 설정
+                        // ?대깽?몃? 蹂닿퀬 ?????ㅼ떆 GameScene?쇰줈 ?뚯븘?ㅻ룄濡??ㅼ젙
                         this.scene.start('StoryScene', {
                             storyData: midStoryData,
                             nextScene: 'GameScene',
@@ -1465,40 +1466,40 @@ export default class GameScene extends Phaser.Scene {
                 }
             }
 
-            // --- 보물섬 전용 랜덤 이벤트 (5% 확률) ---
+            // --- 蹂대Ъ???꾩슜 ?쒕뜡 ?대깽??(5% ?뺣쪧) ---
             if (this.region === 4 && !this.currentFish.isSpecialItem && Math.random() < 0.05) {
                 this.triggerTreasureIslandEvent();
             }
 
-            // --- 콤보 스토리 ---
+            // --- 肄ㅻ낫 ?ㅽ넗由?---
             let comboStoryData = null;
             const cCount = window.gameManagers.playerModel.comboCount; // Use the updated comboCount
 
             if (cCount === 10) {
                 comboStoryData = [
-                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 10번이나 연속으로 올렸어!\n이따 편의점 데려가 줄 거지?!' },
-                    { speaker: '정우', portrait: 'char_jeongwoo', text: '하하핫! 오늘 골든벨은 내가 울린다!' }
+                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 10번이나 연속으로 성공했어!\n오늘 감이 엄청 좋은데?' },
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: '좋았어! 오늘은 한 마리도 놓치지 않을 거야!' }
                 ];
             } else if (cCount === 20) {
                 comboStoryData = [
-                    { speaker: '아빠', portrait: 'char_dad', text: '우리 정우 대단하구나!!\n20번 한 번도 안 놓치고 완벽해!' },
-                    { speaker: '정우', portrait: 'char_jeongwoo', text: '히힛! 아빠한테 배운 기술 덕분이에요!' }
+                    { speaker: '아빠', portrait: 'char_dad', text: '우리 정우 대단하구나!!\n20번 연속 성공이라니 멋지다!' },
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: '헤헤! 아빠한테 배운 기술 덕분이에요!' }
                 ];
             } else if (cCount === 30) {
                 comboStoryData = [
-                    { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: '허허... 30연속 콤보라니...\n내 낡은 낚싯대가 명검이 되었구먼.' },
-                    { speaker: '정우', portrait: 'char_jeongwoo', text: '할아버지! 저 이제 바다의 왕자라고 불러주세요!' }
+                    { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: '허허... 30연속 콤보라니...\n이제 바다가 널 인정한 것 같구나.' },
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: '정말요?! 그럼 이제 바다 챔피언으로 불러 주세요!' }
                 ];
             } else if (cCount >= 50 && cCount % 50 === 0) {
                 comboStoryData = [
-                    { speaker: '정우', portrait: 'char_jeongwoo', text: `우하하하!! 기적의 ${cCount}콤보!!\n바다에 있는 모든 고기들아 다 내게로 오라!!!` },
-                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠 너무 시끄러워~ 물고기 도망가겠다 쉿!' },
-                    { speaker: '아빠', portrait: 'char_dad', text: '하하... 정우야 진정하렴. 동네 사람들 다 깨겠다.' },
-                    { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: '허허... 젊다는 건 참 좋은 것이여.' }
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: `우와아!! 기적의 ${cCount}콤보!!\n오늘은 정말 바다의 주인공이 된 기분이야!!!` },
+                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠 너무 멋있어~ 물고기들이 다 따라오나 봐!' },
+                    { speaker: '아빠', portrait: 'char_dad', text: '하하... 정우의 집중력이 정말 대단하구나.' },
+                    { speaker: '상점 할아버지', portrait: 'char_shopkeeper', text: '허허... 이건 진짜 전설이 될 기록이야.' }
                 ];
             }
 
-            // 마일스톤, 콤보 등 스토리 이벤트가 있으면 씬 전환 (보스/첫도감 보다 후순위)
+            // 留덉씪?ㅽ넠, 肄ㅻ낫 ???ㅽ넗由??대깽?멸? ?덉쑝硫????꾪솚 (蹂댁뒪/泥ル룄媛?蹂대떎 ?꾩닚??
             if (milestoneStoryData || comboStoryData) {
                 this.scene.start('StoryScene', {
                     storyData: milestoneStoryData || comboStoryData,
@@ -1512,7 +1513,7 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
-    failFishing(msg = '물고기가 도망갔어요...') {
+    failFishing(msg = '물고기가 도망가 버렸어...') {
         this.gameState = 'IDLE';
         this.tweens.killTweensOf(this.uiElements.exclamation);
         this.tweens.killTweensOf(this.lure);
@@ -1523,7 +1524,7 @@ export default class GameScene extends Phaser.Scene {
         this.activeCatchBuff = null;
         this.clearApproachFishes();
 
-        // UI 초기화
+        // UI 珥덇린??
         this.uiElements.gaugeBg.setVisible(false);
         this.uiElements.gaugeBar.setVisible(false);
         this.uiElements.tensionBg.setVisible(false);
@@ -1531,17 +1532,17 @@ export default class GameScene extends Phaser.Scene {
         this.uiElements.tensionWarn.setVisible(false);
 
 
-        // 보스 타이머 숨김
+        // 蹂댁뒪 ??대㉧ ?④?
         if (this.uiElements.bossTimerText) this.uiElements.bossTimerText.setVisible(false);
 
-        // 콤보 리셋
+        // 肄ㅻ낫 由ъ뀑
         window.gameManagers.playerModel.comboCount = 0;
         if (this.uiElements.comboText) this.uiElements.comboText.setVisible(false);
 
         if (this.isFeverTime) this.endFeverTime();
         this.consecutiveFails++;
 
-        // 보스전 패배 처리
+        // 蹂댁뒪???⑤같 泥섎━
         const pm = window.gameManagers.playerModel;
         if (this.isBossFight) {
             pm.bossFailed[this.region] = (pm.bossFailed[this.region] || 0) + 1;
@@ -1550,43 +1551,43 @@ export default class GameScene extends Phaser.Scene {
             this.bossVariant = 'normal';
         }
 
-        // 지역별 랜덤 실패 메시지 생성
+        // 吏??퀎 ?쒕뜡 ?ㅽ뙣 硫붿떆吏 ?앹꽦
         let finalMsg = msg;
         const randomChance = Math.random();
 
-        // 약 40% 확률로 특수 메시지 출력 (기존 메시지가 있을 경우)
+        // ??40% ?뺣쪧濡??뱀닔 硫붿떆吏 異쒕젰 (湲곗〈 硫붿떆吏媛 ?덉쓣 寃쎌슦)
         if (randomChance < 0.4) {
             if (this.region === 1) {
                 const freshMessages = [
-                    '어라 오리가 잡아간건가?',
-                    '똥새가 내걸 낚아챘어!',
-                    '놓치고 주변을 둘러보니 새매가 옆에 있었다.',
-                    '아 빵먹고싶다'
+                    '민물고기가 재빨리 도망가 버렸어!',
+                    '앗, 이번엔 타이밍이 조금 늦었어!',
+                    '조금만 더 집중하면 바로 잡을 수 있어!',
+                    '괜찮아! 다음엔 더 큰 물고기가 올 거야!'
                 ];
                 finalMsg = freshMessages[Math.floor(Math.random() * freshMessages.length)];
             } else if (this.region === 4) {
                 const treasureMessages = [
-                    '해적 유령이 물고기를 가져갔어!',
-                    '앗! 대왕문어 다리에 감겨서 놓쳤어!',
-                    '바다 귀신이 방해한 거야! 분명히!',
-                    '보물 지키는 수호신이 장난치나봐...',
-                    '크라켄이 우리 물고기를 빼앗아갔어!!'
+                    '해적의 그림자가 물고기를 놀라게 했나 봐!',
+                    '보물섬 바람이 오늘은 조금 심하네!',
+                    '바다 깊은 곳의 기운이 방해한 것 같아!',
+                    '보물섬 수호자가 한번 시험한 걸지도 몰라!',
+                    '괜찮아! 다음엔 더 멋진 보물이 나타날 거야!'
                 ];
                 finalMsg = treasureMessages[Math.floor(Math.random() * treasureMessages.length)];
             } else {
                 const seaMessages = [
-                    '아! 놓치고 보니 범고래였어!!',
-                    '뭐지? 놓친 물고기가 아빠처럼 생긴 고기였어!!'
+                    '아쉽지만 이번엔 놓쳤어!',
+                    '괜찮아, 다음 물고기는 더 쉽게 잡을 수 있을 거야!'
                 ];
                 finalMsg = seaMessages[Math.floor(Math.random() * seaMessages.length)];
             }
         }
 
-        // 연속 실패 UI 피드백
+        // ?곗냽 ?ㅽ뙣 UI ?쇰뱶諛?
         if (this.consecutiveFails >= 2) {
             const warnText = this.consecutiveFails >= 3
-                ? '🔥 다음 낚시는 피버타임!'
-                : `연속 실패 ${this.consecutiveFails}회...`;
+                ? '다음 낚시에서는 FEVER 타임이 찾아올지도 몰라!'
+                : `연속 실패 ${this.consecutiveFails}번...`;
             finalMsg += `\n${warnText}`;
         }
 
@@ -1604,24 +1605,6 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
-    triggerTreasureIslandEvent() {
-        const events = ['event_pirate', 'event_octopus', 'event_mermaid', 'event_rainbow', 'event_ghost'];
-        const evId = events[Math.floor(Math.random() * events.length)];
-
-        const pm = window.gameManagers.playerModel;
-        pm.registerEventCard(evId);
-
-        let evName = '';
-        if (evId === 'event_pirate') evName = '멀리서 해적선 목격!';
-        else if (evId === 'event_octopus') evName = '대왕문어의 이스터에그 파동!';
-        else if (evId === 'event_mermaid') evName = '어디선가 인어의 노래가...';
-        else if (evId === 'event_rainbow') evName = '밤하늘에 쌍무지개가 떴다!';
-        else if (evId === 'event_ghost') evName = '유령선이 배회하고 있다...';
-
-        this.uiElements.instruction.setText(`🃏 [이벤트 도감 달성] ${evName}`);
-        this.cameras.main.flash(600, 138, 43, 226); // 보라색 플래시
-        window.gameManagers.soundManager.playSuccess();
-    }
 
     updateGoalText() {
         if (!this.uiElements.goalText) {
@@ -1633,23 +1616,22 @@ export default class GameScene extends Phaser.Scene {
         const model = window.gameManagers.playerModel;
         const currentGold = model.gold;
 
-        // 모든 챕터 클리어
+        // 紐⑤뱺 梨뺥꽣 ?대━??
         if (model.highestChapter > 4) {
-            this.uiElements.goalText.setText('🎉 모든 챕터 클리어! 상점에서 엔딩 아이템을 확인하세요!');
+            this.uiElements.goalText.setText('모든 챕터 완료! 이제 원하는 곳에서 자유롭게 낚시하자!');
             return;
         }
 
-        // 현재 플레이 중인 지역이 아직 미해금 프론티어 챕터일 때만 목표 표시
+        // ?꾩옱 ?뚮젅??以묒씤 吏??씠 ?꾩쭅 誘명빐湲??꾨줎?곗뼱 梨뺥꽣???뚮쭔 紐⑺몴 ?쒖떆
         if (this.region === model.currentChapter && model.currentChapter <= 4) {
             const goal = model.chapterGoals[model.currentChapter];
-            const nextRegionNames = { 1: '연안 해금', 2: '먼 바다 해금', 3: '보물섬 해금', 4: '엔딩 해금' };
+            const nextRegionNames = { 1: '연안 열기', 2: '먼 바다 열기', 3: '보물섬 열기', 4: '최종 목표' };
             const label = nextRegionNames[model.currentChapter] || '목표';
             const percent = Math.min(100, Math.floor((currentGold / goal) * 100));
 
-            this.uiElements.goalText.setText(`🎯 ${label}: ${currentGold} / ${goal} G (${percent}%)`);
+            this.uiElements.goalText.setText(`목표 ${label}: ${currentGold} / ${goal} G (${percent}%)`);
         } else if (this.region < model.currentChapter) {
-            // 이미 클리어한 지역에서 자유 낚시 중
-            this.uiElements.goalText.setText('✅ 이 지역은 클리어! 자유낚시 중~');
+            this.uiElements.goalText.setText('이미 연 지역이야. 편하게 낚시를 즐겨!');
         } else {
             this.uiElements.goalText.setText('');
         }
@@ -1666,37 +1648,37 @@ export default class GameScene extends Phaser.Scene {
 
         if (currentCh === 1) {
             storyData = [
-                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 맛있는 까까 사왔어?! 진짜 맛있겠다 우와앙!' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '응! 오빠가 낚시에 소질이 있나봐. 더 멀리 나가서 큰 물고기를 잡아올게!' },
-                { speaker: '엄마', portrait: 'char_mom', text: '정우야, 연안으로 가는 건 위험할 수도 있어. 조심해야 한단다.' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '헤헤, 걱정마세요 엄마! 더 멋진 낚싯대도 살 거예요!' }
+                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 오늘 저녁 반찬 기대해도 되는 거지?' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '그럼! 이제 연안으로 가서 더 멋진 물고기를 잡아 올게!' },
+                { speaker: '엄마', portrait: 'char_mom', text: '연안은 민물보다 더 넓고 파도도 있어. 조심해야 해.' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '걱정 마세요, 엄마! 더 큰 물고기도 문제없어요!' }
             ];
         } else if (currentCh === 2) {
             storyData = [
-                { speaker: '세연', portrait: 'char_seyeon', text: '오빠 이번엔 왕 큰 물고기 잡아왔네!! 최고야!' },
-                { speaker: '엄마', portrait: 'char_mom', text: '어머, 우리 정우 정말 낚시 신동인가 보네. 오늘 저녁은 회 파티다!' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '이정도 쯤이야! 이제 진짜 먼 바다로 나가서 전설의 물고기를 낚아볼게!' }
+                { speaker: '세연', portrait: 'char_seyeon', text: '오빠 이번에도 큰 물고기를 잡았네!! 최고야!' },
+                { speaker: '엄마', portrait: 'char_mom', text: '우리 정우, 이제는 진짜 바다 탐험가 같구나.' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '이제 더 멀리 나가서 전설의 물고기도 만나 볼래!' }
             ];
         } else if (currentCh === 3) {
             storyData = [
-                { speaker: '상점 할아버지', portrait: null, text: '정우야, 너 혹시 보물섬이라고 들어봤냐?' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '보물섬이요?! 그런 게 진짜 있어요?!' },
-                { speaker: '상점 할아버지', portrait: null, text: '먼 바다 너머에 전설의 섬이 있다더라. 황금 물고기가 산다는...' },
-                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 황금 물고기 잡아와!! 반짝반짝!! ✨' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '좋아! 반드시 찾아내고 말겠어! 보물섬으로 출발!!' }
+                { speaker: '수수께끼 목소리', portrait: null, text: '보물섬으로 올 용기가 있는 자는 앞으로 나아오라...' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '누구지?! 저 멀리서 목소리가 들렸어!' },
+                { speaker: '수수께끼 목소리', portrait: null, text: '깊은 바다를 이겨 낸 낚시꾼만이 보물섬에 닿을 수 있다...' },
+                { speaker: '세연', portrait: 'char_seyeon', text: '오빠!! 보물섬이라니!! 진짜 가는 거야?' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '물론이지! 마지막 모험을 시작하자!' }
             ];
         } else if (currentCh === 4) {
             storyData = [
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '다 낚았다! 보물섬의 모든 물고기를 정복했어!!' },
-                { speaker: '아빠', portrait: 'char_dad', text: '정우야, 아빠 휴가나왔다... 응? 보물섬까지 갔다고??' },
-                { speaker: '정우', portrait: 'char_jeongwoo', text: '아빠! 저 황금 물고기도 잡았어요!! 전설이 진짜였어요!' },
-                { speaker: '엄마', portrait: 'char_mom', text: '어머머... 우리 정우 정말 대단하구나!!' },
-                { speaker: '세연', portrait: 'char_seyeon', text: '오빠 최고!! 이제 까까 잔뜩 사줘야돼!!' },
-                { speaker: '아빠', portrait: 'char_dad', text: '하하, 우리 정우 이제 집으로 돌아오자! 축하한다 아들!!' }
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '해냈다! 보물섬의 모든 시련을 이겨 냈어!!' },
+                { speaker: '아빠', portrait: 'char_dad', text: '정우야, 여기까지 오다니 정말 대단하구나!' },
+                { speaker: '정우', portrait: 'char_jeongwoo', text: '아빠! 황금 물고기까지 만났어요! 꿈만 같아요!' },
+                { speaker: '엄마', portrait: 'char_mom', text: '우리 정우가 이렇게 씩씩하게 해낼 줄 알았어!' },
+                { speaker: '세연', portrait: 'char_seyeon', text: '오빠 최고!! 이제 진짜 전설의 낚시왕이야!!' },
+                { speaker: '아빠', portrait: 'char_dad', text: '하하, 이제 집으로 돌아가서 축하 파티를 하자!' }
             ];
         }
 
-        // 축하 메시지 띄우기
+        // 異뺥븯 硫붿떆吏 ?꾩슦湲?
         const celebrateText = this.add.text(this.scale.width / 2, this.scale.height / 2, '챕터 목표 달성!!', {
             fontSize: '80px', fontFamily: 'Arial', color: '#FFD700', stroke: '#FF0000', strokeThickness: 10
         }).setOrigin(0.5).setDepth(100);
@@ -1709,7 +1691,7 @@ export default class GameScene extends Phaser.Scene {
             onComplete: () => {
                 this.cameras.main.fadeOut(500, 0, 0, 0);
                 this.cameras.main.once('camerafadeoutcomplete', () => {
-                    // EndingScene으로 직행 (챕터 4 클리어시)
+                    // EndingScene?쇰줈 吏곹뻾 (梨뺥꽣 4 ?대━?댁떆)
                     if (currentCh === 4) {
                         this.scene.start('EndingScene');
                     } else {
@@ -1724,93 +1706,6 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
-    // --- 보물섬 전용 랜덤 이벤트 시스템 ---
-    triggerTreasureIslandEvent() {
-        const events = [
-            {
-                name: '해적선 목격',
-                emoji: '🏴‍☠️',
-                message: '저기... 해적선이 보인다?! 보물이 떨어졌을지도!',
-                effect: () => {
-                    // 다음 1회 보상 2배 버프 (플래그 설정)
-                    this.treasureIslandBuff = { type: 'doubleReward', remaining: 1 };
-                }
-            },
-            {
-                name: '대왕문어 습격',
-                emoji: '🐙',
-                message: '으악! 대왕문어가 배를 흔든다! 물고기가 놀라서 가까이 왔나봐!',
-                effect: () => {
-                    // 다음 1회 게이지 하락 면제 (3초)
-                    this.treasureIslandBuff = { type: 'gaugeImmunity', remaining: 1, duration: 3000 };
-                }
-            },
-            {
-                name: '인어의 노래',
-                emoji: '🧜‍♀️',
-                message: '저 아름다운 노래는 뭐지...? 전설의 물고기가 가까이 온 것 같아!',
-                effect: () => {
-                    // 다음 1회 SSR 확률 3배 (플래그 설정)
-                    this.treasureIslandBuff = { type: 'ssrBoost', remaining: 1 };
-                }
-            },
-            {
-                name: '무지개 출현',
-                emoji: '🌈',
-                message: '와! 바다 위에 무지개가 떴어!! 행운의 징조야!',
-                effect: () => {
-                    // 즉시 보너스 1000G
-                    window.gameManagers.playerModel.addGold(1000);
-                    this.updateGoalText();
-                }
-            }
-            ,
-            {
-                name: '?좊졊??議곗슦',
-                emoji: '?뫛',
-                message: '?덇컻 ?띿뿉?쒕룄 ?좊졊?좎씠 吏?섍컯?듬땲?? ?ㅼ쓬 ???낆쭏媛 鍮좊Ⅴ寃? ?ㅼ뼱?ㅼ삱?ㅺ굔???숈븘??',
-                effect: () => {
-                    this.treasureIslandBuff = { type: 'gaugeImmunity', remaining: 1, duration: 4000 };
-                }
-            }
-        ];
-
-        const event = events[Math.floor(Math.random() * events.length)];
-        const eventCardIds = {
-            '?댁쟻??紐⑷꺽': 'event_pirate',
-            '??뺣Ц???듦꺽': 'event_octopus',
-            '?몄뼱???몃옒': 'event_mermaid',
-            '臾댁?媛?異쒗쁽': 'event_rainbow',
-            '?좊졊??議곗슦': 'event_ghost'
-        };
-        const eventCardId = eventCardIds[event.name];
-        if (eventCardId) {
-            window.gameManagers.playerModel.registerEventCard(eventCardId);
-        }
-        event.effect();
-
-        // 이벤트 알림 텍스트 (화면 중심에 크게)
-        const eventText = this.add.text(this.scale.width / 2, this.scale.height * 0.35,
-            `${event.emoji} ${event.name}! ${event.emoji}`, {
-            fontSize: '36px', fontFamily: 'Arial', color: '#FFD700',
-            stroke: '#000000', strokeThickness: 6, fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(100);
-
-        this.showFloatingNotice(event.message, '#FFFFFF', 0.42, '20px');
-
-        this.cameras.main.flash(400, 255, 215, 0);
-        window.gameManagers.soundManager.playSuccess();
-
-        // 2.5초 후 자동 페이드아웃
-        this.tweens.add({
-            targets: [eventText],
-            alpha: 0,
-            y: eventText.y - 50,
-            duration: 1000,
-            delay: 2000,
-            onComplete: () => { eventText.destroy(); }
-        });
-    }
 
     triggerTreasureIslandEvent() {
         const events = [
@@ -1904,7 +1799,7 @@ export default class GameScene extends Phaser.Scene {
         this.bossVariant = 'normal';
         this.isCharging = false;
         const regionNames = { 1: "민물", 2: "연안", 3: "먼 바다", 4: "보물섬" };
-        this.uiElements.instruction.setText(`${regionNames[this.region]}을 탭(클릭)해서 찌를 던지세요!`);
+        this.uiElements.instruction.setText(`${regionNames[this.region]}에서 낚시를 시작해 보자!`);
         this.updateGoalText();
         this.uiElements.gaugeBg.setVisible(false);
         this.uiElements.gaugeBar.setVisible(false);
@@ -1914,13 +1809,13 @@ export default class GameScene extends Phaser.Scene {
         if (this.uiElements.bossTimerText) this.uiElements.bossTimerText.setVisible(false);
 
 
-        // 과녁 힌트 다시 표시 (위치 재설정)
-        // 과녁 재설정 (repositionTargetRing이 알아서 배열을 갱신하고 화면에 표시함)
+        // 怨쇰뀅 ?뚰듃 ?ㅼ떆 ?쒖떆 (?꾩튂 ?ъ꽕??
+        // 怨쇰뀅 ?ъ꽕??(repositionTargetRing???뚯븘??諛곗뿴??媛깆떊?섍퀬 ?붾㈃???쒖떆??
         this.repositionTargetRing();
     }
 
     update(time, delta) {
-        // 물고기 실루엣 이동
+        // 臾쇨퀬湲??ㅻ（???대룞
         if (this.wanderingFishes) {
             this.wanderingFishes.forEach(fish => {
                 fish.x += fish.speed * fish.direction * (delta / 1000);
@@ -1942,22 +1837,22 @@ export default class GameScene extends Phaser.Scene {
             });
         }
 
-        // CATCH 상태에서의 게이지 자연 감소 로직 및 미니게임 루프
+        // CATCH ?곹깭?먯꽌??寃뚯씠吏 ?먯뿰 媛먯냼 濡쒖쭅 諛?誘몃땲寃뚯엫 猷⑦봽
         if (this.gameState === 'CATCH') {
-            // 보스 타임 리밋 처리
+            // 蹂댁뒪 ???由щ컠 泥섎━
             if (this.isBossFight) {
                 this.bossTimer += delta;
                 const timeLeft = Math.max(0, this.bossTimeLimit - (this.bossTimer / 1000));
-                this.uiElements.bossTimerText.setText(`마왕 제한시간: ${timeLeft.toFixed(1)}초`);
+                this.uiElements.bossTimerText.setText(`보스 남은 시간: ${timeLeft.toFixed(1)}초`);
                 this.uiElements.bossTimerText.setVisible(true);
 
                 if (timeLeft <= 0) {
-                    this.failFishing('시간 초과! 마왕이 도망갔다...');
+                    this.failFishing('시간 초과! 보스가 도망가 버렸어...');
                     return;
                 }
             }
 
-            // --- Fever Time 타이머 ---
+            // --- Fever Time ??대㉧ ---
             if (this.isFeverTime) {
                 this.feverTimeRemaining -= delta;
                 if (this.feverTimeRemaining <= 0) {
@@ -1965,7 +1860,7 @@ export default class GameScene extends Phaser.Scene {
                 }
             }
 
-            // 피버 타임이 아닐 때만 게이지 하락
+            // ?쇰쾭 ??꾩씠 ?꾨땺 ?뚮쭔 寃뚯씠吏 ?섎씫
             const hasGaugeImmunity = !!(this.activeCatchBuff && this.activeCatchBuff.type === 'gaugeImmunity' && this.activeCatchBuff.duration > 0);
             if (hasGaugeImmunity) {
                 this.activeCatchBuff.duration -= delta;
@@ -1977,13 +1872,13 @@ export default class GameScene extends Phaser.Scene {
             if (!this.isFeverTime && !hasGaugeImmunity) {
                 const reelLevel = window.gameManagers.playerModel.stats.reelSpeed;
 
-                // 등급별로 방해 요소(게이지 하락률) 차등 적용
+                // ?깃툒蹂꾨줈 諛⑺빐 ?붿냼(寃뚯씠吏 ?섎씫瑜? 李⑤벑 ?곸슜
                 let baseDrop = 15;
                 if (this.currentFish.grade === 'R') baseDrop = 30;
                 else if (this.currentFish.grade === 'SR') baseDrop = 60;
                 else if (this.currentFish.grade === 'SSR') baseDrop = 100;
 
-                // 보물섬(Region 4) 게이지 하락 강화
+                // 蹂대Ъ??Region 4) 寃뚯씠吏 ?섎씫 媛뺥솕
                 if (this.region === 4) {
                     if (this.currentFish.grade === 'N') baseDrop = 25;
                     else if (this.currentFish.grade === 'R') baseDrop = 50;
@@ -1991,10 +1886,10 @@ export default class GameScene extends Phaser.Scene {
                     else if (this.currentFish.grade === 'SSR') baseDrop = 150;
                 }
 
-                // 스탯 Reel Speed에 의해 초당 감소폭 완화 (레벨당 1.5 방어, Lv20 기준 30 방어 = 기존 Lv10)
+                // ?ㅽ꺈 Reel Speed???섑빐 珥덈떦 媛먯냼???꾪솕 (?덈꺼??1.5 諛⑹뼱, Lv20 湲곗? 30 諛⑹뼱 = 湲곗〈 Lv10)
                 const dropRate = Math.max(5, baseDrop - (reelLevel * 1.5));
 
-                // 0.3초 여유 시간 (catchGraceTimer) 적용
+                // 0.3珥??ъ쑀 ?쒓컙 (catchGraceTimer) ?곸슜
                 if (this.catchGraceTimer > 0) {
                     this.catchGraceTimer -= delta;
                 } else {
@@ -2002,39 +1897,39 @@ export default class GameScene extends Phaser.Scene {
                 }
             }
 
-            // 장력(Tension) 자연 감소 (연타 안 하면 서서히 내려감)
+            // ?λ젰(Tension) ?먯뿰 媛먯냼 (?고? ???섎㈃ ?쒖꽌???대젮媛?
             this.lineTension = Math.max(0, this.lineTension - 0.3 * (delta / 1000));
 
-            // --- charge 미니게임: 누르고 있으면 게이지/텐션 상승 ---
+            // --- charge 誘몃땲寃뚯엫: ?꾨Ⅴ怨??덉쑝硫?寃뚯씠吏/?먯뀡 ?곸듅 ---
             if (this.miniGameType === 'charge' && this.isCharging) {
                 this.chargeTimer += delta;
-                if (this.chargeTimer >= 100) { // 0.1초마다틱
+                if (this.chargeTimer >= 100) { // 0.1珥덈쭏?ㅽ떛
                     this.chargeTimer = 0;
                     const powerLevel = window.gameManagers.playerModel.stats.rodPower;
                     const reelLevel = window.gameManagers.playerModel.stats.reelSpeed;
                     const fishDifficulty = this.currentFish.difficulty || 1.0;
-                    // FishData.js의 generateFish 호출 (multiplier 인자 추가)
+                    // FishData.js??generateFish ?몄텧 (multiplier ?몄옄 異붽?)
                     const caughtFish = window.gameManagers.fishData.generateFish(
                         this.region,
                         window.gameManagers.playerModel.stats.rodLuck,
                         this.comboCount,
                         this.castingBonus,
                         this.castingMultiplier || 1
-                    );    // 연타(mash)의 ~30% 수준 진행도 (초 단위 환산시 초당 약 3배 빠름 -> 밸런스)
+                    );    // ?고?(mash)??~30% ?섏? 吏꾪뻾??(珥??⑥쐞 ?섏궛??珥덈떦 ??3諛?鍮좊쫫 -> 諛몃윴??
                     const progress = Math.max(3, (powerLevel * reelLevel) / fishDifficulty) * 0.4;
 
                     this.catchGauge += progress;
 
-                    // 텐션 증가도 서서히 (0.1초당 0.04 -> 초당 0.4)
+                    // ?먯뀡 利앷????쒖꽌??(0.1珥덈떦 0.04 -> 珥덈떦 0.4)
                     this.lineTension = Phaser.Math.Clamp(this.lineTension + 0.04, 0, 1);
 
                     const safeLimit = this.getTensionSafeLimit();
                     if (this.lineTension >= 0.95) {
                         this.cameras.main.shake(300, 0.03);
-                        this.failFishing('앗! 줄이 끊어졌어요! 너무 세게 당겼나봐요...');
+                        this.failFishing('줄이 너무 팽팽해! 놓쳐 버렸어...');
                         return;
                     } else if (this.lineTension >= safeLimit) {
-                        this.uiElements.tensionWarn.setText('⚠️ 너무 세게! 줄이 끊어질 것 같아!');
+                        this.uiElements.tensionWarn.setText('?좑툘 ?덈Т ?멸쾶! 以꾩씠 ?딆뼱吏?寃?媛숈븘!');
                         this.uiElements.tensionWarn.setVisible(true);
                     } else {
                         this.uiElements.tensionWarn.setText('');
@@ -2043,9 +1938,9 @@ export default class GameScene extends Phaser.Scene {
                 }
             }
 
-            // --- 타이밍 게임 바 이동 ---
+            // --- ??대컢 寃뚯엫 諛??대룞 ---
             if (this.miniGameType === 'timing') {
-                const speed = 0.5 * (delta / 1000); // 초당 0.5 이동
+                const speed = 0.5 * (delta / 1000); // 珥덈떦 0.5 ?대룞
                 this.timingBarX += speed * this.timingBarDir;
                 if (this.timingBarX > 1) { this.timingBarX = 1; this.timingBarDir = -1; }
                 if (this.timingBarX < 0) { this.timingBarX = 0; this.timingBarDir = 1; }
@@ -2053,9 +1948,9 @@ export default class GameScene extends Phaser.Scene {
 
             if (this.catchGauge <= 0) {
                 this.catchGauge = 0;
-                // 하락해서 0이 되면 놓침
+                // ?섎씫?댁꽌 0???섎㈃ ?볦묠
                 this.cameras.main.zoomTo(1, 300);
-                this.failFishing('놓쳤습니다...');
+                this.failFishing('아쉽게 놓치고 말았어...');
             } else if (this.catchGauge >= this.catchMax) {
                 this.successFishing();
             } else {
@@ -2063,7 +1958,7 @@ export default class GameScene extends Phaser.Scene {
             }
         }
 
-        // --- 스플라인 낚싯줄 그리기 (캐릭터 ~ 찌) ---
+        // --- ?ㅽ뵆?쇱씤 ?싳떙以?洹몃━湲?(罹먮┃??~ 李? ---
         this.fishingLine.clear();
         if (this.lure && this.lure.visible && this.character) {
             const rodTipX = this.character.x + 20;
@@ -2071,29 +1966,29 @@ export default class GameScene extends Phaser.Scene {
             const lureX = this.lure.x;
             const lureY = this.lure.y;
 
-            // 장력에 따라 곡률 계산 (0 = 직선, 1 = 크게 휘어짐)
+            // ?λ젰???곕씪 怨〓쪧 怨꾩궛 (0 = 吏곸꽑, 1 = ?ш쾶 ?섏뼱吏?
             const tension = this.lineTension;
             const midX = (rodTipX + lureX) / 2;
             const midY = (rodTipY + lureY) / 2;
-            // 장력이 높으면 활처럼 위로 휘어지고, 0이면 중력에 의해 아래로 처짐
+            // ?λ젰???믪쑝硫??쒖쿂???꾨줈 ?섏뼱吏怨? 0?대㈃ 以묐젰???섑빐 ?꾨옒濡?泥섏쭚
             const sagAmount = tension > 0.1
-                ? -60 * tension   // 위로 당겨짐 (활 모양)
-                : 30;              // 중력 처짐
+                ? -60 * tension   // ?꾨줈 ?밴꺼吏?(??紐⑥뼇)
+                : 30;              // 以묐젰 泥섏쭚
             const ctrlX = midX + (tension > 0.1 ? 20 * Math.sin(time * 0.01) : 0);
             const ctrlY = midY + sagAmount;
 
-            // 선 색상도 장력에 따라 변화 (흰색 → 붉은색)
+            // ???됱긽???λ젰???곕씪 蹂??(?곗깋 ??遺됱???
             const r = Math.floor(255);
             const g = Math.floor(255 * (1 - tension * 0.8));
             const b = Math.floor(255 * (1 - tension * 0.8));
             const lineColor = (r << 16) | (g << 8) | b;
-            const lineWidth = 2 + tension * 3; // 장력 높을수록 굵게
+            const lineWidth = 2 + tension * 3; // ?λ젰 ?믪쓣?섎줉 援듦쾶
 
             this.fishingLine.lineStyle(lineWidth, lineColor, 0.9);
             this.fishingLine.beginPath();
             this.fishingLine.moveTo(rodTipX, rodTipY);
 
-            // Quadratic bezier curve로 스플라인 시뮬레이션
+            // Quadratic bezier curve濡??ㅽ뵆?쇱씤 ?쒕??덉씠??
             const steps = 20;
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
