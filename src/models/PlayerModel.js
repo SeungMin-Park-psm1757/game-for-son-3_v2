@@ -203,6 +203,19 @@ export default class PlayerModel {
         return false;
     }
 
+    consumeSnack(snackId, amount = 1) {
+        if (!this.snacksPurchased[snackId] || this.snacksPurchased[snackId] < amount) {
+            return false;
+        }
+
+        this.snacksPurchased[snackId] -= amount;
+        if (this.snacksPurchased[snackId] <= 0) {
+            delete this.snacksPurchased[snackId];
+        }
+        this.notify();
+        return true;
+    }
+
     // --- 치트 기능: 모든 물고기 잡은 횟수 설정 ---
     cheatSetAllFish(fishIds, count = 8) {
         fishIds.forEach(id => {
