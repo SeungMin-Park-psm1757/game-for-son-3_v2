@@ -6,8 +6,43 @@ import {
     COMBO_BOOK_ENTRIES,
     getComboDiscoveryDate,
     getComboEntryById,
-    getComboProgress
+    getFishSizeTier,
+    getComboProgress,
+    getComboSticker
 } from '../data/ComboBookData.js';
+
+const FISH_BY_ID = Object.fromEntries(FISH_TYPES.map((fish) => [fish.id, fish]));
+const DECOR_PREVIEW_MAP = {
+    aquarium_coral_garden: { src: 'assets/images/decor_coral_garden.png', label: '산호 정원' },
+    aquarium_shell_bed: { src: 'assets/images/decor_shell_bed.png', label: '조개 쉼터' },
+    aquarium_bubble_fountain: { src: 'assets/images/decor_bubble_fountain.png', label: '버블 분수' },
+    aquarium_treasure_castle: { src: 'assets/images/decor_treasure_castle.png', label: '보물 성채' },
+    aquarium_kelp_arch: { src: 'assets/images/decor_kelp_arch.png', label: '해초 아치' },
+    aquarium_moon_rocks: { src: 'assets/images/decor_moon_rocks.png', label: '달빛 바위' }
+};
+
+const SNACK_PREVIEW_MAP = {
+    swarm_first: [
+        { type: 'icon', icon: '🍤', label: '우르르' },
+        { type: 'fish', fishId: 'fish_anchovy' },
+        { type: 'fish', fishId: 'fish_gizzard_shad' }
+    ],
+    follow_parade: [
+        { type: 'icon', icon: '🍡', label: '따라와' },
+        { type: 'fish', fishId: 'fish_pirami' },
+        { type: 'fish', fishId: 'fish_smelt' }
+    ],
+    bubble_ring: [
+        { type: 'icon', icon: '🫧', label: '버블 링' },
+        { type: 'fish', fishId: 'fish_anchovy' },
+        { type: 'fish', fishId: 'fish_pirami' }
+    ],
+    recognition: [
+        { type: 'icon', icon: '💛', label: '정우와 친해짐' },
+        { type: 'fish', fishId: 'fish_pirami' },
+        { type: 'fish', fishId: 'fish_boonguh' }
+    ]
+};
 
 export default class UIManager {
     constructor(playerModel) {
@@ -15,7 +50,10 @@ export default class UIManager {
         this.container = document.getElementById('ui-layer');
         this.isQuizActive = false;
         this.currentPopup = null;
+        this.currentModalBackdrop = null;
         this.activeSpeechUtterance = null;
+        this.activeStickerBurst = null;
+        this.comboStickerTimer = null;
     }
 
     shuffleArray(items) {
@@ -63,16 +101,123 @@ export default class UIManager {
 
     resetPopupState(restorePersistentUI = true) {
         this.stopSpeech();
-        if (this.currentPopup) {
+        this.clearComboStickerCelebration();
+        if (this.currentModalBackdrop) {
+            this.currentModalBackdrop.remove();
+            this.currentModalBackdrop = null;
+            this.currentPopup = null;
+        } else if (this.currentPopup) {
             this.currentPopup.remove();
             this.currentPopup = null;
         }
         this.container.innerHTML = '';
         this.container.style.pointerEvents = restorePersistentUI ? 'none' : 'auto';
+        document.body.classList.remove('modal-open');
         this.isQuizActive = false;
         if (restorePersistentUI) {
             this.renderPersistentUI();
         }
+    }
+
+    mountModal(popupId) {
+        const popup = document.getElementById(popupId);
+        if (!popup) return null;
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'ui-modal-backdrop';
+
+        const swallowBackdropEvent = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') {
+                event.stopImmediatePropagation();
+            }
+        };
+        const swallowPopupEvent = (event) => {
+            event.stopPropagation();
+        };
+
+        ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointermove', 'pointerup', 'touchstart', 'touchmove', 'touchend'].forEach((eventName) => {
+            backdrop.addEventListener(eventName, swallowBackdropEvent, { capture: true });
+            popup.addEventListener(eventName, swallowPopupEvent);
+        });
+
+        if (popup.parentElement === this.container) {
+            popup.replaceWith(backdrop);
+        } else {
+            this.container.appendChild(backdrop);
+        }
+        backdrop.appendChild(popup);
+
+        this.currentModalBackdrop = backdrop;
+        this.currentPopup = popup;
+        document.body.classList.add('modal-open');
+        return popup;
+    }
+
+    getComboPreviewItems(entry) {
+        if (!entry) return [];
+
+        if (entry.type === 'fishSet') {
+            return entry.fishIds.map((fishId) => ({ type: 'fish', fishId }));
+        }
+
+        if (entry.type === 'sizeTierUnique') {
+            return FISH_TYPES
+                .filter((fish) => getFishSizeTier(fish) === entry.sizeTier)
+                .slice(0, 3)
+                .map((fish) => ({ type: 'fish', fishId: fish.id }));
+        }
+
+        if (entry.type === 'snackBehavior') {
+            return SNACK_PREVIEW_MAP[entry.behaviorId] || [];
+        }
+
+        if (entry.type === 'decorSet') {
+            return entry.decorIds.map((decorId) => ({
+                type: 'decor',
+                ...(DECOR_PREVIEW_MAP[decorId] || {})
+            }));
+        }
+
+        if (entry.type === 'decorCount') {
+            return Object.values(DECOR_PREVIEW_MAP).slice(0, 3).map((item) => ({
+                type: 'decor',
+                ...item
+            }));
+        }
+
+        return [];
+    }
+
+    renderComboPreview(entry) {
+        const previewItems = this.getComboPreviewItems(entry);
+        if (previewItems.length === 0) return '';
+
+        const itemsHTML = previewItems.map((item) => {
+            if (item.type === 'icon') {
+                return `
+                    <div class="combo-preview-item combo-preview-item-icon">
+                        <span class="combo-preview-icon">${item.icon}</span>
+                        <span class="combo-preview-label">${item.label}</span>
+                    </div>
+                `;
+            }
+
+            const src = item.type === 'decor'
+                ? item.src
+                : `assets/images/${item.fishId}.png`;
+            const label = item.label || FISH_BY_ID[item.fishId]?.name || '미리보기';
+
+            return `
+                <div class="combo-preview-item">
+                    <img src="${src}" alt="${label}" class="combo-preview-image" />
+                    <span class="combo-preview-label">${label}</span>
+                </div>
+            `;
+        }).join('');
+
+        return `<div class="combo-preview-strip">${itemsHTML}</div>`;
     }
 
     // --- 수학 퀴즈 시스템 (도상학 기반 물고기 아이콘 시각화) ---
@@ -184,7 +329,7 @@ export default class UIManager {
             `;
 
             this.container.innerHTML = popupHTML;
-            this.currentPopup = document.getElementById('quiz-popup');
+            this.currentPopup = this.mountModal('quiz-popup');
 
             const buttons = this.container.querySelectorAll('.choice-btn');
             buttons.forEach(btn => {
@@ -320,7 +465,7 @@ export default class UIManager {
             `;
 
             this.container.innerHTML = popupHTML;
-            this.currentPopup = document.getElementById('quiz-popup');
+            this.currentPopup = this.mountModal('quiz-popup');
 
             const buttons = [...this.container.querySelectorAll('.choice-btn')];
             const feedback = document.getElementById('quiz-feedback');
@@ -432,7 +577,7 @@ export default class UIManager {
             `;
 
             this.container.innerHTML = popupHTML;
-            this.currentPopup = document.getElementById('quiz-popup');
+            this.currentPopup = this.mountModal('quiz-popup');
             const inputField = document.getElementById('typing-input');
             const submitBtn = document.getElementById('typing-submit-btn');
             const feedbackArea = document.getElementById('typing-feedback');
@@ -497,7 +642,7 @@ export default class UIManager {
         `;
 
         this.container.innerHTML = popupHTML;
-        this.currentPopup = document.getElementById('spelling-hub-popup');
+        this.currentPopup = this.mountModal('spelling-hub-popup');
 
         document.getElementById('spelling-practice-random-btn').onclick = () => {
             this.showSpellingQuiz({ practiceMode: true });
@@ -553,7 +698,7 @@ export default class UIManager {
         `;
 
         this.container.innerHTML = popupHTML;
-        this.currentPopup = document.getElementById('spelling-list-popup');
+        this.currentPopup = this.mountModal('spelling-list-popup');
 
         document.getElementById('spelling-list-random-btn').onclick = () => {
             this.showSpellingQuiz({ practiceMode: true, returnToList: true });
@@ -622,7 +767,7 @@ export default class UIManager {
             `;
 
             this.container.innerHTML = popupHTML;
-            this.currentPopup = document.getElementById('quiz-popup');
+            this.currentPopup = this.mountModal('quiz-popup');
 
             const replayBtn = document.getElementById('spelling-replay-btn');
             const feedback = document.getElementById('spelling-feedback');
@@ -695,6 +840,43 @@ export default class UIManager {
         this.resetPopupState(true);
     }
 
+    clearComboStickerCelebration() {
+        if (this.comboStickerTimer) {
+            clearTimeout(this.comboStickerTimer);
+            this.comboStickerTimer = null;
+        }
+        if (this.activeStickerBurst) {
+            this.activeStickerBurst.remove();
+            this.activeStickerBurst = null;
+        }
+    }
+
+    showComboStickerCelebration(unlockedEntries = []) {
+        const entries = Array.isArray(unlockedEntries) ? unlockedEntries : [];
+        if (entries.length === 0) return;
+
+        this.clearComboStickerCelebration();
+
+        const burst = document.createElement('div');
+        burst.className = 'combo-sticker-burst';
+        burst.innerHTML = entries.slice(0, 3).map((entry, index) => {
+            const sticker = getComboSticker(entry.id);
+            return `
+                <div class="combo-sticker-burst-card" style="--sticker-color:${sticker.color}; --sticker-delay:${index * 0.08}s;">
+                    <span class="combo-sticker-burst-emoji">${sticker.emoji}</span>
+                    <strong>${sticker.label}</strong>
+                    <span>${entry.name}</span>
+                </div>
+            `;
+        }).join('');
+
+        this.container.appendChild(burst);
+        this.activeStickerBurst = burst;
+        this.comboStickerTimer = setTimeout(() => {
+            this.clearComboStickerCelebration();
+        }, 2400);
+    }
+
     // --- 낚시 실패 모달 (Phase 6 팝업) ---
     showFailModal(message) {
         if (this.isQuizActive || this.currentPopup) return;
@@ -711,7 +893,7 @@ export default class UIManager {
         `;
 
         this.container.innerHTML = popupHTML;
-        this.currentPopup = document.getElementById('fail-popup');
+        this.currentPopup = this.mountModal('fail-popup');
 
         const closeBtn = document.getElementById('fail-close-btn');
         if (closeBtn) {
@@ -1001,7 +1183,7 @@ export default class UIManager {
         `;
 
         this.container.innerHTML = shopHTML;
-        this.currentPopup = document.getElementById('shop-popup');
+        this.currentPopup = this.mountModal('shop-popup');
 
         document.getElementById('shop-close-btn').onclick = () => { this.closePopup(); };
 
@@ -1368,7 +1550,7 @@ export default class UIManager {
         `;
 
         this.container.innerHTML = encyclopediaHTML;
-        this.currentPopup = document.getElementById('encyclopedia-popup');
+        this.currentPopup = this.mountModal('encyclopedia-popup');
 
         document.getElementById('book-close-btn').onclick = () => { this.closePopup(); };
     }
@@ -1384,6 +1566,7 @@ export default class UIManager {
 
             const progress = getComboProgress(entry, this.playerModel);
             const percent = Math.round(Math.max(0, Math.min(1, progress.ratio)) * 100);
+            const previewHTML = this.renderComboPreview(entry);
 
             return `
                 <div class="combo-goal-card">
@@ -1391,8 +1574,13 @@ export default class UIManager {
                         <span class="combo-category-chip">${entry.category}</span>
                         <span class="combo-reward-chip">+${entry.reward}G</span>
                     </div>
-                    <h3>${entry.name}</h3>
-                    <p>${entry.description}</p>
+                    <div class="combo-card-body">
+                        ${previewHTML}
+                        <div class="combo-card-copy">
+                            <h3>${entry.name}</h3>
+                            <p>${entry.description}</p>
+                        </div>
+                    </div>
                     <div class="combo-progress-track">
                         <span class="combo-progress-fill" style="width:${percent}%"></span>
                     </div>
@@ -1405,16 +1593,27 @@ export default class UIManager {
             const progress = getComboProgress(entry, this.playerModel);
             const percent = Math.round(Math.max(0, Math.min(1, progress.ratio)) * 100);
             const isDiscovered = !!this.playerModel.comboBook?.[entry.id]?.discovered;
+            const sticker = getComboSticker(entry.id);
+            const previewHTML = this.renderComboPreview(entry);
 
             if (isDiscovered) {
                 return `
                     <div class="combo-card discovered">
+                        <div class="combo-sticker-badge" style="--sticker-color:${sticker.color};">
+                            <span class="combo-sticker-emoji">${sticker.emoji}</span>
+                            <span class="combo-sticker-label">${sticker.label}</span>
+                        </div>
                         <div class="combo-card-header">
                             <span class="combo-category-chip">${entry.category}</span>
                             <span class="combo-reward-chip">완성</span>
                         </div>
-                        <h3>${entry.name}</h3>
-                        <p>${entry.description}</p>
+                        <div class="combo-card-body">
+                            ${previewHTML}
+                            <div class="combo-card-copy">
+                                <h3>${entry.name}</h3>
+                                <p>${entry.description}</p>
+                            </div>
+                        </div>
                         <div class="combo-progress-track">
                             <span class="combo-progress-fill" style="width:100%"></span>
                         </div>
@@ -1429,8 +1628,13 @@ export default class UIManager {
                         <span class="combo-category-chip">${entry.category}</span>
                         <span class="combo-reward-chip">+${entry.reward}G</span>
                     </div>
-                    <h3>${entry.name}</h3>
-                    <p>${entry.hint}</p>
+                    <div class="combo-card-body">
+                        ${previewHTML}
+                        <div class="combo-card-copy">
+                            <h3>${entry.name}</h3>
+                            <p>${entry.hint}</p>
+                        </div>
+                    </div>
                     <div class="combo-progress-track">
                         <span class="combo-progress-fill pending" style="width:${percent}%"></span>
                     </div>
@@ -1448,25 +1652,27 @@ export default class UIManager {
                     </div>
                     <button id="combo-book-close-btn">❌ 닫기</button>
                 </div>
-                <div class="combo-goal-section">
-                    <h3>지금 해볼 작은 목표</h3>
-                    <div class="combo-goal-grid">
-                        ${goalCardsHTML || `
-                            <div class="combo-goal-empty">
-                                <strong>활성 작은 목표를 모두 달성했어요!</strong>
-                                <p>새 조합을 찾으면 다음 목표가 자동으로 열립니다.</p>
-                            </div>
-                        `}
+                <div class="combo-book-scroll">
+                    <div class="combo-goal-section">
+                        <h3>지금 해볼 작은 목표</h3>
+                        <div class="combo-goal-grid">
+                            ${goalCardsHTML || `
+                                <div class="combo-goal-empty">
+                                    <strong>활성 작은 목표를 모두 달성했어요!</strong>
+                                    <p>새 조합을 찾으면 다음 목표가 자동으로 열립니다.</p>
+                                </div>
+                            `}
+                        </div>
                     </div>
-                </div>
-                <div class="combo-book-grid">
-                    ${comboCardsHTML}
+                    <div class="combo-book-grid">
+                        ${comboCardsHTML}
+                    </div>
                 </div>
             </div>
         `;
 
         this.container.innerHTML = popupHTML;
-        this.currentPopup = document.getElementById('combo-book-popup');
+        this.currentPopup = this.mountModal('combo-book-popup');
         document.getElementById('combo-book-close-btn').onclick = () => { this.closePopup(); };
     }
 
@@ -1541,7 +1747,7 @@ export default class UIManager {
         `;
 
         this.container.innerHTML = popupHTML;
-        this.currentPopup = document.getElementById('encyclopedia-popup');
+        this.currentPopup = this.mountModal('encyclopedia-popup');
 
         // 닫기 버튼 이벤트
         document.getElementById('book-close-btn').onclick = () => {
@@ -1608,7 +1814,7 @@ export default class UIManager {
         `;
 
         this.container.innerHTML = popupHTML;
-        this.currentPopup = document.getElementById('eventcard-popup');
+        this.currentPopup = this.mountModal('eventcard-popup');
 
         document.getElementById('card-close-btn').onclick = () => {
             this.closePopup();

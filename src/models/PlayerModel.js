@@ -41,6 +41,7 @@ export default class PlayerModel {
             this.comboBook = savedData.comboBook || {};
             this.activeComboGoals = savedData.activeComboGoals || [];
             this.specialSnackFedCount = savedData.specialSnackFedCount || 0;
+            this.snackUsageCounts = savedData.snackUsageCounts || {};
             this.specialSnackBehaviorsSeen = savedData.specialSnackBehaviorsSeen || {};
             this.aquariumMomentsSeen = savedData.aquariumMomentsSeen || {};
             this.firstPlayStartedAt = savedData.firstPlayStartedAt || now;
@@ -72,6 +73,7 @@ export default class PlayerModel {
             this.comboBook = {};
             this.activeComboGoals = [];
             this.specialSnackFedCount = 0;
+            this.snackUsageCounts = {};
             this.specialSnackBehaviorsSeen = {};
             this.aquariumMomentsSeen = {};
             this.firstPlayStartedAt = now;
@@ -94,6 +96,7 @@ export default class PlayerModel {
             savedData.comboBook === undefined ||
             savedData.activeComboGoals === undefined ||
             savedData.specialSnackFedCount === undefined ||
+            savedData.snackUsageCounts === undefined ||
             savedData.specialSnackBehaviorsSeen === undefined ||
             savedData.aquariumMomentsSeen === undefined ||
             goalStateChanged;
@@ -129,6 +132,7 @@ export default class PlayerModel {
             comboBook: this.comboBook,
             activeComboGoals: this.activeComboGoals,
             specialSnackFedCount: this.specialSnackFedCount,
+            snackUsageCounts: this.snackUsageCounts,
             specialSnackBehaviorsSeen: this.specialSnackBehaviorsSeen,
             aquariumMomentsSeen: this.aquariumMomentsSeen,
             firstPlayStartedAt: this.firstPlayStartedAt,
@@ -243,7 +247,7 @@ export default class PlayerModel {
         return true;
     }
 
-    useSpecialSnack(snackId, amount = 1) {
+    useSnack(snackId, amount = 1) {
         if (!this.snacksPurchased[snackId] || this.snacksPurchased[snackId] < amount) {
             return false;
         }
@@ -253,8 +257,17 @@ export default class PlayerModel {
             delete this.snacksPurchased[snackId];
         }
         this.specialSnackFedCount += amount;
+        this.snackUsageCounts[snackId] = (this.snackUsageCounts[snackId] || 0) + amount;
         this.notify();
         return true;
+    }
+
+    useSpecialSnack(snackId, amount = 1) {
+        return this.useSnack(snackId, amount);
+    }
+
+    getSnackUsageCount(snackId) {
+        return this.snackUsageCounts?.[snackId] || 0;
     }
 
     markSnackBehaviorSeen(behaviorId) {

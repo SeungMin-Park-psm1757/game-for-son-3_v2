@@ -8,10 +8,10 @@ const AQUARIUM_DECOR_ITEMS = [
         cost: 1200,
         description: '중간 수심에 화사한 산호 군락을 세웁니다.',
         assetKey: 'decor_coral_garden',
-        regionIndex: 2,
-        xRatio: 0.2,
-        yOffset: 30,
-        scale: 0.95
+        regionIndex: 1,
+        xRatio: 0.26,
+        yOffset: 18,
+        scale: 0.82
     },
     {
         id: 'aquarium_shell_bed',
@@ -20,10 +20,10 @@ const AQUARIUM_DECOR_ITEMS = [
         cost: 1700,
         description: '부드러운 조개 바닥이 물고기들의 쉼터가 됩니다.',
         assetKey: 'decor_shell_bed',
-        regionIndex: 1,
+        regionIndex: 2,
         xRatio: 0.72,
-        yOffset: 22,
-        scale: 0.92
+        yOffset: 20,
+        scale: 0.84
     },
     {
         id: 'aquarium_bubble_fountain',
@@ -32,10 +32,10 @@ const AQUARIUM_DECOR_ITEMS = [
         cost: 2300,
         description: '보글보글 올라오는 거품으로 수족관이 더 살아납니다.',
         assetKey: 'decor_bubble_fountain',
-        regionIndex: 2,
-        xRatio: 0.82,
-        yOffset: 18,
-        scale: 0.95
+        regionIndex: 1,
+        xRatio: 0.76,
+        yOffset: 22,
+        scale: 0.8
     },
     {
         id: 'aquarium_treasure_castle',
@@ -45,9 +45,9 @@ const AQUARIUM_DECOR_ITEMS = [
         description: '깊은 바다 구석에 오래된 보물 성채를 세웁니다.',
         assetKey: 'decor_treasure_castle',
         regionIndex: 3,
-        xRatio: 0.78,
-        yOffset: 32,
-        scale: 1
+        xRatio: 0.7,
+        yOffset: 24,
+        scale: 0.84
     },
     {
         id: 'aquarium_kelp_arch',
@@ -57,9 +57,9 @@ const AQUARIUM_DECOR_ITEMS = [
         description: '물결을 따라 흔들리는 해초 아치를 더합니다.',
         assetKey: 'decor_kelp_arch',
         regionIndex: 2,
-        xRatio: 0.48,
-        yOffset: 26,
-        scale: 0.98
+        xRatio: 0.38,
+        yOffset: 22,
+        scale: 0.82
     },
     {
         id: 'aquarium_moon_rocks',
@@ -69,30 +69,65 @@ const AQUARIUM_DECOR_ITEMS = [
         description: '깊은 곳을 은은하게 밝히는 바위와 진주를 놓습니다.',
         assetKey: 'decor_moon_rocks',
         regionIndex: 3,
-        xRatio: 0.2,
-        yOffset: 24,
-        scale: 0.95
+        xRatio: 0.24,
+        yOffset: 18,
+        scale: 0.82
     }
 ];
 
-const SPECIAL_SNACK_ITEM = {
-    id: 'aquarium_special_snack',
-    name: '특별간식',
-    icon: '🍤',
-    cost: 700,
-    description: '주면 물고기들이 우르르 몰려와 냠냠 먹습니다.'
-};
+const SPECIAL_SNACK_ITEMS = [
+    {
+        id: 'aquarium_swarm_snack',
+        behavior: 'swarm',
+        shortLabel: '우르르',
+        name: '우르르 간식',
+        icon: '🍤',
+        cost: 700,
+        description: '주면 물고기 떼가 우르르 몰려와 냠냠 먹어요.',
+        cardColor: 0x374621,
+        borderColor: 0xf7cb6d,
+        buyColor: '#bd8a20',
+        feedColor: '#5d9f4d',
+        feedLabel: '우르르 주기',
+        glowColor: 0xffd166,
+        crumbColor: 0xf5d68c
+    },
+    {
+        id: 'aquarium_follow_snack',
+        behavior: 'follow',
+        shortLabel: '따라와',
+        name: '따라와 간식',
+        icon: '🍡',
+        cost: 900,
+        description: '천천히 흘러가며 물고기들이 줄지어 따라와요.',
+        cardColor: 0x4b3140,
+        borderColor: 0xffd6a5,
+        buyColor: '#c9834d',
+        feedColor: '#8a63d2',
+        feedLabel: '따라와 주기',
+        glowColor: 0xffd3a1,
+        crumbColor: 0xffebb8
+    }
+];
+
+const SNACK_ITEMS_BY_ID = Object.fromEntries(SPECIAL_SNACK_ITEMS.map((item) => [item.id, item]));
 
 const SHOP_ITEMS = [
     ...AQUARIUM_DECOR_ITEMS.map((item) => ({ ...item, type: 'decor' })),
-    { ...SPECIAL_SNACK_ITEM, type: 'snack' }
+    ...SPECIAL_SNACK_ITEMS.map((item) => ({ ...item, type: 'snack' }))
 ];
 
-const SNACK_BEHAVIOR_RULES = [
-    { threshold: 1, behaviorId: 'swarm_first', notice: '특별간식을 뿌렸어! 지나가던 물고기들이 우르르 몰려든다!' },
-    { threshold: 4, behaviorId: 'bubble_ring', notice: '냠냠! 먹이 주위에 동그란 버블 링이 피어오른다!' },
-    { threshold: 8, behaviorId: 'recognition', notice: '어? 물고기들이 정우를 먼저 알아보고 반갑게 모여든다!' }
-];
+const SNACK_BEHAVIOR_RULES = {
+    aquarium_swarm_snack: [
+        { threshold: 1, behaviorId: 'swarm_first', mode: 'swarm', notice: '우르르 간식을 뿌리자 물고기 떼가 순식간에 몰려든다!' },
+        { threshold: 3, behaviorId: 'bubble_ring', mode: 'swarm', notice: '냠냠! 먹이 주변에 동그란 버블 링이 피어오른다!' }
+    ],
+    aquarium_follow_snack: [
+        { threshold: 1, behaviorId: 'follow_parade', mode: 'follow', notice: '따라와 간식이 천천히 흘러가자 물고기들이 줄지어 따라온다!' }
+    ]
+};
+
+const RECOGNITION_THRESHOLD = 8;
 
 class AquariumScene extends Phaser.Scene {
     constructor() {
@@ -110,6 +145,7 @@ class AquariumScene extends Phaser.Scene {
         this.isMagnifying = false;
         this.isFeeding = false;
         this.feedTarget = null;
+        this.currentFeedConfig = null;
         this.pendingRecognitionStory = false;
         this.magRadius = 150;
         this.magZoom = 2.6;
@@ -293,20 +329,42 @@ class AquariumScene extends Phaser.Scene {
         fish.baseScaleX = fish.scaleX;
         fish.baseScaleY = fish.scaleY;
         fish.growthStage = growthStage;
+        fish.homeRegion = regionIndex;
+        fish.minY = minY;
+        fish.maxY = maxY;
+        fish.motionSeed = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        fish.feedState = null;
+        fish.growthTrailTimer = Phaser.Math.Between(growthStage === 2 ? 320 : 680, growthStage === 2 ? 680 : 1400);
 
         if (growthStage > 0) {
             const auraColor = growthStage === 2 ? 0xffdc7f : 0x8be3ff;
-            fish.growthAura = this.add.ellipse(fish.x, fish.y, fish.displayWidth * 1.06, fish.displayHeight * 0.76, auraColor, 0.16).setDepth(1.6);
+            fish.growthAura = this.add.ellipse(
+                fish.x,
+                fish.y,
+                fish.displayWidth * (growthStage === 2 ? 1.22 : 1.12),
+                fish.displayHeight * (growthStage === 2 ? 0.92 : 0.82),
+                auraColor,
+                growthStage === 2 ? 0.22 : 0.18
+            ).setDepth(1.6);
             this.tweens.add({
                 targets: fish.growthAura,
-                alpha: { from: 0.08, to: growthStage === 2 ? 0.24 : 0.18 },
-                scaleX: { from: 0.9, to: 1.08 },
-                scaleY: { from: 0.9, to: 1.08 },
+                alpha: { from: 0.1, to: growthStage === 2 ? 0.3 : 0.2 },
+                scaleX: { from: 0.88, to: growthStage === 2 ? 1.14 : 1.08 },
+                scaleY: { from: 0.88, to: growthStage === 2 ? 1.16 : 1.08 },
                 yoyo: true,
                 repeat: -1,
                 duration: growthStage === 2 ? 880 : 1100,
                 ease: 'Sine.easeInOut'
             });
+        }
+
+        if (growthStage === 2) {
+            fish.growthCompanion = this.add.image(
+                fish.x - 24,
+                fish.y + 10,
+                fishData.id
+            ).setScale(baseScale * 0.42).setDepth(1.9).setAlpha(0.72);
+            fish.growthCompanion.flipX = fish.flipX;
         }
 
         if (fishData.id === 'fish_moray_eel') {
@@ -325,6 +383,7 @@ class AquariumScene extends Phaser.Scene {
             fish.speed = baseSpeed * Phaser.Math.FloatBetween(0.8, 1.2) * (growthStage === 2 ? 1.15 : (growthStage === 1 ? 1.05 : 1));
             fish.direction = Math.random() > 0.5 ? 1 : -1;
             fish.flipX = fish.direction === 1;
+            this.initializeFishBehavior(fish);
         }
 
         fish.startY = fish.y;
@@ -333,9 +392,133 @@ class AquariumScene extends Phaser.Scene {
         fish.sinRadius = Phaser.Math.FloatBetween(4, 14) * (growthStage === 2 ? 1.08 : 1);
         fish.changeDirTimer = 0;
         fish.changeDirDelay = Phaser.Math.Between(3000, 8000);
-        fish.feedState = null;
 
         this.fishes.push(fish);
+    }
+
+    initializeFishBehavior(fish) {
+        fish.behaviorState = 'cruise';
+        fish.pauseTimer = 0;
+        fish.targetX = fish.x;
+        fish.targetY = fish.y;
+        fish.speedMultiplier = 1;
+        fish.bobOffset = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        this.pickIdleTarget(fish, true);
+    }
+
+    getRegionDecorAnchors(regionIndex) {
+        return AQUARIUM_DECOR_ITEMS
+            .filter((item) => item.regionIndex === regionIndex && (this.model.decorPurchased[item.id] || 0) > 0)
+            .map((item) => ({
+                x: this.scale.width * item.xRatio,
+                y: this.regionYStarts[item.regionIndex] + this.regionHeights[item.regionIndex] - item.yOffset - 26
+            }));
+    }
+
+    pickIdleTarget(fish, immediate = false) {
+        const width = this.scale.width;
+        const nearbyFishes = this.fishes.filter((other) =>
+            other !== fish &&
+            !other.isFixed &&
+            other.homeRegion === fish.homeRegion
+        );
+        const decorAnchors = this.getRegionDecorAnchors(fish.homeRegion);
+        const roll = Math.random();
+        let targetX = Phaser.Math.Between(56, width - 56);
+        let targetY = Phaser.Math.Between(fish.minY + 8, fish.maxY - 8);
+
+        if (decorAnchors.length > 0 && roll < 0.38) {
+            const anchor = Phaser.Utils.Array.GetRandom(decorAnchors);
+            targetX = anchor.x + Phaser.Math.Between(-48, 48);
+            targetY = Phaser.Math.Clamp(anchor.y + Phaser.Math.Between(-24, 16), fish.minY + 8, fish.maxY - 8);
+            fish.behaviorState = 'inspect';
+            fish.speedMultiplier = 0.78;
+            fish.pauseTimer = immediate ? 0 : Phaser.Math.Between(1000, 1900);
+        } else if (nearbyFishes.length > 0 && roll < 0.72) {
+            const leader = Phaser.Utils.Array.GetRandom(nearbyFishes);
+            targetX = leader.x + Phaser.Math.Between(-72, 72);
+            targetY = Phaser.Math.Clamp(leader.y + Phaser.Math.Between(-28, 28), fish.minY + 8, fish.maxY - 8);
+            fish.behaviorState = 'school';
+            fish.speedMultiplier = 0.92;
+            fish.pauseTimer = immediate ? 0 : Phaser.Math.Between(600, 1200);
+        } else {
+            fish.behaviorState = 'cruise';
+            fish.speedMultiplier = Phaser.Math.FloatBetween(0.98, 1.12);
+            fish.pauseTimer = immediate ? 0 : Phaser.Math.Between(500, 1100);
+        }
+
+        fish.targetX = Phaser.Math.Clamp(targetX, 48, width - 48);
+        fish.targetY = Phaser.Math.Clamp(targetY, fish.minY + 8, fish.maxY - 8);
+    }
+
+    emitGrowthTrail(fish) {
+        if (fish.growthStage <= 0) return;
+
+        const bubble = this.add.circle(
+            fish.x - (fish.direction * fish.displayWidth * 0.2),
+            fish.y + Phaser.Math.Between(-6, 8),
+            fish.growthStage === 2 ? Phaser.Math.Between(3, 5) : Phaser.Math.Between(2, 4),
+            fish.growthStage === 2 ? 0xfff1a8 : 0xc7f3ff,
+            0.9
+        ).setDepth(1.95);
+
+        this.tweens.add({
+            targets: bubble,
+            x: bubble.x - (fish.direction * Phaser.Math.Between(10, 20)),
+            y: bubble.y - Phaser.Math.Between(12, 28),
+            alpha: 0,
+            scale: { from: 1, to: 0.45 },
+            duration: fish.growthStage === 2 ? 560 : 460,
+            onComplete: () => bubble.destroy()
+        });
+    }
+
+    syncFishAttachments(fish, time) {
+        if (fish.growthAura) {
+            fish.growthAura.setPosition(fish.x, fish.y);
+        }
+
+        if (fish.growthCompanion) {
+            const targetX = fish.x - (fish.direction * (fish.displayWidth * 0.48));
+            const targetY = fish.y + fish.displayHeight * 0.18 + Math.sin((time * 0.0042) + fish.motionSeed) * 5;
+            fish.growthCompanion.x += (targetX - fish.growthCompanion.x) * 0.16;
+            fish.growthCompanion.y += (targetY - fish.growthCompanion.y) * 0.16;
+            fish.growthCompanion.flipX = fish.flipX;
+            fish.growthCompanion.angle = fish.angle * 0.65;
+        }
+    }
+
+    updateIdleFish(fish, time, delta) {
+        const width = this.scale.width;
+        const dt = delta / 1000;
+        const dx = fish.targetX - fish.x;
+        const dy = fish.targetY - fish.y;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > 10) {
+            const moveStep = fish.speed * fish.speedMultiplier * dt;
+            fish.x += Phaser.Math.Clamp(dx, -moveStep, moveStep);
+            fish.y += Phaser.Math.Clamp(dy, -moveStep * 0.8, moveStep * 0.8);
+            fish.y += Math.sin((time * 0.0032) + fish.bobOffset) * 0.18;
+            fish.direction = dx >= 0 ? 1 : -1;
+            fish.flipX = fish.direction === 1;
+            fish.angle = Phaser.Math.Clamp((dy / 6), -10, 10) + Math.sin((time * 0.004) + fish.motionSeed) * 2;
+        } else {
+            fish.pauseTimer -= delta;
+            fish.angle = Math.sin((time * 0.004) + fish.motionSeed) * 3;
+            fish.y += Math.sin((time * 0.0035) + fish.bobOffset) * 0.16;
+            if (fish.pauseTimer <= 0) {
+                this.pickIdleTarget(fish);
+            }
+        }
+
+        fish.x = Phaser.Math.Clamp(fish.x, 40, width - 40);
+        fish.y = Phaser.Math.Clamp(fish.y, fish.minY, fish.maxY);
+        fish.growthTrailTimer -= delta;
+        if (fish.growthStage > 0 && fish.growthTrailTimer <= 0) {
+            this.emitGrowthTrail(fish);
+            fish.growthTrailTimer = Phaser.Math.Between(fish.growthStage === 2 ? 320 : 720, fish.growthStage === 2 ? 760 : 1500);
+        }
     }
 
     setupMagnifier() {
@@ -354,8 +537,8 @@ class AquariumScene extends Phaser.Scene {
         maskGraphics.fillCircle(radius, radius, radius);
         this.magMask = maskGraphics.createGeometryMask();
         this.magCamera.setMask(this.magMask);
-
-        this.magBorder = this.add.graphics().setDepth(120).setVisible(false);
+        this.magLens = this.add.circle(0, 0, radius, 0xffffff, 0.05).setDepth(119).setVisible(false);
+        this.magCamera.ignore(this.magLens);
 
         this.input.on('pointermove', (pointer) => {
             if (this.isMagnifying) {
@@ -367,7 +550,7 @@ class AquariumScene extends Phaser.Scene {
     toggleMagnifier(forceState = null) {
         this.isMagnifying = forceState === null ? !this.isMagnifying : forceState;
         this.magCamera.setVisible(this.isMagnifying);
-        this.magBorder.setVisible(this.isMagnifying);
+        this.magLens.setVisible(this.isMagnifying);
         this.magBtn.setText(this.isMagnifying ? '🔍 돋보기 끄기' : '🔍 돋보기 켜기');
 
         if (this.isMagnifying) {
@@ -383,21 +566,23 @@ class AquariumScene extends Phaser.Scene {
         const visibleHeight = (radius * 2) / zoom;
         const maxScrollX = Math.max(0, this.scale.width - visibleWidth);
         const maxScrollY = Math.max(0, this.scale.height - visibleHeight);
+        const lensX = Phaser.Math.Clamp(x, radius + 4, this.scale.width - radius - 4);
+        const lensY = Phaser.Math.Clamp(y, radius + 4, this.scale.height - radius - 4);
 
-        this.magCamera.setViewport(x - radius, y - radius, radius * 2, radius * 2);
-        this.magCamera.scrollX = Phaser.Math.Clamp(x - visibleWidth / 2, 0, maxScrollX);
-        this.magCamera.scrollY = Phaser.Math.Clamp(y - visibleHeight / 2, 0, maxScrollY);
-
-        this.magBorder.clear();
-        this.magBorder.lineStyle(6, 0xffffff, 1);
-        this.magBorder.strokeCircle(x, y, radius);
-        this.magMask.geometryMask.setPosition(x - radius, y - radius);
+        this.magCamera.setViewport(lensX - radius, lensY - radius, radius * 2, radius * 2);
+        this.magCamera.scrollX = Phaser.Math.Clamp(lensX - (visibleWidth / 2), 0, maxScrollX);
+        this.magCamera.scrollY = Phaser.Math.Clamp(lensY - (visibleHeight / 2), 0, maxScrollY);
+        this.magMask.geometryMask.setPosition(lensX - radius, lensY - radius);
+        this.magLens.setPosition(lensX, lensY);
     }
 
     refreshUiState() {
-        const snackCount = this.model.snacksPurchased[SPECIAL_SNACK_ITEM.id] || 0;
+        const snackSummary = SPECIAL_SNACK_ITEMS.map((item) => {
+            const count = this.model.snacksPurchased[item.id] || 0;
+            return `${item.shortLabel} ${count}개`;
+        }).join(' · ');
         const decorCount = this.model.getUnlockedDecorCount();
-        this.statusText.setText(`특별간식 ${snackCount}개 · 꾸민 소품 ${decorCount}개 · 물고기 ${this.fishes.length}종`);
+        this.statusText.setText(`${snackSummary} · 꾸민 소품 ${decorCount}개 · 물고기 ${this.fishes.length}종`);
     }
 
     renderUnlockedDecor() {
@@ -422,17 +607,37 @@ class AquariumScene extends Phaser.Scene {
         const y = regionBaseY - item.yOffset;
         const objects = [];
 
-        const shadow = this.add.ellipse(x, regionBaseY - 10, 120, 20, 0x081322, 0.22).setDepth(1.05);
-        const glow = this.add.ellipse(x, y + 8, 110, 36, 0xbceeff, 0.08).setDepth(1.08);
-        const sprite = this.add.image(x, y, item.assetKey).setScale(item.scale).setDepth(1.3);
+        const sprite = this.add.image(x, y, item.assetKey).setScale(item.scale).setDepth(1.32);
+        const shadow = this.add.ellipse(
+            x,
+            regionBaseY - 8,
+            Math.max(58, sprite.displayWidth * 0.72),
+            Math.max(16, sprite.displayHeight * 0.14),
+            0x081322,
+            0.24
+        ).setDepth(1.05);
+        const glow = this.add.ellipse(
+            x,
+            y + (sprite.displayHeight * 0.2),
+            Math.max(74, sprite.displayWidth * 0.92),
+            Math.max(28, sprite.displayHeight * 0.3),
+            0xd9f6ff,
+            item.regionIndex >= 3 ? 0.12 : 0.08
+        ).setDepth(1.08);
         objects.push(shadow, glow, sprite);
 
         if (item.id === 'aquarium_bubble_fountain') {
-            for (let i = 0; i < 4; i += 1) {
-                const bubble = this.add.circle(x + Phaser.Math.Between(-8, 8), y - 18, Phaser.Math.Between(4, 7), 0xe1f8ff, 0.75).setDepth(1.55);
+            for (let i = 0; i < 5; i += 1) {
+                const bubble = this.add.circle(
+                    x + Phaser.Math.Between(-12, 12),
+                    y - (sprite.displayHeight * 0.18),
+                    Phaser.Math.Between(4, 7),
+                    0xe1f8ff,
+                    0.75
+                ).setDepth(1.55);
                 this.tweens.add({
                     targets: bubble,
-                    y: y - 110 - Phaser.Math.Between(0, 40),
+                    y: y - sprite.displayHeight - Phaser.Math.Between(24, 54),
                     x: bubble.x + Phaser.Math.Between(-12, 12),
                     alpha: { from: 0.75, to: 0.08 },
                     scale: { from: 0.7, to: 1.2 },
@@ -440,13 +645,13 @@ class AquariumScene extends Phaser.Scene {
                     repeat: -1,
                     delay: i * 280,
                     onRepeat: () => {
-                        bubble.setPosition(x + Phaser.Math.Between(-8, 8), y - 18);
+                        bubble.setPosition(x + Phaser.Math.Between(-12, 12), y - (sprite.displayHeight * 0.18));
                     }
                 });
                 objects.push(bubble);
             }
         } else if (item.id === 'aquarium_treasure_castle') {
-            const sparkle = this.add.circle(x - 22, y - 12, 4, 0xffe38a, 1).setDepth(1.58);
+            const sparkle = this.add.circle(x - 18, y - 10, 4, 0xffe38a, 1).setDepth(1.58);
             this.tweens.add({
                 targets: sparkle,
                 alpha: { from: 0.45, to: 1 },
@@ -455,26 +660,64 @@ class AquariumScene extends Phaser.Scene {
                 repeat: -1,
                 duration: 760
             });
+            this.tweens.add({
+                targets: sprite,
+                y: y - 3,
+                yoyo: true,
+                repeat: -1,
+                duration: 1800,
+                ease: 'Sine.easeInOut'
+            });
             objects.push(sparkle);
         } else if (item.id === 'aquarium_moon_rocks') {
             this.tweens.add({
                 targets: glow,
-                alpha: { from: 0.05, to: 0.16 },
-                scaleX: { from: 0.95, to: 1.08 },
-                scaleY: { from: 0.95, to: 1.05 },
+                alpha: { from: 0.08, to: 0.18 },
+                scaleX: { from: 0.96, to: 1.1 },
+                scaleY: { from: 0.96, to: 1.06 },
                 yoyo: true,
                 repeat: -1,
                 duration: 1200
             });
+            const pearl = this.add.circle(x + 18, y - 6, 5, 0xf9f4cf, 0.9).setDepth(1.5);
+            this.tweens.add({
+                targets: pearl,
+                alpha: { from: 0.4, to: 1 },
+                scale: { from: 0.85, to: 1.18 },
+                yoyo: true,
+                repeat: -1,
+                duration: 980
+            });
+            objects.push(pearl);
         } else if (item.id === 'aquarium_coral_garden') {
             this.tweens.add({
                 targets: sprite,
-                angle: { from: -1.4, to: 1.4 },
+                angle: { from: -1.6, to: 1.6 },
                 yoyo: true,
                 repeat: -1,
                 duration: 1500,
                 ease: 'Sine.easeInOut'
             });
+        } else if (item.id === 'aquarium_kelp_arch') {
+            this.tweens.add({
+                targets: sprite,
+                angle: { from: -1.2, to: 1.2 },
+                yoyo: true,
+                repeat: -1,
+                duration: 1700,
+                ease: 'Sine.easeInOut'
+            });
+        } else if (item.id === 'aquarium_shell_bed') {
+            const shimmer = this.add.circle(x - 16, y - 12, 4, 0xfff3cf, 0.9).setDepth(1.46);
+            this.tweens.add({
+                targets: shimmer,
+                alpha: { from: 0.35, to: 0.95 },
+                scale: { from: 0.8, to: 1.3 },
+                yoyo: true,
+                repeat: -1,
+                duration: 1120
+            });
+            objects.push(shimmer);
         }
 
         return objects;
@@ -506,7 +749,7 @@ class AquariumScene extends Phaser.Scene {
             fontStyle: 'bold',
             color: '#ffffff'
         }).setOrigin(0.5).setDepth(202);
-        const subtitle = this.add.text(panelX, panelY - panelHeight / 2 + 58, '소품을 설치하고 특별간식은 여기서 바로 줄 수 있어요.', {
+        const subtitle = this.add.text(panelX, panelY - panelHeight / 2 + 58, '소품을 설치하고 우르르 간식과 따라와 간식을 바로 줄 수 있어요.', {
             fontSize: '16px',
             fontFamily: 'Arial',
             color: '#d8f0ff'
@@ -544,8 +787,8 @@ class AquariumScene extends Phaser.Scene {
                 : (this.model.decorPurchased[item.id] || 0);
             const isOwnedDecor = !isSnack && ownedCount > 0;
 
-            const card = this.add.rectangle(x, y, cardWidth, cardHeight, isSnack ? 0x374621 : 0x163a59, 0.95)
-                .setStrokeStyle(2, isSnack ? 0xf7cb6d : 0x8bd7ff)
+            const card = this.add.rectangle(x, y, cardWidth, cardHeight, isSnack ? item.cardColor : 0x163a59, 0.95)
+                .setStrokeStyle(2, isSnack ? item.borderColor : 0x8bd7ff)
                 .setDepth(201.5);
             const icon = this.add.text(x - cardWidth * 0.37, y - 16, item.icon, {
                 fontSize: '30px',
@@ -574,7 +817,7 @@ class AquariumScene extends Phaser.Scene {
             this.shopUi.push(card, icon, name, desc, ownedText);
 
             if (isSnack) {
-                const buyBtn = this.createShopButton(x + cardWidth * 0.2, y - 18, `${item.cost}G 구매`, '#bd8a20', this.model.gold >= item.cost, () => {
+                const buyBtn = this.createShopButton(x + cardWidth * 0.2, y - 18, `${item.cost}G 구매`, item.buyColor, this.model.gold >= item.cost, () => {
                     const success = this.model.purchaseSnack(item.id, item.cost);
                     if (!success) {
                         this.soundManager.playError();
@@ -583,16 +826,16 @@ class AquariumScene extends Phaser.Scene {
                     }
 
                     this.soundManager.playSuccess();
-                    feedback.setText('특별간식 1개를 담았어! 이제 바로 줄 수 있어.');
+                    feedback.setText(`${item.name} 1개를 담았어! 이제 바로 줄 수 있어.`);
                     this.refreshUiState();
                     this.closeAquariumShop();
                     this.openAquariumShop();
                 });
                 this.shopUi.push(buyBtn);
 
-                const feedBtn = this.createShopButton(x + cardWidth * 0.2, y + 20, ownedCount > 0 ? '바로 주기' : '간식 없음', '#5d9f4d', ownedCount > 0, () => {
+                const feedBtn = this.createShopButton(x + cardWidth * 0.2, y + 20, ownedCount > 0 ? item.feedLabel : '간식 없음', item.feedColor, ownedCount > 0, () => {
                     this.closeAquariumShop();
-                    this.feedSpecialSnack();
+                    this.feedSpecialSnack(item.id);
                 });
                 this.shopUi.push(feedBtn);
             } else {
@@ -650,43 +893,48 @@ class AquariumScene extends Phaser.Scene {
         this.shopUi = [];
     }
 
-    feedSpecialSnack() {
-        if (this.isFeeding) {
-            this.showNotice('물고기들이 아직 특별간식을 먹는 중이야!', '#ffe082');
-            return;
+    getSnackBehavior(snackItem, useCount) {
+        const rules = SNACK_BEHAVIOR_RULES[snackItem.id] || [];
+        return rules.reduce((activeRule, rule) => {
+            if (useCount >= rule.threshold) return rule;
+            return activeRule;
+        }, rules[0] || {
+            behaviorId: null,
+            mode: snackItem.behavior,
+            notice: `${snackItem.name}을 줬어!`
+        });
+    }
+
+    createFeedTarget(snackItem) {
+        if (snackItem.behavior === 'follow') {
+            const startOnLeft = Math.random() > 0.5;
+            return {
+                mode: 'follow',
+                x: startOnLeft ? this.scale.width * 0.22 : this.scale.width * 0.78,
+                y: this.scale.height * Phaser.Math.FloatBetween(0.38, 0.58),
+                baseY: this.scale.height * Phaser.Math.FloatBetween(0.38, 0.58),
+                startX: startOnLeft ? this.scale.width * 0.22 : this.scale.width * 0.78,
+                endX: startOnLeft ? this.scale.width * 0.78 : this.scale.width * 0.22,
+                direction: startOnLeft ? 1 : -1,
+                swaySeed: Phaser.Math.FloatBetween(0, Math.PI * 2),
+                elapsed: 0,
+                trailTimer: 0
+            };
         }
 
-        if (this.fishes.length === 0) {
-            this.showNotice('수족관에 물고기가 있어야 특별간식을 줄 수 있어!', '#ffd0d0');
-            return;
-        }
+        return {
+            mode: 'swarm',
+            x: this.scale.width * Phaser.Math.FloatBetween(0.38, 0.62),
+            y: this.scale.height * Phaser.Math.FloatBetween(0.42, 0.66)
+        };
+    }
 
-        if (!this.model.useSpecialSnack(SPECIAL_SNACK_ITEM.id, 1)) {
-            this.showNotice('특별간식이 없어. 상점에서 먼저 사 오자!', '#ffe082');
-            this.openAquariumShop();
-            return;
-        }
-
-        const feedCount = this.model.specialSnackFedCount;
-        const activeBehavior = SNACK_BEHAVIOR_RULES.reduce((latest, rule) => {
-            if (feedCount >= rule.threshold) return rule;
-            return latest;
-        }, SNACK_BEHAVIOR_RULES[0]);
-
-        this.model.markSnackBehaviorSeen(activeBehavior.behaviorId);
-        const comboUnlocks = this.model.processComboUnlocks();
-
-        const targetX = this.scale.width * Phaser.Math.FloatBetween(0.38, 0.62);
-        const targetY = this.scale.height * Phaser.Math.FloatBetween(0.42, 0.66);
-        this.feedTarget = { x: targetX, y: targetY };
-        this.isFeeding = true;
-        this.refreshUiState();
-        this.showNotice(activeBehavior.notice, '#fff2a8');
-
-        const glow = this.add.circle(targetX, targetY, 24, 0xffd166, 0.32).setDepth(3.4);
+    createSnackVisuals(snackItem, behavior) {
+        const { x, y } = this.feedTarget;
+        const glow = this.add.circle(x, y, behavior.mode === 'follow' ? 28 : 24, snackItem.glowColor, 0.32).setDepth(3.4);
         this.tweens.add({
             targets: glow,
-            radius: { from: 18, to: 34 },
+            radius: { from: behavior.mode === 'follow' ? 20 : 18, to: behavior.mode === 'follow' ? 38 : 34 },
             alpha: { from: 0.36, to: 0.12 },
             yoyo: true,
             repeat: -1,
@@ -694,26 +942,27 @@ class AquariumScene extends Phaser.Scene {
         });
         this.feedVisuals.push(glow);
 
-        if (activeBehavior.behaviorId === 'bubble_ring') {
-            this.emitBubbleRing(targetX, targetY);
+        if (behavior.mode === 'follow') {
+            const treat = this.add.circle(x, y, 10, snackItem.glowColor, 0.96).setDepth(3.58);
+            treat.setStrokeStyle(3, 0xfff7de, 0.95);
+            this.feedVisuals.push(treat);
+            this.feedTarget.mainTreat = treat;
+            this.feedTarget.glow = glow;
+            return;
         }
-
-        const greetingPoint = activeBehavior.behaviorId === 'recognition'
-            ? { x: this.scale.width * 0.5, y: this.scale.height * 0.24 }
-            : null;
 
         for (let i = 0; i < 7; i += 1) {
             const pellet = this.add.circle(
-                targetX + Phaser.Math.Between(-24, 24),
-                targetY - Phaser.Math.Between(70, 120),
+                x + Phaser.Math.Between(-24, 24),
+                y - Phaser.Math.Between(70, 120),
                 Phaser.Math.Between(5, 8),
-                0xffc857,
+                snackItem.glowColor,
                 1
             ).setDepth(3.5);
 
             this.tweens.add({
                 targets: pellet,
-                y: targetY + Phaser.Math.Between(-12, 12),
+                y: y + Phaser.Math.Between(-12, 12),
                 x: pellet.x + Phaser.Math.Between(-20, 20),
                 ease: 'Quad.easeIn',
                 duration: Phaser.Math.Between(720, 1080),
@@ -730,45 +979,119 @@ class AquariumScene extends Phaser.Scene {
             });
             this.feedVisuals.push(pellet);
         }
+    }
+
+    feedSpecialSnack(snackId = SPECIAL_SNACK_ITEMS[0].id) {
+        if (this.isFeeding) {
+            this.showNotice('물고기들이 아직 특별간식을 먹는 중이야!', '#ffe082');
+            return;
+        }
+
+        if (this.fishes.length === 0) {
+            this.showNotice('수족관에 물고기가 있어야 특별간식을 줄 수 있어!', '#ffd0d0');
+            return;
+        }
+
+        const snackItem = SNACK_ITEMS_BY_ID[snackId] || SPECIAL_SNACK_ITEMS[0];
+        if (!this.model.useSnack(snackItem.id, 1)) {
+            this.showNotice(`${snackItem.name}이 없어. 상점에서 먼저 사 오자!`, '#ffe082');
+            this.openAquariumShop();
+            return;
+        }
+
+        const snackUseCount = this.model.getSnackUsageCount(snackItem.id);
+        const activeBehavior = this.getSnackBehavior(snackItem, snackUseCount);
+        const recognitionActive = this.model.specialSnackFedCount >= RECOGNITION_THRESHOLD;
+        if (activeBehavior.behaviorId) {
+            this.model.markSnackBehaviorSeen(activeBehavior.behaviorId);
+        }
+        if (recognitionActive) {
+            this.model.markSnackBehaviorSeen('recognition');
+        }
+        const comboUnlocks = this.model.processComboUnlocks();
+
+        this.currentFeedConfig = { snackItem, activeBehavior, recognitionActive };
+        this.feedTarget = this.createFeedTarget(snackItem);
+        this.isFeeding = true;
+        this.refreshUiState();
+        this.showNotice(activeBehavior.notice, '#fff2a8');
+        this.createSnackVisuals(snackItem, activeBehavior);
+
+        if (activeBehavior.behaviorId === 'bubble_ring') {
+            this.emitBubbleRing(this.feedTarget.x, this.feedTarget.y);
+        }
+
+        const greetingPoint = recognitionActive
+            ? { x: this.scale.width * 0.5, y: this.scale.height * 0.24 }
+            : null;
 
         this.fishes.forEach((fish, index) => {
             if (fish.isFixed) return;
 
             fish.feedState = {
-                phase: greetingPoint ? 'greeting' : 'snack',
+                mode: activeBehavior.mode,
+                phase: greetingPoint ? 'greeting' : activeBehavior.mode,
                 greetingPoint,
-                targetX: targetX + Phaser.Math.Between(-70, 70),
-                targetY: targetY + Phaser.Math.Between(-50, 50),
+                targetX: this.feedTarget.x + Phaser.Math.Between(-70, 70),
+                targetY: this.feedTarget.y + Phaser.Math.Between(-50, 50),
                 orbitRadius: Phaser.Math.Between(8, 22),
                 orbitOffset: (Math.PI * 2 * index) / Math.max(1, this.fishes.length),
                 nibbleTimer: 0,
                 crumbTimer: Phaser.Math.Between(140, 260),
+                followLag: 18 + (index * 10),
+                followYOffset: (index % 2 === 0 ? -1 : 1) * Phaser.Math.Between(4, 24),
                 previousSpeed: fish.speed
             };
-            fish.speed *= greetingPoint ? 1.9 : 1.55;
+            fish.speed *= greetingPoint ? 1.85 : (activeBehavior.mode === 'follow' ? 1.22 : 1.55);
         });
 
         if (greetingPoint) {
             this.time.delayedCall(1200, () => {
                 this.showNotice('정우를 본 물고기들이 먼저 유리 가까이 몰려왔다가 간식 쪽으로 다시 내려간다!', '#d6f6ff');
                 this.fishes.forEach((fish) => {
-                    if (fish.feedState) fish.feedState.phase = 'snack';
+                    if (fish.feedState) fish.feedState.phase = fish.feedState.mode;
                 });
             });
         } else {
             this.time.delayedCall(1500, () => {
                 if (this.isFeeding) {
-                    this.showNotice('냠냠! 서로 먼저 먹으려고 바짝 붙어서 먹고 있어!', '#fff7b2');
+                    const snackNotice = activeBehavior.mode === 'follow'
+                        ? '천천히 따라오며 줄지어 냠냠 먹고 있어!'
+                        : '냠냠! 서로 먼저 먹으려고 바짝 붙어서 먹고 있어!';
+                    this.showNotice(snackNotice, '#fff7b2');
                 }
             });
         }
 
-        this.pendingRecognitionStory = this.model.specialSnackFedCount >= 8 && !this.model.aquariumMomentsSeen.recognitionStory;
+        this.pendingRecognitionStory = recognitionActive && !this.model.aquariumMomentsSeen.recognitionStory;
         this.showComboUnlockNotice(comboUnlocks);
 
         this.time.delayedCall(4300, () => {
             this.endSpecialFeed();
         });
+    }
+
+    updateFeedTarget(delta) {
+        if (!this.feedTarget || this.feedTarget.mode !== 'follow') return;
+
+        this.feedTarget.elapsed += delta;
+        const progress = Phaser.Math.Clamp(this.feedTarget.elapsed / 3300, 0, 1);
+        this.feedTarget.x = Phaser.Math.Linear(this.feedTarget.startX, this.feedTarget.endX, progress);
+        this.feedTarget.y = this.feedTarget.baseY + Math.sin((this.feedTarget.elapsed * 0.0034) + this.feedTarget.swaySeed) * 18;
+        this.feedTarget.direction = this.feedTarget.endX >= this.feedTarget.startX ? 1 : -1;
+        this.feedTarget.trailTimer -= delta;
+
+        if (this.feedTarget.glow) {
+            this.feedTarget.glow.setPosition(this.feedTarget.x, this.feedTarget.y);
+        }
+        if (this.feedTarget.mainTreat) {
+            this.feedTarget.mainTreat.setPosition(this.feedTarget.x, this.feedTarget.y);
+        }
+
+        if (this.feedTarget.trailTimer <= 0) {
+            this.feedTarget.trailTimer = 190;
+            this.emitFollowTrail(this.feedTarget.x, this.feedTarget.y);
+        }
     }
 
     emitBubbleRing(targetX, targetY) {
@@ -799,9 +1122,34 @@ class AquariumScene extends Phaser.Scene {
         }
     }
 
+    emitFollowTrail(targetX, targetY) {
+        const sparkle = this.add.circle(
+            targetX - (this.feedTarget?.direction || 1) * Phaser.Math.Between(10, 18),
+            targetY + Phaser.Math.Between(-6, 6),
+            Phaser.Math.Between(3, 5),
+            0xfff3d9,
+            0.9
+        ).setDepth(3.52);
+        this.feedVisuals.push(sparkle);
+        this.tweens.add({
+            targets: sparkle,
+            alpha: 0,
+            x: sparkle.x - (this.feedTarget?.direction || 1) * Phaser.Math.Between(10, 18),
+            y: sparkle.y - Phaser.Math.Between(8, 14),
+            scale: { from: 1, to: 0.4 },
+            duration: 420,
+            onComplete: () => {
+                const index = this.feedVisuals.indexOf(sparkle);
+                if (index >= 0) this.feedVisuals.splice(index, 1);
+                sparkle.destroy();
+            }
+        });
+    }
+
     endSpecialFeed() {
         this.isFeeding = false;
         this.feedTarget = null;
+        this.currentFeedConfig = null;
 
         this.fishes.forEach((fish) => {
             if (!fish.feedState) return;
@@ -810,6 +1158,9 @@ class AquariumScene extends Phaser.Scene {
             fish.startY = fish.y;
             fish.setScale(fish.baseScaleX, fish.baseScaleY);
             fish.angle = 0;
+            if (!fish.isFixed) {
+                this.pickIdleTarget(fish, true);
+            }
         });
 
         this.feedVisuals.forEach((item) => {
@@ -827,10 +1178,10 @@ class AquariumScene extends Phaser.Scene {
         }
     }
 
-    emitNibbleBubble(fish) {
+    emitNibbleBubble(fish, crumbColor = 0xf5f2cf) {
         const mouthX = fish.x + (fish.direction === 1 ? fish.displayWidth * 0.2 : -fish.displayWidth * 0.2);
         const mouthY = fish.y - fish.displayHeight * 0.04;
-        const crumb = this.add.circle(mouthX, mouthY, Phaser.Math.Between(2, 4), 0xf5f2cf, 0.9).setDepth(3.6);
+        const crumb = this.add.circle(mouthX, mouthY, Phaser.Math.Between(2, 4), crumbColor, 0.9).setDepth(3.6);
         this.feedVisuals.push(crumb);
         this.tweens.add({
             targets: crumb,
@@ -850,6 +1201,7 @@ class AquariumScene extends Phaser.Scene {
     showComboUnlockNotice(comboUnlocks) {
         if (!comboUnlocks || comboUnlocks.unlocked.length === 0) return;
 
+        window.gameManagers.uiManager?.showComboStickerCelebration(comboUnlocks.unlocked);
         const comboNames = comboUnlocks.unlocked.slice(0, 2).map((entry) => entry.name).join(', ');
         const moreText = comboUnlocks.unlocked.length > 2 ? ` 외 ${comboUnlocks.unlocked.length - 2}개` : '';
         this.showNotice(`조합 도감 완성! ${comboNames}${moreText} · +${comboUnlocks.rewardTotal}G`, '#ffe88f');
@@ -906,11 +1258,16 @@ class AquariumScene extends Phaser.Scene {
     }
 
     update(time, delta) {
-        const width = this.scale.width;
         const dt = delta / 1000;
+        const crumbColor = this.currentFeedConfig?.snackItem?.crumbColor || 0xf5f2cf;
+
+        this.updateFeedTarget(delta);
 
         this.fishes.forEach((fish) => {
-            if (fish.isFixed) return;
+            if (fish.isFixed) {
+                this.syncFishAttachments(fish, time);
+                return;
+            }
 
             if (fish.feedState && this.feedTarget) {
                 if (fish.feedState.phase === 'greeting' && fish.feedState.greetingPoint) {
@@ -921,6 +1278,28 @@ class AquariumScene extends Phaser.Scene {
                     fish.direction = dx >= 0 ? 1 : -1;
                     fish.flipX = fish.direction === 1;
                     fish.angle = Math.sin(time * 0.01 + fish.feedState.orbitOffset) * 5;
+                } else if (fish.feedState.phase === 'follow') {
+                    const targetX = this.feedTarget.x - (this.feedTarget.direction * fish.feedState.followLag);
+                    const targetY = this.feedTarget.y + fish.feedState.followYOffset;
+                    const dx = targetX - fish.x;
+                    const dy = targetY - fish.y;
+
+                    fish.feedState.nibbleTimer += delta;
+                    fish.feedState.crumbTimer -= delta;
+                    fish.x += dx * Math.min(0.08, dt * 2.1);
+                    fish.y += dy * Math.min(0.08, dt * 2.1);
+                    fish.direction = dx >= 0 ? 1 : -1;
+                    fish.flipX = fish.direction === 1;
+                    fish.setScale(
+                        fish.baseScaleX * (1 + Math.sin(fish.feedState.nibbleTimer * 0.016) * 0.03),
+                        fish.baseScaleY * (1 - Math.sin(fish.feedState.nibbleTimer * 0.016) * 0.04)
+                    );
+                    fish.angle = Math.sin((time * 0.0035) + fish.feedState.orbitOffset) * 5;
+
+                    if (Math.hypot(dx, dy) < 22 && fish.feedState.crumbTimer <= 0) {
+                        fish.feedState.crumbTimer = Phaser.Math.Between(180, 320);
+                        this.emitNibbleBubble(fish, crumbColor);
+                    }
                 } else {
                     const dx = fish.feedState.targetX - fish.x;
                     const dy = fish.feedState.targetY - fish.y;
@@ -945,46 +1324,18 @@ class AquariumScene extends Phaser.Scene {
 
                         if (fish.feedState.crumbTimer <= 0) {
                             fish.feedState.crumbTimer = Phaser.Math.Between(140, 260);
-                            this.emitNibbleBubble(fish);
+                            this.emitNibbleBubble(fish, crumbColor);
                         }
                     }
                 }
 
-                if (fish.growthAura) {
-                    fish.growthAura.setPosition(fish.x, fish.y);
-                }
+                this.syncFishAttachments(fish, time);
                 return;
             }
 
-            fish.x += fish.speed * fish.direction * dt;
-            fish.sinCount += fish.sinSpeed * dt;
-            fish.y = fish.startY + Math.sin(fish.sinCount) * fish.sinRadius;
-            fish.angle = 0;
+            this.updateIdleFish(fish, time, delta);
             fish.setScale(fish.baseScaleX, fish.baseScaleY);
-
-            if (fish.growthAura) {
-                fish.growthAura.setPosition(fish.x, fish.y);
-            }
-
-            if (fish.x > width + 50) {
-                fish.x = width + 50;
-                fish.direction = -1;
-                fish.flipX = false;
-            } else if (fish.x < -50) {
-                fish.x = -50;
-                fish.direction = 1;
-                fish.flipX = true;
-            }
-
-            fish.changeDirTimer += delta;
-            if (fish.changeDirTimer > fish.changeDirDelay) {
-                fish.changeDirTimer = 0;
-                fish.changeDirDelay = Phaser.Math.Between(3000, 8000);
-                if (Math.random() < 0.2 && fish.x > 100 && fish.x < width - 100) {
-                    fish.direction *= -1;
-                    fish.flipX = fish.direction === 1;
-                }
-            }
+            this.syncFishAttachments(fish, time);
         });
     }
 }

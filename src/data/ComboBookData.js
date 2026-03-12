@@ -2,6 +2,27 @@ import { FISH_TYPES } from '../models/FishData.js';
 
 const FISH_BY_ID = Object.fromEntries(FISH_TYPES.map((fish) => [fish.id, fish]));
 
+export const COMBO_STICKERS = {
+    combo_freshwater_starters: { emoji: '🐟', label: '민물 첫 손맛', color: '#6bb6ff' },
+    combo_coast_snack_friends: { emoji: '🌊', label: '연안 간식 친구들', color: '#8bd3ff' },
+    combo_silver_ribbon: { emoji: '✨', label: '은빛 줄무늬', color: '#cfe4ff' },
+    combo_treasure_scouts: { emoji: '🦜', label: '보물섬 정찰대', color: '#ffb86c' },
+    combo_river_guardians: { emoji: '🎣', label: '민물 지킴이', color: '#7fd6a3' },
+    combo_flat_swimmers: { emoji: '🪼', label: '납작 헤엄단', color: '#9ed6ff' },
+    combo_ocean_giants: { emoji: '🐋', label: '푸른 거물', color: '#72b5ff' },
+    combo_treasure_legends: { emoji: '👑', label: '보물섬 전설', color: '#ffd86c' },
+    combo_tiny_spark: { emoji: '🫧', label: '꼬마 물보라', color: '#b6f0ff' },
+    combo_mid_wave: { emoji: '🌊', label: '든든한 물결', color: '#79c9ff' },
+    combo_giant_shadow: { emoji: '🦈', label: '거대한 그림자', color: '#9fb6d8' },
+    combo_snack_swarm: { emoji: '🍤', label: '우르르 간식', color: '#ffb88d' },
+    combo_snack_follow_parade: { emoji: '🍡', label: '따라와 간식', color: '#ffd7a8' },
+    combo_snack_bubble_ring: { emoji: '🫧', label: '버블 링', color: '#d4f7ff' },
+    combo_snack_recognition: { emoji: '💛', label: '정우 단골', color: '#ffe082' },
+    combo_decor_coral_dream: { emoji: '🪸', label: '산호 꿈바다', color: '#ffb0c7' },
+    combo_decor_treasure_hideout: { emoji: '🏰', label: '보물 아지트', color: '#ffd47d' },
+    combo_home_sea: { emoji: '🏡', label: '우리 집 바다', color: '#8de0ff' }
+};
+
 export const DECOR_SET_IDS = {
     coralDream: ['aquarium_coral_garden', 'aquarium_bubble_fountain', 'aquarium_kelp_arch'],
     treasureHideout: ['aquarium_treasure_castle', 'aquarium_shell_bed', 'aquarium_moon_rocks']
@@ -163,18 +184,28 @@ export const COMBO_BOOK_ENTRIES = [
         id: 'combo_snack_swarm',
         category: '특별간식',
         name: '우르르 간식 파티',
-        description: '특별간식을 주고 물고기 떼가 몰려드는 장면을 보세요.',
-        hint: '수족관 상점에서 특별간식을 사서 써 보세요.',
+        description: '우르르 간식을 주고 물고기 떼가 몰려드는 장면을 보세요.',
+        hint: '수족관 상점에서 우르르 간식을 사서 써 보세요.',
         reward: 220,
         type: 'snackBehavior',
         behaviorId: 'swarm_first'
     },
     {
+        id: 'combo_snack_follow_parade',
+        category: '특별간식',
+        name: '따라와 퍼레이드',
+        description: '따라와 간식을 주고 물고기 줄지어 따라오는 장면을 보세요.',
+        hint: '천천히 움직이는 간식을 주면 물고기들이 줄지어 따라옵니다.',
+        reward: 320,
+        type: 'snackBehavior',
+        behaviorId: 'follow_parade'
+    },
+    {
         id: 'combo_snack_bubble_ring',
         category: '특별간식',
-        name: '냠냠 버블 링',
-        description: '특별간식으로 버블 링 먹방 장면을 확인하세요.',
-        hint: '특별간식을 여러 번 주면 더 신나는 반응이 나와요.',
+        name: '우르르 버블 링',
+        description: '우르르 간식으로 버블 링 먹방 장면을 확인하세요.',
+        hint: '우르르 간식을 몇 번 더 주면 더 신나는 반응이 나와요.',
         reward: 360,
         type: 'snackBehavior',
         behaviorId: 'bubble_ring'
@@ -223,6 +254,10 @@ export const COMBO_BOOK_ENTRIES = [
 
 export function getComboEntryById(comboId) {
     return COMBO_BOOK_ENTRIES.find((entry) => entry.id === comboId) || null;
+}
+
+export function getComboSticker(comboId) {
+    return COMBO_STICKERS[comboId] || { emoji: '🏅', label: '조합 스티커', color: '#ffe082' };
 }
 
 export function getComboProgress(entry, model) {

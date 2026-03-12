@@ -171,14 +171,10 @@ export default class GameScene extends Phaser.Scene {
         }).setOrigin(1, 0.5).setDepth(20).setVisible(false);
 
         // 罹먮┃???뚮뜑留?
-        let charY = height * 0.8;
-        if (this.region === 1) charY = height * 0.85; // 誘쇰Ъ (?꾨옒 ?뺤? 臾쇨?)
-        else if (this.region === 2) charY = height * 0.75; // ?곗븞 (以묓븯??媛?컮??
-        else if (this.region === 3) charY = height * 0.20; // 癒?諛붾떎 (諛???
-        else if (this.region === 4) charY = height * 0.23; // 蹂대Ъ??(????
-
+        const fishingSpot = this.getFishingSpotLayout(width, height);
+        this.createFishingSpotPlatform(fishingSpot);
         const charTexture = this.getCharacterTextureKey();
-        this.character = this.add.image(width / 2, charY, charTexture).setDepth(3);
+        this.character = this.add.image(fishingSpot.x, fishingSpot.charY, charTexture).setDepth(3);
 
         // 罹먮┃???ш린 ?숈쟻 議곗젅 (?댁쟾 128px * 1.26 = 161px)
         const targetCharSize = 160;
@@ -291,6 +287,76 @@ export default class GameScene extends Phaser.Scene {
             particles.explode(20);
             this.time.delayedCall(1000, () => particles.destroy());
         }
+    }
+
+    getFishingSpotLayout(width, height) {
+        const layouts = {
+            1: { x: width * 0.5, charY: height * 0.82, platformY: height * 0.87, width: 174, height: 48, type: 'dock' },
+            2: { x: width * 0.5, charY: height * 0.72, platformY: height * 0.78, width: 188, height: 54, type: 'sandbar' },
+            3: { x: width * 0.5, charY: height * 0.17, platformY: height * 0.23, width: 178, height: 54, type: 'boat' },
+            4: { x: width * 0.5, charY: height * 0.19, platformY: height * 0.25, width: 182, height: 52, type: 'pier' }
+        };
+        return layouts[this.region] || layouts[1];
+    }
+
+    createFishingSpotPlatform(layout) {
+        const shadow = this.add.ellipse(
+            layout.x,
+            layout.platformY + (layout.height * 0.2),
+            layout.width * 0.84,
+            layout.height * 0.34,
+            0x071520,
+            0.26
+        ).setDepth(2.15);
+
+        const graphics = this.add.graphics().setDepth(2.24);
+        const left = layout.x - (layout.width / 2);
+        const top = layout.platformY - (layout.height / 2);
+
+        if (layout.type === 'dock' || layout.type === 'pier') {
+            const plankColor = layout.type === 'pier' ? 0xc78e4a : 0x8d6337;
+            const plankEdge = layout.type === 'pier' ? 0xe6bd79 : 0xb68956;
+            graphics.fillStyle(plankColor, 0.98);
+            graphics.fillRoundedRect(left, top + 10, layout.width, layout.height - 14, 12);
+            graphics.lineStyle(4, plankEdge, 1);
+            for (let i = 1; i <= 3; i += 1) {
+                const x = left + ((layout.width / 4) * i);
+                graphics.beginPath();
+                graphics.moveTo(x, top + 14);
+                graphics.lineTo(x, top + layout.height - 6);
+                graphics.strokePath();
+            }
+
+            graphics.fillStyle(0x52351c, 1);
+            graphics.fillRoundedRect(left + 16, top + layout.height - 2, 14, 24, 4);
+            graphics.fillRoundedRect(left + layout.width - 30, top + layout.height - 2, 14, 24, 4);
+
+            if (layout.type === 'pier') {
+                graphics.fillStyle(0x2b5c3f, 1);
+                graphics.fillTriangle(layout.x + 34, top + 6, layout.x + 54, top - 16, layout.x + 72, top + 6);
+                graphics.fillStyle(0xe8d99c, 1);
+                graphics.fillRect(layout.x + 52, top - 18, 3, 24);
+            }
+        } else if (layout.type === 'sandbar') {
+            graphics.fillStyle(0xe2cc8a, 0.98);
+            graphics.fillEllipse(layout.x, layout.platformY + 8, layout.width, layout.height);
+            graphics.fillStyle(0xf5e1aa, 0.9);
+            graphics.fillEllipse(layout.x + 18, layout.platformY + 4, layout.width * 0.54, layout.height * 0.54);
+            graphics.fillStyle(0x9d8b79, 0.95);
+            graphics.fillEllipse(layout.x - 56, layout.platformY + 10, 22, 14);
+            graphics.fillEllipse(layout.x + 62, layout.platformY + 12, 18, 12);
+        } else if (layout.type === 'boat') {
+            graphics.fillStyle(0x7f4f2d, 0.98);
+            graphics.fillRoundedRect(left + 10, top + 10, layout.width - 20, layout.height - 16, 18);
+            graphics.fillStyle(0xc89459, 1);
+            graphics.fillRoundedRect(left + 28, top + 18, layout.width - 56, 12, 8);
+            graphics.fillStyle(0x4d2c16, 1);
+            graphics.fillRect(layout.x - 2, top - 16, 4, 26);
+            graphics.fillStyle(0xf5e7b1, 0.95);
+            graphics.fillTriangle(layout.x + 2, top - 16, layout.x + 36, top + 4, layout.x + 2, top + 6);
+        }
+
+        return { shadow, graphics };
     }
 
     showFloatingNotice(message, color = '#FFD700', yRatio = 0.3, fontSize = '28px') {
@@ -1372,7 +1438,7 @@ export default class GameScene extends Phaser.Scene {
         window.gameManagers.soundManager.playSuccess();
 
         // 留덉씪?ㅽ넠 吏꾨룞 (紐⑤컮??吏?먯떆)
-        if (navigator.vibrate) {
+        if (navigator.vibrate && (this.isBossFight || this.currentFish.grade === 'SR' || this.currentFish.grade === 'SSR')) {
             navigator.vibrate([200, 100, 200]);
         }
 
@@ -1599,6 +1665,7 @@ export default class GameScene extends Phaser.Scene {
             console.log(`획득 골드: ${finalGold} (현재 총합: ${window.gameManagers.playerModel.gold})`);
 
             if (comboUnlocks.rewardTotal > 0) {
+                window.gameManagers.uiManager?.showComboStickerCelebration(comboUnlocks.unlocked);
                 this.showFloatingNotice(`조합 도감 완성! +${comboUnlocks.rewardTotal}G`, '#ffe082');
             }
 
