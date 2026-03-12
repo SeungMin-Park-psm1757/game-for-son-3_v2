@@ -2,6 +2,12 @@
 // 상점, 퀴즈 팝업 등 Canvas 외부의 HTML 요소를 제어합니다.
 import { FISH_TYPES } from '../models/FishData.js';
 import { SPELLING_QUIZZES } from '../data/SpellingQuizData.js';
+import {
+    COMBO_BOOK_ENTRIES,
+    getComboDiscoveryDate,
+    getComboEntryById,
+    getComboProgress
+} from '../data/ComboBookData.js';
 
 export default class UIManager {
     constructor(playerModel) {
@@ -745,13 +751,6 @@ export default class UIManager {
         this.bookBtn.className = 'persistent-btn';
         this.shopBtn.className = 'persistent-btn pulse-anim';
 
-        // 음소거 토글 버튼
-        this.spellingBtn = document.createElement('button');
-        this.spellingBtn.id = 'spelling-open-btn';
-        this.spellingBtn.innerText = '맞춤법';
-        this.spellingBtn.className = 'persistent-btn';
-        this.spellingBtn.onclick = () => this.openSpellingPracticeHub();
-
         this.muteBtn = document.createElement('button');
         this.muteBtn.id = 'mute-btn';
         this.muteBtn.innerText = '🔊';
@@ -770,7 +769,6 @@ export default class UIManager {
 
         this.persistentContainer.appendChild(this.goldDisplay);
         this.persistentContainer.appendChild(this.bookBtn);
-        this.persistentContainer.appendChild(this.spellingBtn);
         this.persistentContainer.appendChild(this.muteBtn);
         this.persistentContainer.appendChild(this.shopBtn);
         document.body.appendChild(this.persistentContainer);
@@ -1375,6 +1373,103 @@ export default class UIManager {
         document.getElementById('book-close-btn').onclick = () => { this.closePopup(); };
     }
 
+    openComboBook() {
+        if (this.isQuizActive) return;
+        this.hidePersistentUI();
+        this.container.style.pointerEvents = 'auto';
+
+        const goalCardsHTML = (this.playerModel.activeComboGoals || []).map((comboId) => {
+            const entry = getComboEntryById(comboId);
+            if (!entry) return '';
+
+            const progress = getComboProgress(entry, this.playerModel);
+            const percent = Math.round(Math.max(0, Math.min(1, progress.ratio)) * 100);
+
+            return `
+                <div class="combo-goal-card">
+                    <div class="combo-card-header">
+                        <span class="combo-category-chip">${entry.category}</span>
+                        <span class="combo-reward-chip">+${entry.reward}G</span>
+                    </div>
+                    <h3>${entry.name}</h3>
+                    <p>${entry.description}</p>
+                    <div class="combo-progress-track">
+                        <span class="combo-progress-fill" style="width:${percent}%"></span>
+                    </div>
+                    <p class="combo-progress-copy">${progress.label}</p>
+                </div>
+            `;
+        }).join('');
+
+        const comboCardsHTML = COMBO_BOOK_ENTRIES.map((entry) => {
+            const progress = getComboProgress(entry, this.playerModel);
+            const percent = Math.round(Math.max(0, Math.min(1, progress.ratio)) * 100);
+            const isDiscovered = !!this.playerModel.comboBook?.[entry.id]?.discovered;
+
+            if (isDiscovered) {
+                return `
+                    <div class="combo-card discovered">
+                        <div class="combo-card-header">
+                            <span class="combo-category-chip">${entry.category}</span>
+                            <span class="combo-reward-chip">완성</span>
+                        </div>
+                        <h3>${entry.name}</h3>
+                        <p>${entry.description}</p>
+                        <div class="combo-progress-track">
+                            <span class="combo-progress-fill" style="width:100%"></span>
+                        </div>
+                        <p class="combo-progress-copy">발견 완료 · ${getComboDiscoveryDate(this.playerModel, entry.id)}</p>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="combo-card undiscovered">
+                    <div class="combo-card-header">
+                        <span class="combo-category-chip">${entry.category}</span>
+                        <span class="combo-reward-chip">+${entry.reward}G</span>
+                    </div>
+                    <h3>${entry.name}</h3>
+                    <p>${entry.hint}</p>
+                    <div class="combo-progress-track">
+                        <span class="combo-progress-fill pending" style="width:${percent}%"></span>
+                    </div>
+                    <p class="combo-progress-copy">${progress.label}</p>
+                </div>
+            `;
+        }).join('');
+
+        const popupHTML = `
+            <div id="combo-book-popup" class="popup-box combo-book-popup">
+                <div class="shop-header combo-book-header">
+                    <div>
+                        <h2>조합 도감 & 작은 목표 🧩</h2>
+                        <p class="milestone-subcopy">짧은 목표를 따라가며 물고기 조합, 특별간식 연출, 꾸미기 세트를 모아 보세요.</p>
+                    </div>
+                    <button id="combo-book-close-btn">❌ 닫기</button>
+                </div>
+                <div class="combo-goal-section">
+                    <h3>지금 해볼 작은 목표</h3>
+                    <div class="combo-goal-grid">
+                        ${goalCardsHTML || `
+                            <div class="combo-goal-empty">
+                                <strong>활성 작은 목표를 모두 달성했어요!</strong>
+                                <p>새 조합을 찾으면 다음 목표가 자동으로 열립니다.</p>
+                            </div>
+                        `}
+                    </div>
+                </div>
+                <div class="combo-book-grid">
+                    ${comboCardsHTML}
+                </div>
+            </div>
+        `;
+
+        this.container.innerHTML = popupHTML;
+        this.currentPopup = document.getElementById('combo-book-popup');
+        document.getElementById('combo-book-close-btn').onclick = () => { this.closePopup(); };
+    }
+
     openFishMilestonePopup(currentScene) {
         if (this.isQuizActive) return;
         this.hidePersistentUI();
@@ -1393,13 +1488,13 @@ export default class UIManager {
             let titleClass = '';
 
             if (milestones[fish.id]) {
-                if (milestones[fish.id][50]) {
+                if (milestones[fish.id][30]) {
                     titleText = '대마왕 👑';
                     titleClass = 'title-ssr';
-                } else if (milestones[fish.id][20]) {
+                } else if (milestones[fish.id][15]) {
                     titleText = '왕 👑';
                     titleClass = 'title-sr';
-                } else if (milestones[fish.id][10]) {
+                } else if (milestones[fish.id][5]) {
                     titleText = '왕자 👑';
                     titleClass = 'title-r';
                 }
@@ -1414,6 +1509,7 @@ export default class UIManager {
                         <h3>${fish.name}</h3>
                         <p class="fish-count">총 <strong>${count}</strong>마리</p>
                         <p class="fish-title ${titleClass}">칭호: ${titleText}</p>
+                        <p class="fish-growth-guide">등장 5마리 · 성장 15마리 · 반짝 성장 30마리</p>
                     </div>
                 `;
             } else {
@@ -1425,6 +1521,7 @@ export default class UIManager {
                         <h3>???</h3>
                         <p class="fish-count">0마리</p>
                         <p class="fish-title">칭호: 없음</p>
+                        <p class="fish-growth-guide">등장 5마리 · 성장 15마리 · 반짝 성장 30마리</p>
                     </div>
                 `;
             }
@@ -1434,7 +1531,7 @@ export default class UIManager {
             <div id="encyclopedia-popup" class="popup-box">
                 <div class="shop-header" style="flex-direction: column; align-items: center;">
                     <h2>🏆 잡은 물고기 기록 🏆</h2>
-                    <p style="margin: 5px 0; color: #666; font-size: 14px;">10마리: 왕자 / 20마리: 왕 / 50마리: 대마왕</p>
+                    <p class="milestone-subcopy">5마리: 왕자 / 15마리: 왕 / 30마리: 대마왕</p>
                     <button id="book-close-btn" style="align-self: flex-end; margin-top: -40px;">❌ 닫기</button>
                 </div>
                 <div class="encyclopedia-grid">

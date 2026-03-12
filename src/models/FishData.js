@@ -153,16 +153,16 @@ export const getRandomFish = (rodLuckLevel, currentRegion, castingBonus = 1, com
         // --- 마일스톤 달성 시 N, R 등급 확률 대폭 감소 (1/2, 1/4, 1/8) ---
         if (pm && pm.fishMilestonesSeen && pm.fishMilestonesSeen[fish.id] && (fish.grade === 'N' || fish.grade === 'R')) {
             const milestones = pm.fishMilestonesSeen[fish.id];
-            if (milestones[50]) {
+            if (milestones[30]) {
                 weight = weight * 0.125; // 1/8
-            } else if (milestones[20]) {
+            } else if (milestones[15]) {
                 weight = weight * 0.25;  // 1/4
-            } else if (milestones[10]) {
+            } else if (milestones[5]) {
                 weight = weight * 0.5;   // 1/2
             }
         }
 
-        // --- 최초 10분 보호: 쉬운 등급은 더 자주, 어려운 등급은 등장하지 않음 ---
+        // --- 최초 5분 보호: 쉬운 등급은 더 자주, 어려운 등급은 등장하지 않음 ---
         if (isTutorialBoostActive) {
             if (fish.grade === 'N' || fish.grade === 'R') {
                 weight *= 2;

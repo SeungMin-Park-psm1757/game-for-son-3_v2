@@ -82,20 +82,21 @@ body {
     /* 우측 상단 상시 UI 과감하게 축소 */
     #persistent-ui {
         top: 10px;
-        right: 10px;
-        gap: 6px;
+        left: 8px;
+        right: 8px;
+        gap: 4px;
     }
 
     #gold-display {
-        font-size: 12px;
-        padding: 3px 8px;
+        font-size: 11px;
+        padding: 3px 7px;
         border-width: 2px;
     }
 
     #shop-open-btn,
     .persistent-btn {
-        font-size: 12px;
-        padding: 4px 8px;
+        font-size: 11px;
+        padding: 4px 7px;
         border-width: 2px;
         box-shadow: 0 2px 0 #cc7000;
     }
@@ -331,14 +332,22 @@ body {
 #persistent-ui {
     position: absolute;
     top: 8px;
+    left: 8px;
     right: 8px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
+    flex-wrap: nowrap;
+    gap: 6px;
     align-items: center;
     justify-content: flex-end;
     max-width: calc(100vw - 16px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
     z-index: 20;
+}
+
+#persistent-ui::-webkit-scrollbar {
+    display: none;
 }
 
 #gold-display {
@@ -362,6 +371,14 @@ body {
     cursor: pointer;
     box-shadow: 0 2px 0 #cc7000;
     transition: transform 0.1s, box-shadow 0.1s;
+}
+
+#book-open-btn,
+#mute-btn,
+#shop-open-btn,
+.persistent-btn {
+    white-space: nowrap;
+    flex: 0 0 auto;
 }
 
 #shop-open-btn:active {
@@ -603,7 +620,8 @@ body {
     flex-direction: column;
 }
 
-#book-close-btn {
+#book-close-btn,
+#combo-book-close-btn {
     background: #FF6347;
     color: white;
     border: none;
@@ -668,6 +686,149 @@ body {
 .fish-count {
     font-size: 14px;
     color: #555;
+}
+
+.fish-growth-guide,
+.milestone-subcopy {
+    font-size: 12px;
+    color: #53708a;
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+.combo-book-popup {
+    width: min(860px, 96vw);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow: hidden;
+}
+
+.combo-book-header {
+    align-items: flex-start;
+}
+
+.combo-goal-section h3 {
+    margin: 0 0 10px 0;
+    color: #315b82;
+}
+
+.combo-goal-grid,
+.combo-book-grid {
+    display: grid;
+    gap: 14px;
+}
+
+.combo-goal-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.combo-book-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    overflow-y: auto;
+    padding-right: 4px;
+    flex: 1;
+    min-height: 0;
+}
+
+.combo-card,
+.combo-goal-card,
+.combo-goal-empty {
+    border-radius: 16px;
+    padding: 16px;
+    text-align: left;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+}
+
+.combo-card,
+.combo-goal-card {
+    background: linear-gradient(180deg, #fffdf5 0%, #eef7ff 100%);
+    border: 3px solid #c8def1;
+}
+
+.combo-card.undiscovered {
+    background: linear-gradient(180deg, #f7f3f3 0%, #eceff6 100%);
+}
+
+.combo-card.discovered {
+    border-color: #ffd56a;
+    background: linear-gradient(180deg, #fff7db 0%, #eefcff 100%);
+}
+
+.combo-goal-empty {
+    background: #eef7ff;
+    border: 2px dashed #89b4d8;
+}
+
+.combo-card h3,
+.combo-goal-card h3 {
+    margin: 10px 0 8px 0;
+    color: #23384f;
+    font-size: 20px;
+}
+
+.combo-card p,
+.combo-goal-card p,
+.combo-goal-empty p {
+    color: #4e6278;
+    line-height: 1.45;
+}
+
+.combo-card-header,
+.combo-goal-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.combo-category-chip,
+.combo-reward-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.combo-category-chip {
+    background: #d9ecff;
+    color: #2b5d85;
+}
+
+.combo-reward-chip {
+    background: #ffe7a3;
+    color: #886100;
+}
+
+.combo-progress-track {
+    position: relative;
+    width: 100%;
+    height: 10px;
+    margin-top: 12px;
+    border-radius: 999px;
+    background: #d9e2ec;
+    overflow: hidden;
+}
+
+.combo-progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: linear-gradient(90deg, #4aa8ff 0%, #6de0be 100%);
+    border-radius: inherit;
+}
+
+.combo-progress-fill.pending {
+    background: linear-gradient(90deg, #9dc4e6 0%, #d0e3f5 100%);
+}
+
+.combo-progress-copy {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #44607c;
 }
 
 .fish-reward {

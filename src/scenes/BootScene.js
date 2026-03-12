@@ -63,6 +63,12 @@ export default class BootScene extends Phaser.Scene {
         this.load.image('char_seyeon', 'assets/images/char_seyeon.png');
         this.load.image('char_jeongwoo', 'assets/images/char_jeongwoo.png');
         this.load.image('char_shopkeeper', 'assets/images/char_shopkeeper.png');
+        this.load.image('decor_coral_garden', 'assets/images/decor_coral_garden.png');
+        this.load.image('decor_shell_bed', 'assets/images/decor_shell_bed.png');
+        this.load.image('decor_bubble_fountain', 'assets/images/decor_bubble_fountain.png');
+        this.load.image('decor_treasure_castle', 'assets/images/decor_treasure_castle.png');
+        this.load.image('decor_kelp_arch', 'assets/images/decor_kelp_arch.png');
+        this.load.image('decor_moon_rocks', 'assets/images/decor_moon_rocks.png');
 
         // 특별 아이템
         this.load.image('item_shoe', 'assets/images/item_shoe.png');
@@ -102,7 +108,8 @@ export default class BootScene extends Phaser.Scene {
             'fish_mangdoong', 'fish_anchovy', 'fish_gizzard_shad', 'fish_urock', 'fish_webfoot_octopus', 'fish_flounder', 'fish_gwangeo', 'fish_sea_bass', 'fish_black_porgy', 'fish_chamdom',
             'fish_godeungeo', 'fish_squid', 'fish_saury', 'fish_spanish_mackerel', 'fish_salmon', 'fish_pollack', 'fish_galchi', 'fish_cod', 'fish_monkfish', 'fish_bangeo', 'fish_tuna', 'fish_sunfish', 'fish_striped_jewfish', 'fish_whale_shark', 'fish_cheongsaechi',
             'fish_flying_fish', 'fish_parrotfish', 'fish_lionfish', 'fish_moray_eel', 'fish_barracuda', 'fish_mahi_mahi', 'fish_giant_trevally', 'fish_sailfish', 'fish_hammerhead', 'fish_manta_ray', 'fish_giant_squid', 'fish_oarfish', 'fish_coelacanth', 'fish_golden_fish',
-            'item_shoe', 'item_trash', 'item_treasure', 'item_treasure_map', 'item_pirates_sword', 'item_pearl', 'item_crown'
+            'item_shoe', 'item_trash', 'item_treasure', 'item_treasure_map', 'item_pirates_sword', 'item_pearl', 'item_crown',
+            'decor_coral_garden', 'decor_shell_bed', 'decor_bubble_fountain', 'decor_treasure_castle', 'decor_kelp_arch', 'decor_moon_rocks'
         ];
         fishKeys.forEach(key => {
             const tex = this.textures.get(key);
