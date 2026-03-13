@@ -78,6 +78,7 @@ export default class UIManager {
         this.activeSpeechUtterance = null;
         this.activeStickerBurst = null;
         this.comboStickerTimer = null;
+        this.syncPersistentUIHeightBound = this.syncPersistentUIHeight.bind(this);
     }
 
     shuffleArray(items) {
@@ -151,19 +152,17 @@ export default class UIManager {
         backdrop.className = 'ui-modal-backdrop';
 
         const swallowBackdropEvent = (event) => {
+            if (event.target !== backdrop) {
+                return;
+            }
             event.preventDefault();
             event.stopPropagation();
             if (typeof event.stopImmediatePropagation === 'function') {
                 event.stopImmediatePropagation();
             }
         };
-        const swallowPopupEvent = (event) => {
-            event.stopPropagation();
-        };
-
         ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointermove', 'pointerup', 'touchstart', 'touchmove', 'touchend'].forEach((eventName) => {
             backdrop.addEventListener(eventName, swallowBackdropEvent, { capture: true });
-            popup.addEventListener(eventName, swallowPopupEvent);
         });
 
         if (popup.parentElement === this.container) {
@@ -177,6 +176,14 @@ export default class UIManager {
         this.currentPopup = popup;
         document.body.classList.add('modal-open');
         return popup;
+    }
+
+    syncPersistentUIHeight() {
+        if (!this.persistentContainer) return;
+
+        const rect = this.persistentContainer.getBoundingClientRect();
+        const safeHeight = Math.max(40, Math.ceil(rect.bottom));
+        document.documentElement.style.setProperty('--persistent-ui-height', `${safeHeight}px`);
     }
 
     getComboPreviewItems(entry) {
@@ -1051,16 +1058,22 @@ export default class UIManager {
         document.body.appendChild(this.persistentContainer);
 
         this.playerModel.subscribe(() => this.updatePersistentUI());
+        window.addEventListener('resize', this.syncPersistentUIHeightBound);
+        requestAnimationFrame(() => this.syncPersistentUIHeight());
     }
 
     updatePersistentUI() {
         if (this.goldDisplay) {
             this.goldDisplay.querySelector('span').innerText = this.playerModel.gold;
         }
+        this.syncPersistentUIHeight();
     }
 
     renderPersistentUI() {
-        if (this.persistentContainer) this.persistentContainer.style.display = 'flex';
+        if (this.persistentContainer) {
+            this.persistentContainer.style.display = 'flex';
+            this.syncPersistentUIHeight();
+        }
     }
 
     hidePersistentUI() {

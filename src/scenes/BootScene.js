@@ -69,6 +69,10 @@ export default class BootScene extends Phaser.Scene {
         this.load.image('decor_treasure_castle', 'assets/images/decor_treasure_castle.png');
         this.load.image('decor_kelp_arch', 'assets/images/decor_kelp_arch.png');
         this.load.image('decor_moon_rocks', 'assets/images/decor_moon_rocks.png');
+        this.load.image('platform_dock', 'assets/images/platform_dock.png');
+        this.load.image('platform_pier', 'assets/images/platform_pier.png');
+        this.load.image('platform_boat', 'assets/images/platform_boat.png');
+        this.load.image('platform_sandbar', 'assets/images/platform_sandbar.png');
 
         // 특별 아이템
         this.load.image('item_shoe', 'assets/images/item_shoe.png');
@@ -109,7 +113,8 @@ export default class BootScene extends Phaser.Scene {
             'fish_godeungeo', 'fish_squid', 'fish_saury', 'fish_spanish_mackerel', 'fish_salmon', 'fish_pollack', 'fish_galchi', 'fish_cod', 'fish_monkfish', 'fish_bangeo', 'fish_tuna', 'fish_sunfish', 'fish_striped_jewfish', 'fish_whale_shark', 'fish_cheongsaechi',
             'fish_flying_fish', 'fish_parrotfish', 'fish_lionfish', 'fish_moray_eel', 'fish_barracuda', 'fish_mahi_mahi', 'fish_giant_trevally', 'fish_sailfish', 'fish_hammerhead', 'fish_manta_ray', 'fish_giant_squid', 'fish_oarfish', 'fish_coelacanth', 'fish_golden_fish',
             'item_shoe', 'item_trash', 'item_treasure', 'item_treasure_map', 'item_pirates_sword', 'item_pearl', 'item_crown',
-            'decor_coral_garden', 'decor_shell_bed', 'decor_bubble_fountain', 'decor_treasure_castle', 'decor_kelp_arch', 'decor_moon_rocks'
+            'decor_coral_garden', 'decor_shell_bed', 'decor_bubble_fountain', 'decor_treasure_castle', 'decor_kelp_arch', 'decor_moon_rocks',
+            'platform_dock', 'platform_pier', 'platform_boat', 'platform_sandbar'
         ];
         fishKeys.forEach(key => {
             const tex = this.textures.get(key);

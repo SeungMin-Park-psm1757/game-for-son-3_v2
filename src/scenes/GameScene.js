@@ -544,55 +544,19 @@ export default class GameScene extends Phaser.Scene {
             0x071520,
             0.26
         ).setDepth(2.15);
+        const assetConfig = {
+            dock: { key: 'platform_dock', width: layout.width * 1.08, height: layout.height * 1.86, yOffset: 10 },
+            pier: { key: 'platform_pier', width: layout.width * 1.1, height: layout.height * 1.9, yOffset: 10 },
+            boat: { key: 'platform_boat', width: layout.width * 1.04, height: layout.height * 1.74, yOffset: 7 },
+            sandbar: { key: 'platform_sandbar', width: layout.width * 1.06, height: layout.height * 1.58, yOffset: 8 }
+        };
 
-        const graphics = this.add.graphics().setDepth(2.24);
-        const left = layout.x - (layout.width / 2);
-        const top = layout.platformY - (layout.height / 2);
+        const config = assetConfig[layout.type] || assetConfig.dock;
+        const sprite = this.add.image(layout.x, layout.platformY + config.yOffset, config.key)
+            .setDisplaySize(config.width, config.height)
+            .setDepth(2.24);
 
-        if (layout.type === 'dock' || layout.type === 'pier') {
-            const plankColor = layout.type === 'pier' ? 0xc78e4a : 0x8d6337;
-            const plankEdge = layout.type === 'pier' ? 0xe6bd79 : 0xb68956;
-            graphics.fillStyle(plankColor, 0.98);
-            graphics.fillRoundedRect(left, top + 10, layout.width, layout.height - 14, 12);
-            graphics.lineStyle(4, plankEdge, 1);
-            for (let i = 1; i <= 3; i += 1) {
-                const x = left + ((layout.width / 4) * i);
-                graphics.beginPath();
-                graphics.moveTo(x, top + 14);
-                graphics.lineTo(x, top + layout.height - 6);
-                graphics.strokePath();
-            }
-
-            graphics.fillStyle(0x52351c, 1);
-            graphics.fillRoundedRect(left + 16, top + layout.height - 2, 14, 24, 4);
-            graphics.fillRoundedRect(left + layout.width - 30, top + layout.height - 2, 14, 24, 4);
-
-            if (layout.type === 'pier') {
-                graphics.fillStyle(0x2b5c3f, 1);
-                graphics.fillTriangle(layout.x + 34, top + 6, layout.x + 54, top - 16, layout.x + 72, top + 6);
-                graphics.fillStyle(0xe8d99c, 1);
-                graphics.fillRect(layout.x + 52, top - 18, 3, 24);
-            }
-        } else if (layout.type === 'sandbar') {
-            graphics.fillStyle(0xe2cc8a, 0.98);
-            graphics.fillEllipse(layout.x, layout.platformY + 8, layout.width, layout.height);
-            graphics.fillStyle(0xf5e1aa, 0.9);
-            graphics.fillEllipse(layout.x + 18, layout.platformY + 4, layout.width * 0.54, layout.height * 0.54);
-            graphics.fillStyle(0x9d8b79, 0.95);
-            graphics.fillEllipse(layout.x - 56, layout.platformY + 10, 22, 14);
-            graphics.fillEllipse(layout.x + 62, layout.platformY + 12, 18, 12);
-        } else if (layout.type === 'boat') {
-            graphics.fillStyle(0x7f4f2d, 0.98);
-            graphics.fillRoundedRect(left + 10, top + 10, layout.width - 20, layout.height - 16, 18);
-            graphics.fillStyle(0xc89459, 1);
-            graphics.fillRoundedRect(left + 28, top + 18, layout.width - 56, 12, 8);
-            graphics.fillStyle(0x4d2c16, 1);
-            graphics.fillRect(layout.x - 2, top - 16, 4, 26);
-            graphics.fillStyle(0xf5e7b1, 0.95);
-            graphics.fillTriangle(layout.x + 2, top - 16, layout.x + 36, top + 4, layout.x + 2, top + 6);
-        }
-
-        return { shadow, graphics };
+        return { shadow, sprite };
     }
 
     showFloatingNotice(message, color = '#FFD700', yRatio = 0.3, fontSize = '28px') {
