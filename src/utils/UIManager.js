@@ -182,7 +182,7 @@ export default class UIManager {
         if (!this.persistentContainer) return;
 
         const rect = this.persistentContainer.getBoundingClientRect();
-        const safeHeight = Math.max(40, Math.ceil(rect.bottom));
+        const safeHeight = Math.max(40, Math.ceil(rect.height + 14));
         document.documentElement.style.setProperty('--persistent-ui-height', `${safeHeight}px`);
     }
 
@@ -1895,14 +1895,18 @@ export default class UIManager {
         });
 
         const popupHTML = `
-            <div id="encyclopedia-popup" class="popup-box">
-                <div class="shop-header" style="flex-direction: column; align-items: center;">
-                    <h2>🏆 잡은 물고기 기록 🏆</h2>
-                    <p class="milestone-subcopy">5마리: 왕자 / 15마리: 왕 / 30마리: 대마왕</p>
-                    <button id="book-close-btn" style="align-self: flex-end; margin-top: -40px;">❌ 닫기</button>
+            <div id="encyclopedia-popup" class="popup-box encyclopedia-popup milestone-popup">
+                <div class="shop-header encyclopedia-header milestone-header">
+                    <div>
+                        <h2>🏆 잡은 물고기 기록 🏆</h2>
+                        <p class="milestone-subcopy">등장 5마리 · 성장 15마리 · 반짝 성장 30마리</p>
+                    </div>
+                    <button id="book-close-btn">❌ 닫기</button>
                 </div>
-                <div class="encyclopedia-grid">
-                    ${fishCardsHTML}
+                <div class="popup-scroll-panel encyclopedia-scroll milestone-scroll">
+                    <div class="encyclopedia-grid milestone-grid">
+                        ${fishCardsHTML}
+                    </div>
                 </div>
             </div>
         `;
@@ -1954,13 +1958,15 @@ export default class UIManager {
         });
 
         const popupHTML = `
-            <div id="eventcard-popup" class="popup-box" style="width: 85%; max-width: 500px;">
-                <div class="shop-header" style="flex-direction: column; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 10px;">
-                    <h2 style="margin: 0; color: #4B0082;">🃏 보물섬 이벤트 도감</h2>
-                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">보물섬과 주간 이벤트에서 겪은 특별한 일들</p>
-                    <button id="card-close-btn" style="position: absolute; right: 10px; top: 10px;">❌</button>
+            <div id="eventcard-popup" class="popup-box encyclopedia-popup eventcard-popup">
+                <div class="shop-header encyclopedia-header eventcard-header">
+                    <div>
+                        <h2>🃏 보물섬 이벤트 도감</h2>
+                        <p class="milestone-subcopy">보물섬과 주간 이벤트에서 겪은 특별한 일들</p>
+                    </div>
+                    <button id="card-close-btn">❌ 닫기</button>
                 </div>
-                <div class="eventcard-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 15px 0; overflow-y: auto; max-height: 60vh;">
+                <div class="popup-scroll-panel eventcard-grid">
                     ${cardsHTML}
                 </div>
             </div>

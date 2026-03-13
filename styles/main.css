@@ -16,7 +16,8 @@ body {
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    height: 100vh;
+    height: 100dvh;
+    min-height: 100vh;
     overflow: hidden;
     /* 모바일 브라우저 기본 제스처 완벽 차단은 body 전체보단 캔버스에 집중 */
     overscroll-behavior: none;
@@ -34,7 +35,7 @@ body {
     align-items: flex-start;
     margin-top: var(--persistent-ui-height);
     padding-top: 0;
-    padding-bottom: 8px;
+    padding-bottom: 0;
 }
 
 #game-container canvas {
@@ -671,6 +672,40 @@ body.modal-open #game-container canvas {
     min-height: 0;
 }
 
+.popup-scroll-panel {
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 4px;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+}
+
+.milestone-popup,
+.eventcard-popup {
+    width: min(920px, 96vw) !important;
+}
+
+.milestone-header,
+.eventcard-header {
+    align-items: flex-start;
+}
+
+.milestone-scroll {
+    max-height: 68vh;
+}
+
+.milestone-grid {
+    gap: 14px;
+}
+
+.eventcard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 4px 0 6px;
+    max-height: 68vh;
+}
+
 .collection-summary {
     display: flex;
     flex-direction: column;
@@ -774,6 +809,7 @@ body.modal-open #game-container canvas {
 }
 
 #book-close-btn,
+#card-close-btn,
 #combo-book-close-btn {
     background: #FF6347;
     color: white;

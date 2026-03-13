@@ -14,7 +14,7 @@ export const FISH_TYPES = [
     { id: 'fish_ssogari', name: '쏘가리', grade: 'SR', baseReward: 200, baseWeight: 5, region: 1, color: 0xcd853f, scale: 0.5664, catchMax: 80, difficulty: 2.2 },    // ~35cm MS
     { id: 'fish_carp', name: '잉어', grade: 'SR', baseReward: 220, baseWeight: 4, region: 1, color: 0xb8860b, scale: 0.7031, catchMax: 90, difficulty: 2.4 },         // ~60cm M
     { id: 'fish_gamulchi', name: '마왕 가물치', grade: 'SSR', baseReward: 800, baseWeight: 0.5, region: 1, color: 0x556b2f, scale: 0.1074, catchMax: 140, difficulty: 3.5 }, // ~100cm ML
-    { id: 'fish_moon_carp', name: '월광 잉어', grade: 'SSR', baseReward: 1800, baseWeight: 0, region: 1, color: 0xcfe3ff, scale: 0.7031, catchMax: 160, difficulty: 3.4, eventOnly: true, textureKey: 'fish_carp', imageFilter: 'hue-rotate(18deg) saturate(1.4) brightness(1.08)' },
+    { id: 'fish_moon_carp', name: '월광 잉어', grade: 'SSR', baseReward: 1100, baseWeight: 0, region: 1, color: 0xcfe3ff, scale: 0.7031, catchMax: 160, difficulty: 3.4, eventOnly: true, textureKey: 'fish_carp', imageFilter: 'hue-rotate(18deg) saturate(1.4) brightness(1.08)' },
 
     // --- Region 2: 연안 (10마리) ---
     // 챕터 2 진입(rP=5,rS=3): progress=15/diff → N: 8~10클릭, R: 12~20클릭, SR/SSR: 25~50클릭

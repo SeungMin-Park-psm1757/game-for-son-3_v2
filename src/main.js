@@ -9,9 +9,14 @@ const config = {
     type: Phaser.AUTO,
     // Enable crisp pixel art rendering (no smoothing)
     pixelArt: true,
+    render: {
+        antialias: false,
+        pixelArt: true,
+        preserveDrawingBuffer: true
+    },
     scale: {
         mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
+        autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
         autoRound: true,
         parent: 'game-container',
         width: 720,

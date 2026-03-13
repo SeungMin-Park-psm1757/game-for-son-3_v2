@@ -612,10 +612,10 @@ export default class GameScene extends Phaser.Scene {
 
     getBossConfig() {
         const configs = {
-            first: { catchMultiplier: 2.4, timeLimit: 18, rewardMultiplier: 1.8, startRatio: 0.18 },
-            returning: { catchMultiplier: 2.0, timeLimit: 18, rewardMultiplier: 1.6, startRatio: 0.22 },
-            empowered: { catchMultiplier: 2.6, timeLimit: 17, rewardMultiplier: 2.1, startRatio: 0.2 },
-            event: { catchMultiplier: 2.5, timeLimit: 19, rewardMultiplier: 2.15, startRatio: 0.2 }
+            first: { catchMultiplier: 2.4, timeLimit: 18, rewardMultiplier: 1.6, startRatio: 0.18 },
+            returning: { catchMultiplier: 2.0, timeLimit: 18, rewardMultiplier: 1.45, startRatio: 0.22 },
+            empowered: { catchMultiplier: 2.6, timeLimit: 17, rewardMultiplier: 1.8, startRatio: 0.2 },
+            event: { catchMultiplier: 2.5, timeLimit: 19, rewardMultiplier: 1.6, startRatio: 0.2 }
         };
 
         return configs[this.bossVariant] || configs.first;
@@ -1865,9 +1865,9 @@ export default class GameScene extends Phaser.Scene {
 
             // --- Rod Luck 蹂대꼫??肄붿씤 二쇰㉧??---
             if (this.treasureIslandBuff && this.treasureIslandBuff.type === 'doubleReward' && this.treasureIslandBuff.remaining > 0) {
-                finalGold *= 2;
+                finalGold = Math.floor(finalGold * 1.5);
                 this.consumeTreasureIslandBuff();
-                this.showFloatingNotice('보물섬 버프 발동! 이번 보상은 두 배야!', '#ffd54f');
+                this.showFloatingNotice('보물섬 버프 발동! 이번 보상은 1.5배야!', '#ffd54f');
                 this.cameras.main.flash(300, 255, 235, 59);
             }
 
@@ -2252,7 +2252,7 @@ export default class GameScene extends Phaser.Scene {
                 key: 'event_pirate',
                 name: '해적선 발견',
                 emoji: '🏴‍☠️',
-                message: '해적선의 비밀 상자를 찾았어! 다음 보상은 두 배야!',
+                message: '해적선의 비밀 상자를 찾았어! 다음 보상은 1.5배야!',
                 effect: () => {
                     this.treasureIslandBuff = { type: 'doubleReward', remaining: 1 };
                 }
@@ -2279,9 +2279,9 @@ export default class GameScene extends Phaser.Scene {
                 key: 'event_rainbow',
                 name: '무지개 출현',
                 emoji: '🌈',
-                message: '무지개 끝에서 행운이 쏟아졌어! 즉시 1000G 획득!',
+                message: '무지개 끝에서 행운이 쏟아졌어! 즉시 600G 획득!',
                 effect: () => {
-                    window.gameManagers.playerModel.addGold(1000);
+                    window.gameManagers.playerModel.addGold(600);
                     this.updateGoalText();
                 }
             },
