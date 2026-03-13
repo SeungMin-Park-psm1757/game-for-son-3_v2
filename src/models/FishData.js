@@ -14,6 +14,7 @@ export const FISH_TYPES = [
     { id: 'fish_ssogari', name: '쏘가리', grade: 'SR', baseReward: 200, baseWeight: 5, region: 1, color: 0xcd853f, scale: 0.5664, catchMax: 80, difficulty: 2.2 },    // ~35cm MS
     { id: 'fish_carp', name: '잉어', grade: 'SR', baseReward: 220, baseWeight: 4, region: 1, color: 0xb8860b, scale: 0.7031, catchMax: 90, difficulty: 2.4 },         // ~60cm M
     { id: 'fish_gamulchi', name: '마왕 가물치', grade: 'SSR', baseReward: 800, baseWeight: 0.5, region: 1, color: 0x556b2f, scale: 0.1074, catchMax: 140, difficulty: 3.5 }, // ~100cm ML
+    { id: 'fish_moon_carp', name: '월광 잉어', grade: 'SSR', baseReward: 1800, baseWeight: 0, region: 1, color: 0xcfe3ff, scale: 0.7031, catchMax: 160, difficulty: 3.4, eventOnly: true, textureKey: 'fish_carp', imageFilter: 'hue-rotate(18deg) saturate(1.4) brightness(1.08)' },
 
     // --- Region 2: 연안 (10마리) ---
     // 챕터 2 진입(rP=5,rS=3): progress=15/diff → N: 8~10클릭, R: 12~20클릭, SR/SSR: 25~50클릭
@@ -47,6 +48,7 @@ export const FISH_TYPES = [
     { id: 'fish_striped_jewfish', name: '돗돔', grade: 'SSR', baseReward: 4500, baseWeight: 0.5, region: 3, color: 0x2f4f4f, scale: 0.8594, catchMax: 3150, difficulty: 8.0 }, // ~120cm ML
     { id: 'fish_cheongsaechi', name: '청새치', grade: 'SSR', baseReward: 5500, baseWeight: 0.5, region: 3, color: 0x1e90ff, scale: 0.2539, catchMax: 3500, difficulty: 9.0 }, // ~300cm L
     { id: 'fish_whale_shark', name: '고래상어', grade: 'SSR', baseReward: 8000, baseWeight: 0.2, region: 3, color: 0x4682b4, scale: 0.1953, catchMax: 4200, difficulty: 10.0 }, // ~500cm+ XL
+    { id: 'fish_storm_tuna', name: '폭풍 참치', grade: 'SSR', baseReward: 5200, baseWeight: 0, region: 3, color: 0x7fcfff, scale: 1.0156, catchMax: 3200, difficulty: 7.6, eventOnly: true, textureKey: 'fish_tuna', imageFilter: 'hue-rotate(178deg) saturate(1.25) brightness(0.95)' },
 
     // --- Region 4: 보물섬 (14마리) ---
     // 챕터 4 진입(rP=15,rS=8): progress=120/diff → N: 8~12클릭, R: 15~25클릭, SR: 25~40클릭, SSR: 50~80클릭

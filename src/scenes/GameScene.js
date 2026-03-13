@@ -1,6 +1,7 @@
 import { getRandomFish, FISH_TYPES } from '../models/FishData.js';
 import { BOSS_STORIES, FIRST_CATCH_STORIES } from '../models/StoryData.js';
 import { getFishSizeTier } from '../data/ComboBookData.js';
+import { getCurrentWeeklyEvent, isWeekendEventDay, isWeeklyEventRegion } from '../data/WeeklyEventData.js';
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -51,6 +52,15 @@ export default class GameScene extends Phaser.Scene {
         this.bossVariant = 'normal';
         this.treasureIslandBuff = null;
         this.activeCatchBuff = null;
+        this.weeklyEvent = null;
+        this.isWeeklyEventActive = false;
+        this.isWeekendEvent = false;
+        this.dayPhase = 'day';
+        this.panoramaDecor = [];
+        this.weeklyEventFx = [];
+        this.eventBannerText = null;
+        this.eventOverlay = null;
+        this.lastEventEncounterId = null;
 
         // --- 蹂댁뒪 ?댁쥌 ---
         this.isBossFight = false;
@@ -87,6 +97,15 @@ export default class GameScene extends Phaser.Scene {
         this.bossVariant = 'normal';
         this.treasureIslandBuff = null;
         this.activeCatchBuff = null;
+        this.weeklyEvent = null;
+        this.isWeeklyEventActive = false;
+        this.isWeekendEvent = false;
+        this.dayPhase = 'day';
+        this.panoramaDecor = [];
+        this.weeklyEventFx = [];
+        this.eventBannerText = null;
+        this.eventOverlay = null;
+        this.lastEventEncounterId = null;
 
         this.isBossFight = false;
         this.bossTimeLimit = 0;
@@ -108,6 +127,7 @@ export default class GameScene extends Phaser.Scene {
         // --- 1. 諛곌꼍 諛??붾㈃ ?뗭뾽 ---
         const width = this.scale.width;
         const height = this.scale.height;
+        this.setupWeeklyEventState();
 
         // 諛곌꼍 ?대?吏 (?붾㈃ 苑?李④쾶)
         let bgKey = 'bg_coast';
@@ -119,6 +139,8 @@ export default class GameScene extends Phaser.Scene {
         this.bg.setDisplaySize(width, height);
         this.bg.setInteractive(); // 諛곌꼍 ?대┃?쇰줈 ?싳떆 ?쒖옉
         this.water = this.bg; // 湲곗〈 肄붾뱶 ?명솚???꾪빐 water 蹂?섏뿉 ?좊떦
+        this.createPanoramaLayers(width, height);
+        this.createWeeklyEventAtmosphere(width, height);
 
         // 臾쇨퀬湲??뚯븘?ㅻ땲???ㅻ（???앹꽦
         this.createWanderingFishes();
@@ -132,6 +154,7 @@ export default class GameScene extends Phaser.Scene {
         }).setOrigin(0.5);
         // ?꾩옱 梨뺥꽣 紐⑺몴 ?쒖떆 UI
         this.updateGoalText();
+        this.createWeeklyEventBanner(width);
 
         // 吏??퀎 UI 諛?罹먮┃???꾩튂 ?ㅼ젙 (罹먮┃?곌? ?꾩뿉 ?덉쑝硫?UI???꾨옒濡?
         const uiTop = this.region < 3;
@@ -242,6 +265,219 @@ export default class GameScene extends Phaser.Scene {
         });
 
         console.log("GameScene Initialized with Core Loops");
+    }
+
+    setupWeeklyEventState() {
+        const now = new Date();
+        const hour = now.getHours();
+        this.dayPhase = hour >= 19 || hour < 6 ? 'night' : (hour >= 16 ? 'sunset' : 'day');
+        this.weeklyEvent = getCurrentWeeklyEvent(now);
+        this.isWeeklyEventActive = isWeeklyEventRegion(this.weeklyEvent, this.region);
+        this.isWeekendEvent = this.isWeeklyEventActive && isWeekendEventDay(now);
+    }
+
+    getFishTextureKey(fishData) {
+        return fishData?.textureKey || fishData?.id || 'fish_pirami';
+    }
+
+    applyFishVisual(sprite, fishData, scale = null) {
+        if (!sprite || !fishData) return sprite;
+
+        sprite.setTexture(this.getFishTextureKey(fishData));
+        sprite.clearTint();
+
+        if (scale !== null) {
+            sprite.setScale(scale);
+        }
+
+        if (fishData.id === 'fish_moon_carp') {
+            sprite.setTint(0xe9f3ff, 0xd9e8ff, 0xb8d8ff, 0x9fc5ff);
+        } else if (fishData.id === 'fish_storm_tuna') {
+            sprite.setTint(0x8fd8ff, 0x5ab8ff, 0x2e6ca1, 0x4b93cf);
+        }
+
+        return sprite;
+    }
+
+    createPanoramaLayers(width, height) {
+        const decor = [];
+        const horizonY = this.region <= 2 ? height * 0.24 : height * 0.18;
+
+        if (this.region === 1) {
+            const treeLine = this.add.graphics().setDepth(0.22);
+            treeLine.fillStyle(0x557f57, 0.22);
+            treeLine.fillRoundedRect(width * 0.06, horizonY - 36, width * 0.18, 48, 14);
+            treeLine.fillRoundedRect(width * 0.7, horizonY - 44, width * 0.2, 56, 16);
+            treeLine.fillStyle(0x88b778, 0.18);
+            treeLine.fillEllipse(width * 0.18, horizonY - 18, 120, 42);
+            treeLine.fillEllipse(width * 0.8, horizonY - 20, 138, 46);
+            decor.push(treeLine);
+        } else if (this.region === 2) {
+            const coastSilhouette = this.add.graphics().setDepth(0.22);
+            coastSilhouette.fillStyle(0x9a8c68, 0.22);
+            coastSilhouette.fillRoundedRect(width * 0.08, horizonY - 18, width * 0.24, 28, 10);
+            coastSilhouette.fillRoundedRect(width * 0.66, horizonY - 28, width * 0.18, 38, 10);
+            const buoy = this.add.circle(width * 0.84, height * 0.42, 8, 0xffc56b, 0.85).setDepth(0.4);
+            decor.push(coastSilhouette, buoy);
+        } else if (this.region === 3) {
+            const island = this.add.graphics().setDepth(0.22);
+            island.fillStyle(0x2f5d69, 0.24);
+            island.fillRoundedRect(width * 0.7, horizonY - 12, width * 0.16, 18, 8);
+            island.fillStyle(0x5ea66d, 0.26);
+            island.fillEllipse(width * 0.78, horizonY - 10, 92, 26);
+            const sail = this.add.triangle(width * 0.2, horizonY + 22, 0, 12, 0, -12, 26, 0, 0xffffff, 0.58).setDepth(0.35);
+            const hull = this.add.rectangle(width * 0.2, horizonY + 28, 32, 8, 0x5d3f2d, 0.7).setDepth(0.35);
+            decor.push(island, sail, hull);
+        } else if (this.region === 4) {
+            const treasureSky = this.add.graphics().setDepth(0.22);
+            treasureSky.fillStyle(0x6ec8f1, 0.12);
+            treasureSky.fillRoundedRect(width * 0.62, horizonY + 10, width * 0.18, 22, 10);
+            const bottle = this.add.rectangle(width * 0.2, height * 0.46, 14, 32, 0x78cfcf, 0.44).setDepth(0.42).setAngle(-20);
+            const cork = this.add.rectangle(width * 0.2, height * 0.445, 9, 6, 0xc58a47, 0.76).setDepth(0.43).setAngle(-20);
+            const gull = this.add.graphics().setDepth(0.25);
+            gull.lineStyle(3, 0x20384f, 0.18);
+            gull.beginPath();
+            gull.arc(width * 0.72, height * 0.12, 18, Math.PI * 1.1, Math.PI * 1.9, false);
+            gull.arc(width * 0.76, height * 0.12, 18, Math.PI * 1.1, Math.PI * 1.9, false);
+            gull.strokePath();
+            decor.push(treasureSky, bottle, cork, gull);
+        }
+
+        const dayTone = this.dayPhase === 'night'
+            ? this.add.rectangle(width / 2, height / 2, width, height, 0x0e2348, 0.18).setDepth(0.28)
+            : (this.dayPhase === 'sunset'
+                ? this.add.rectangle(width / 2, height / 2, width, height, 0xffcb87, 0.12).setDepth(0.28)
+                : null);
+        if (dayTone) {
+            decor.push(dayTone);
+        }
+
+        this.panoramaDecor = decor;
+    }
+
+    createWeeklyEventAtmosphere(width, height) {
+        if (!this.isWeeklyEventActive) return;
+
+        this.eventOverlay = this.add.rectangle(
+            width / 2,
+            height / 2,
+            width,
+            height,
+            this.weeklyEvent.overlayTone,
+            this.isWeekendEvent ? 0.12 : 0.08
+        ).setDepth(0.32);
+
+        if (this.weeklyEvent.id === 'event_weekly_moon') {
+            for (let i = 0; i < 6; i += 1) {
+                const glint = this.add.circle(
+                    Phaser.Math.Between(40, width - 40),
+                    Phaser.Math.Between(Math.round(height * 0.12), Math.round(height * 0.72)),
+                    Phaser.Math.Between(3, 6),
+                    0xf5fbff,
+                    0.6
+                ).setDepth(0.34);
+                glint.baseAlpha = Phaser.Math.FloatBetween(0.24, 0.7);
+                glint.pulseSpeed = Phaser.Math.FloatBetween(0.0016, 0.0032);
+                glint.phase = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                this.weeklyEventFx.push(glint);
+            }
+        } else if (this.weeklyEvent.id === 'event_weekly_storm') {
+            for (let i = 0; i < 12; i += 1) {
+                const rain = this.add.rectangle(
+                    Phaser.Math.Between(24, width - 24),
+                    Phaser.Math.Between(-height * 0.2, height),
+                    4,
+                    Phaser.Math.Between(24, 34),
+                    0xc4ecff,
+                    0.34
+                ).setAngle(20).setDepth(0.34);
+                rain.fallSpeed = Phaser.Math.Between(340, 520);
+                rain.drift = Phaser.Math.Between(-8, 8);
+                this.weeklyEventFx.push(rain);
+            }
+        }
+    }
+
+    createWeeklyEventBanner(width) {
+        if (!this.isWeeklyEventActive) return;
+
+        const extraLine = this.isWeekendEvent ? ` · ${this.weeklyEvent.weekendBossLabel} 주의` : '';
+        this.eventBannerText = this.add.text(width - 20, this.scale.height * 0.18, `${this.weeklyEvent.banner}${extraLine}`, {
+            fontSize: '18px',
+            fontFamily: 'Arial',
+            fontStyle: 'bold',
+            color: this.weeklyEvent.accentColor,
+            stroke: '#12253b',
+            strokeThickness: 5,
+            align: 'right'
+        }).setOrigin(1, 0.5).setDepth(24);
+
+        this.showFloatingNotice(
+            `${this.weeklyEvent.banner}\n${this.isWeekendEvent ? `${this.weeklyEvent.weekendBossLabel}가 깨어날지도 몰라!` : this.weeklyEvent.description}`,
+            this.weeklyEvent.accentColor,
+            0.18,
+            '22px'
+        );
+    }
+
+    updateWeeklyEventAtmosphere(time, delta) {
+        if (!this.isWeeklyEventActive || this.weeklyEventFx.length === 0) return;
+
+        if (this.eventBannerText) {
+            this.eventBannerText.y = (this.scale.height * 0.18) + Math.sin(time * 0.0024) * 4;
+        }
+
+        if (this.weeklyEvent.id === 'event_weekly_moon') {
+            this.weeklyEventFx.forEach((glint) => {
+                glint.alpha = glint.baseAlpha + Math.sin((time * glint.pulseSpeed) + glint.phase) * 0.18;
+            });
+            return;
+        }
+
+        this.weeklyEventFx.forEach((rain) => {
+            rain.y += rain.fallSpeed * (delta / 1000);
+            rain.x += rain.drift * (delta / 1000);
+            if (rain.y > this.scale.height + 24) {
+                rain.y = Phaser.Math.Between(-140, -20);
+                rain.x = Phaser.Math.Between(24, this.scale.width - 24);
+            }
+        });
+    }
+
+    maybeSelectWeeklyEventFish(fishData) {
+        if (!this.isWeeklyEventActive || !this.weeklyEvent?.eventFishId) {
+            return fishData;
+        }
+
+        const eventFish = FISH_TYPES.find((fish) => fish.id === this.weeklyEvent.eventFishId);
+        if (!eventFish) return fishData;
+
+        let chance = this.isWeekendEvent ? 0.2 : 0.13;
+        if (this.castingBonus === 3) chance += 0.08;
+        else if (this.castingBonus === 2) chance += 0.04;
+        chance += Math.min(0.08, (window.gameManagers.playerModel.comboCount || 0) * 0.01);
+
+        return Math.random() < chance ? eventFish : fishData;
+    }
+
+    announceWeeklyEventEncounter(fishData, isWeekendBoss = false) {
+        if ((!fishData?.eventOnly && !isWeekendBoss) || !this.weeklyEvent) return;
+
+        const eventCardId = isWeekendBoss ? 'event_weekend_boss' : this.weeklyEvent.id;
+        if (eventCardId) {
+            window.gameManagers.playerModel.registerEventCard(eventCardId);
+        }
+
+        const encounterId = `${eventCardId || fishData.id}:${isWeekendBoss ? 'boss' : 'fish'}`;
+        if (this.lastEventEncounterId === encounterId) return;
+        this.lastEventEncounterId = encounterId;
+
+        const warningText = isWeekendBoss
+            ? `${this.weeklyEvent.weekendBossLabel} 등장!\n${this.weeklyEvent.warning}`
+            : `${this.weeklyEvent.warning}\n희귀한 ${fishData.name}다!`;
+        this.uiElements.instruction.setText(warningText);
+        this.showFloatingNotice(warningText, this.weeklyEvent.accentColor, 0.24, '22px');
+        this.cameras.main.flash(400, 220, 240, 255);
     }
 
     getCharacterTextureKey() {
@@ -383,6 +619,16 @@ export default class GameScene extends Phaser.Scene {
         const clearedBefore = !!playerModel.bossDefeated[this.region];
         const defeatedCount = playerModel.bossDefeatedCount[this.region] || 0;
 
+        if (this.isWeeklyEventActive && this.isWeekendEvent && this.regionFishCount >= 6) {
+            const eventFish = FISH_TYPES.find((fish) => fish.id === this.weeklyEvent?.eventFishId);
+            if (eventFish) {
+                const chance = !clearedBefore ? 0.18 : 0.12;
+                if (Math.random() < chance) {
+                    return { variant: 'event', fish: eventFish };
+                }
+            }
+        }
+
         let variant = null;
         if (!clearedBefore && this.regionFishCount >= 5 && Math.random() < 0.1) {
             variant = 'first';
@@ -392,7 +638,7 @@ export default class GameScene extends Phaser.Scene {
 
         if (!variant) return null;
 
-        const regionList = FISH_TYPES.filter(f => f.region === this.region);
+        const regionList = FISH_TYPES.filter(f => f.region === this.region && !f.eventOnly);
         const ssrFishes = regionList.filter(f => f.grade === 'SSR');
         const bossIndex = ssrFishes.length > 0 ? (defeatedCount % ssrFishes.length) : Math.max(0, regionList.length - 1);
         const fish = ssrFishes.length > 0 ? ssrFishes[bossIndex] : regionList[regionList.length - 1];
@@ -404,7 +650,8 @@ export default class GameScene extends Phaser.Scene {
         const configs = {
             first: { catchMultiplier: 2.4, timeLimit: 18, rewardMultiplier: 1.8, startRatio: 0.18 },
             returning: { catchMultiplier: 2.0, timeLimit: 18, rewardMultiplier: 1.6, startRatio: 0.22 },
-            empowered: { catchMultiplier: 2.6, timeLimit: 17, rewardMultiplier: 2.1, startRatio: 0.2 }
+            empowered: { catchMultiplier: 2.6, timeLimit: 17, rewardMultiplier: 2.1, startRatio: 0.2 },
+            event: { catchMultiplier: 2.5, timeLimit: 19, rewardMultiplier: 2.15, startRatio: 0.2 }
         };
 
         return configs[this.bossVariant] || configs.first;
@@ -492,6 +739,17 @@ export default class GameScene extends Phaser.Scene {
             profile.successNotice = '전설급 손맛이 터졌다!';
         }
 
+        if (fish.eventOnly) {
+            profile.previewText = fish.id === 'fish_moon_carp'
+                ? '달빛 비늘이 잔물결을 스치며 다가온다... 아주 조용한 거물이다!'
+                : '먹구름 같은 그림자가 돌진한다... 폭풍 같은 기세다!';
+            profile.previewColor = fish.id === 'fish_moon_carp' ? 0xdde8ff : 0xbde6ff;
+            profile.biteText = fish.id === 'fish_moon_carp' ? '월광 물고기다! 침착하게 눌러!' : '폭풍 참치다! 놓치지 마!';
+            profile.biteFlash = fish.id === 'fish_moon_carp' ? [220, 236, 255] : [150, 220, 255];
+            profile.particleCount += 16;
+            profile.successNotice = fish.id === 'fish_moon_carp' ? '월광 손맛이 은은하게 터졌다!' : '폭풍 같은 손맛이 몰아쳤다!';
+        }
+
         if (sizeTier === 'giant' || sizeTier === 'large') {
             profile.previewText = fish.grade === 'SSR'
                 ? profile.previewText
@@ -509,16 +767,20 @@ export default class GameScene extends Phaser.Scene {
         if (this.isBossFight) {
             profile.previewText = this.bossVariant === 'empowered'
                 ? '바다가 크게 뒤집힌다... 강화 보스가 밀고 들어온다!'
-                : '파도가 한 번 크게 요동친다... 보스다!';
-            profile.previewColor = 0xff9b9b;
-            profile.biteText = '보스가 물었다! 끝까지 버텨!';
+                : (this.bossVariant === 'event'
+                    ? `${this.weeklyEvent?.weekendBossLabel || '주말 보스'}가 수면을 가른다!`
+                    : '파도가 한 번 크게 요동친다... 보스다!');
+            profile.previewColor = this.bossVariant === 'event' ? 0xd7f4ff : 0xff9b9b;
+            profile.biteText = this.bossVariant === 'event' ? '주말 이벤트 보스다! 끝까지 버텨!' : '보스가 물었다! 끝까지 버텨!';
             profile.exclamationText = '!!!';
-            profile.biteFlash = [255, 70, 70];
+            profile.biteFlash = this.bossVariant === 'event' ? [160, 225, 255] : [255, 70, 70];
             profile.biteShakeDuration = 460;
             profile.approachCount = 5;
             profile.biterScale = 1.9;
             profile.particleCount = 96;
-            profile.successNotice = this.bossVariant === 'empowered' ? '강화 보스를 눌렀다!' : '보스를 제압했어!';
+            profile.successNotice = this.bossVariant === 'empowered'
+                ? '강화 보스를 눌렀다!'
+                : (this.bossVariant === 'event' ? '주말 이벤트 보스를 제압했어!' : '보스를 제압했어!');
         }
 
         return profile;
@@ -576,7 +838,7 @@ export default class GameScene extends Phaser.Scene {
             const x = Phaser.Math.Between(-200, this.scale.width + 200);
             const y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
 
-            const fish = this.add.image(x, y, fData.id);
+            const fish = this.add.image(x, y, this.getFishTextureKey(fData));
             fish.setTint(0x000000); // 寃???
             fish.setAlpha(0.15); // ?ㅻ（???щ챸??
             fish.setScale(fData.scale);
@@ -797,13 +1059,18 @@ export default class GameScene extends Phaser.Scene {
 
             const bossLabel = this.bossVariant === 'empowered'
                 ? '강화 보스 출현! 조심!'
-                : (this.bossVariant === 'returning' ? '재등장 보스다! 집중!' : '보스 출현! 조심!');
+                : (this.bossVariant === 'returning'
+                    ? '재등장 보스다! 집중!'
+                    : (this.bossVariant === 'event' ? `${this.weeklyEvent.weekendBossLabel} 출현!` : '보스 출현! 조심!'));
 
             this.uiElements.instruction.setText(`${bossLabel}\n더 빠르게 릴을 감아!`);
 
             this.cameras.main.shake(1500, 0.02);
             this.cameras.main.flash(500, 255, 0, 0);
             window.gameManagers.soundManager.playError();
+            if (this.bossVariant === 'event') {
+                this.announceWeeklyEventEncounter(this.currentFish, true);
+            }
         } else {
             this.isBossFight = false;
             this.bossVariant = 'normal';
@@ -819,6 +1086,10 @@ export default class GameScene extends Phaser.Scene {
             }
 
             this.currentFish = getRandomFish(rodLuckLevel, this.region, this.castingBonus, comboCount, rareFishBoost);
+            this.currentFish = this.maybeSelectWeeklyEventFish(this.currentFish);
+            if (this.currentFish.eventOnly) {
+                this.announceWeeklyEventEncounter(this.currentFish, false);
+            }
         }
 
         // --- 10% ?뺣쪧濡?蹂댁뒪(留덉솗) 異쒗쁽 (吏??떦 5???싳떆 ?댄썑 + ?꾩쭅 ???≪븯???? ---
@@ -861,8 +1132,8 @@ export default class GameScene extends Phaser.Scene {
             else if (side === 2) { startX = lureX + Phaser.Math.Between(-100, 100); startY = lureY + Phaser.Math.Between(100, 200); }
             else { startX = lureX + Phaser.Math.Between(-100, 100); startY = lureY - Phaser.Math.Between(100, 200); }
 
-            const fishSprite = this.add.image(startX, startY, fData.id);
-            fishSprite.setScale(fData.scale * (isBiter ? catchFeel.biterScale : 1.18));
+            const fishSprite = this.add.image(startX, startY, this.getFishTextureKey(fData));
+            this.applyFishVisual(fishSprite, fData, fData.scale * (isBiter ? catchFeel.biterScale : 1.18));
             fishSprite.setDepth(isBiter ? 1.2 : 1);
             fishSprite.setAlpha(isBiter ? 0.95 : 0.76);
             fishSprite.flipX = (startX > lureX); // 李뚮? 諛붾씪蹂대룄濡?
@@ -880,10 +1151,8 @@ export default class GameScene extends Phaser.Scene {
                     }
                 });
                 // 硫붿씤 fish ?ㅽ봽?쇱씠?몄뿉??諛섏쁺 (?낆쭏 ?곗텧??
-                this.fish.setTexture(this.currentFish.id);
-                this.fish.setScale(this.currentFish.scale * 1.5);
+                this.applyFishVisual(this.fish, this.currentFish, this.currentFish.scale * 1.5);
                 console.log(`[DEBUG FISH] ${this.currentFish.id} | FishData scale: ${this.currentFish.scale} | applied: ${this.currentFish.scale * 1.5} | sprite displayW: ${this.fish.displayWidth}, displayH: ${this.fish.displayHeight}`);
-                this.fish.clearTint();
                 this.fish.setVisible(false); // ?묎렐 以묒뿉??approachFish媛 蹂댁씠誘濡??④?
             } else {
                 // === ??臾대뒗 臾쇨퀬湲? ?ㅼ뼇???됰룞 ===
@@ -1438,7 +1707,7 @@ export default class GameScene extends Phaser.Scene {
         window.gameManagers.soundManager.playSuccess();
 
         // 留덉씪?ㅽ넠 吏꾨룞 (紐⑤컮??吏?먯떆)
-        if (navigator.vibrate && (this.isBossFight || this.currentFish.grade === 'SR' || this.currentFish.grade === 'SSR')) {
+        if (navigator.vibrate && (isBossCatch || this.currentFish.grade === 'SR' || this.currentFish.grade === 'SSR')) {
             navigator.vibrate([200, 100, 200]);
         }
 
@@ -1662,11 +1931,18 @@ export default class GameScene extends Phaser.Scene {
             // ?꾩뿭 PlayerModel??怨⑤뱶 異붽?
             window.gameManagers.playerModel.addGold(finalGold);
             const comboUnlocks = window.gameManagers.playerModel.processComboUnlocks();
+            const stampUnlocks = window.gameManagers.playerModel.processCollectionStampUnlocks();
             console.log(`획득 골드: ${finalGold} (현재 총합: ${window.gameManagers.playerModel.gold})`);
 
             if (comboUnlocks.rewardTotal > 0) {
                 window.gameManagers.uiManager?.showComboStickerCelebration(comboUnlocks.unlocked);
                 this.showFloatingNotice(`조합 도감 완성! +${comboUnlocks.rewardTotal}G`, '#ffe082');
+            }
+
+            if (stampUnlocks.rewardTotal > 0) {
+                const collectorTitle = window.gameManagers.playerModel.getCollectorTitle();
+                window.gameManagers.uiManager?.showCollectionStampCelebration(stampUnlocks.unlocked, collectorTitle);
+                this.showFloatingNotice(`수집 스탬프 획득! +${stampUnlocks.rewardTotal}G`, '#c8f7ff', 0.24, '24px');
             }
 
             // --- ?띾뱷 湲덉븸 ?뚮줈???띿뒪???좊땲硫붿씠??異붽? ---
@@ -2115,6 +2391,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     update(time, delta) {
+        this.updateWeeklyEventAtmosphere(time, delta);
+
         // 臾쇨퀬湲??ㅻ（???대룞
         if (this.wanderingFishes) {
             this.wanderingFishes.forEach(fish => {
@@ -2123,15 +2401,17 @@ export default class GameScene extends Phaser.Scene {
                     fish.x = -200;
                     fish.y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
                     const fData = getRandomFish(0, this.region);
-                    fish.setTexture(fData.id);
-                    fish.setScale(fData.scale * 0.8);
+                    this.applyFishVisual(fish, fData, fData.scale * 0.8);
+                    fish.setTint(0x000000);
+                    fish.setAlpha(0.15);
                     fish.flipX = true;
                 } else if (fish.direction === -1 && fish.x < -200) {
                     fish.x = this.scale.width + 200;
                     fish.y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
                     const fData = getRandomFish(0, this.region);
-                    fish.setTexture(fData.id);
-                    fish.setScale(fData.scale * 0.8);
+                    this.applyFishVisual(fish, fData, fData.scale * 0.8);
+                    fish.setTint(0x000000);
+                    fish.setAlpha(0.15);
                     fish.flipX = false;
                 }
             });

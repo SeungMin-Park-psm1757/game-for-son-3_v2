@@ -128,6 +128,67 @@ const SNACK_BEHAVIOR_RULES = {
 };
 
 const RECOGNITION_THRESHOLD = 8;
+const AQUARIUM_THEME_SETS = [
+    {
+        id: 'coral_family_theme',
+        name: '산호 가족 테마',
+        decorIds: ['aquarium_coral_garden', 'aquarium_bubble_fountain', 'aquarium_shell_bed'],
+        color: '#ffcf93',
+        storyKey: 'coralThemeStory'
+    },
+    {
+        id: 'moonlight_theme',
+        name: '달빛 쉼터 테마',
+        decorIds: ['aquarium_moon_rocks', 'aquarium_kelp_arch', 'aquarium_shell_bed'],
+        color: '#cfd8ff',
+        storyKey: 'moonThemeStory'
+    },
+    {
+        id: 'pirate_theme',
+        name: '해적 보물 테마',
+        decorIds: ['aquarium_treasure_castle', 'aquarium_bubble_fountain', 'aquarium_moon_rocks'],
+        color: '#ffd27f',
+        storyKey: 'pirateThemeStory'
+    }
+];
+
+const AQUARIUM_MOOD_STATES = {
+    happy: {
+        id: 'happy',
+        label: '반가움',
+        icon: '💛',
+        notice: '물고기들이 배도 부르고 기분도 좋아 보여!',
+        color: '#ffe893'
+    },
+    calm: {
+        id: 'calm',
+        label: '평온',
+        icon: '💧',
+        notice: '수족관이 고요하게 숨 쉬고 있어.',
+        color: '#d7f7ff'
+    },
+    hungry: {
+        id: 'hungry',
+        label: '배고픔',
+        icon: '🍽️',
+        notice: '물고기들이 간식 시간이 언제인지 기다리는 눈치야.',
+        color: '#ffd3a3'
+    },
+    lonely: {
+        id: 'lonely',
+        label: '보고 싶었어',
+        icon: '👀',
+        notice: '정우를 오래 기다렸는지 유리 가까이 모여들고 있어.',
+        color: '#d7e7ff'
+    },
+    sleepy: {
+        id: 'sleepy',
+        label: '졸림',
+        icon: '🌙',
+        notice: '깊은 물에서 천천히 쉬고 있는 분위기야.',
+        color: '#cfd4ff'
+    }
+};
 
 class AquariumScene extends Phaser.Scene {
     constructor() {
@@ -147,6 +208,9 @@ class AquariumScene extends Phaser.Scene {
         this.feedTarget = null;
         this.currentFeedConfig = null;
         this.pendingRecognitionStory = false;
+        this.moodBubbleTimer = 0;
+        this.currentMoodState = null;
+        this.activeThemeSets = [];
         this.magRadius = 150;
         this.magZoom = 2.6;
 
@@ -162,10 +226,19 @@ class AquariumScene extends Phaser.Scene {
         this.drawBackground();
         this.createBaseDecorations();
         this.createTitleAndButtons();
+        const entryMoodState = this.getAquariumMoodState();
+        this.currentMoodState = entryMoodState;
+        this.model.markAquariumVisit();
         this.createFishCollection();
         this.renderUnlockedDecor();
+        this.activeThemeSets = this.getUnlockedThemeSets();
         this.setupMagnifier();
         this.refreshUiState();
+        if (entryMoodState.id === 'lonely') {
+            this.time.delayedCall(600, () => {
+                this.showNotice(entryMoodState.notice, entryMoodState.color);
+            });
+        }
         this.checkAquariumStoryMoments('create');
     }
 
@@ -284,6 +357,66 @@ class AquariumScene extends Phaser.Scene {
         return button;
     }
 
+    getFishTextureKey(fishData) {
+        return fishData?.textureKey || fishData?.id || 'fish_pirami';
+    }
+
+    applyFishVisual(sprite, fishData) {
+        if (!sprite || !fishData) return;
+
+        sprite.setTexture(this.getFishTextureKey(fishData));
+        sprite.clearTint();
+
+        if (fishData.id === 'fish_moon_carp') {
+            sprite.setTint(0xe9f3ff, 0xd9e8ff, 0xb8d8ff, 0x9fc5ff);
+        } else if (fishData.id === 'fish_storm_tuna') {
+            sprite.setTint(0x8fd8ff, 0x5ab8ff, 0x2e6ca1, 0x4b93cf);
+        }
+    }
+
+    getUnlockedThemeSets() {
+        return AQUARIUM_THEME_SETS.filter((theme) =>
+            theme.decorIds.every((decorId) => (this.model.decorPurchased?.[decorId] || 0) > 0)
+        );
+    }
+
+    getAquariumMoodState(now = Date.now()) {
+        const lastSnackAt = this.model.lastAquariumSnackAt || 0;
+        const lastVisitAt = this.model.lastAquariumVisitAt || 0;
+        const hoursSinceSnack = lastSnackAt > 0 ? (now - lastSnackAt) / (1000 * 60 * 60) : Infinity;
+        const hoursSinceVisit = lastVisitAt > 0 ? (now - lastVisitAt) / (1000 * 60 * 60) : Infinity;
+        const hour = new Date(now).getHours();
+
+        if (hoursSinceSnack <= 0.5) return AQUARIUM_MOOD_STATES.happy;
+        if (hoursSinceVisit >= 12) return AQUARIUM_MOOD_STATES.lonely;
+        if (hour >= 21 || hour < 6) return AQUARIUM_MOOD_STATES.sleepy;
+        if (hoursSinceSnack >= 8) return AQUARIUM_MOOD_STATES.hungry;
+        return AQUARIUM_MOOD_STATES.calm;
+    }
+
+    emitMoodBubble(fish, moodState = this.currentMoodState) {
+        if (!fish || !moodState) return;
+
+        const bubble = this.add.text(fish.x, fish.y - fish.displayHeight * 0.7, `${moodState.icon} ${moodState.label}`, {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            color: '#10263d',
+            backgroundColor: '#fffdf6',
+            padding: { x: 8, y: 4 },
+            stroke: '#ffffff',
+            strokeThickness: 1
+        }).setOrigin(0.5).setDepth(5);
+
+        this.tweens.add({
+            targets: bubble,
+            y: bubble.y - 26,
+            alpha: 0,
+            duration: 1500,
+            ease: 'Sine.easeOut',
+            onComplete: () => bubble.destroy()
+        });
+    }
+
     createFishCollection() {
         const collection = this.model.fishCollection;
 
@@ -320,14 +453,16 @@ class AquariumScene extends Phaser.Scene {
         const fish = this.add.image(
             Phaser.Math.Between(60, width - 60),
             Phaser.Math.Between(minY, maxY),
-            fishData.id
+            this.getFishTextureKey(fishData)
         ).setDepth(2);
+        this.applyFishVisual(fish, fishData);
 
         const growthScales = [1, 1.16, 1.34];
         const baseScale = (fishData.scale || 1) * Phaser.Math.FloatBetween(0.6, 0.82) * growthScales[growthStage];
         fish.setScale(baseScale);
         fish.baseScaleX = fish.scaleX;
         fish.baseScaleY = fish.scaleY;
+        fish.fishData = fishData;
         fish.growthStage = growthStage;
         fish.homeRegion = regionIndex;
         fish.minY = minY;
@@ -417,6 +552,7 @@ class AquariumScene extends Phaser.Scene {
 
     pickIdleTarget(fish, immediate = false) {
         const width = this.scale.width;
+        const mood = this.currentMoodState || this.getAquariumMoodState();
         const nearbyFishes = this.fishes.filter((other) =>
             other !== fish &&
             !other.isFixed &&
@@ -427,23 +563,31 @@ class AquariumScene extends Phaser.Scene {
         let targetX = Phaser.Math.Between(56, width - 56);
         let targetY = Phaser.Math.Between(fish.minY + 8, fish.maxY - 8);
 
-        if (decorAnchors.length > 0 && roll < 0.38) {
+        if (mood.id === 'lonely' && roll < 0.26) {
+            targetX = Phaser.Math.Between(Math.round(width * 0.38), Math.round(width * 0.62));
+            targetY = Phaser.Math.Clamp(fish.minY + Phaser.Math.Between(12, 34), fish.minY + 8, fish.maxY - 8);
+            fish.behaviorState = 'welcome';
+            fish.speedMultiplier = 1.06;
+            fish.pauseTimer = immediate ? 0 : Phaser.Math.Between(500, 1000);
+        } else if (decorAnchors.length > 0 && roll < (mood.id === 'hungry' ? 0.46 : 0.38)) {
             const anchor = Phaser.Utils.Array.GetRandom(decorAnchors);
             targetX = anchor.x + Phaser.Math.Between(-48, 48);
             targetY = Phaser.Math.Clamp(anchor.y + Phaser.Math.Between(-24, 16), fish.minY + 8, fish.maxY - 8);
             fish.behaviorState = 'inspect';
-            fish.speedMultiplier = 0.78;
+            fish.speedMultiplier = mood.id === 'hungry' ? 0.92 : 0.78;
             fish.pauseTimer = immediate ? 0 : Phaser.Math.Between(1000, 1900);
-        } else if (nearbyFishes.length > 0 && roll < 0.72) {
+        } else if (nearbyFishes.length > 0 && roll < (mood.id === 'happy' ? 0.84 : 0.72)) {
             const leader = Phaser.Utils.Array.GetRandom(nearbyFishes);
             targetX = leader.x + Phaser.Math.Between(-72, 72);
             targetY = Phaser.Math.Clamp(leader.y + Phaser.Math.Between(-28, 28), fish.minY + 8, fish.maxY - 8);
             fish.behaviorState = 'school';
-            fish.speedMultiplier = 0.92;
+            fish.speedMultiplier = mood.id === 'happy' ? 1.02 : 0.92;
             fish.pauseTimer = immediate ? 0 : Phaser.Math.Between(600, 1200);
         } else {
             fish.behaviorState = 'cruise';
-            fish.speedMultiplier = Phaser.Math.FloatBetween(0.98, 1.12);
+            fish.speedMultiplier = mood.id === 'sleepy'
+                ? Phaser.Math.FloatBetween(0.72, 0.86)
+                : Phaser.Math.FloatBetween(0.98, 1.12);
             fish.pauseTimer = immediate ? 0 : Phaser.Math.Between(500, 1100);
         }
 
@@ -577,12 +721,17 @@ class AquariumScene extends Phaser.Scene {
     }
 
     refreshUiState() {
+        this.currentMoodState = this.getAquariumMoodState();
+        this.activeThemeSets = this.getUnlockedThemeSets();
         const snackSummary = SPECIAL_SNACK_ITEMS.map((item) => {
             const count = this.model.snacksPurchased[item.id] || 0;
             return `${item.shortLabel} ${count}개`;
         }).join(' · ');
         const decorCount = this.model.getUnlockedDecorCount();
-        this.statusText.setText(`${snackSummary} · 꾸민 소품 ${decorCount}개 · 물고기 ${this.fishes.length}종`);
+        const themeSummary = this.activeThemeSets.length > 0
+            ? `테마 ${this.activeThemeSets.length}개 완성`
+            : '테마 준비 중';
+        this.statusText.setText(`${snackSummary} · 꾸민 소품 ${decorCount}개 · 기분 ${this.currentMoodState.icon} ${this.currentMoodState.label} · ${themeSummary}`);
     }
 
     renderUnlockedDecor() {
@@ -1168,6 +1317,7 @@ class AquariumScene extends Phaser.Scene {
             item.destroy();
         });
         this.feedVisuals = [];
+        this.refreshUiState();
         this.showNotice('배부르게 먹고 다시 유유히 헤엄치기 시작했어.', '#d7f7ff');
 
         if (this.pendingRecognitionStory) {
@@ -1209,6 +1359,35 @@ class AquariumScene extends Phaser.Scene {
 
     checkAquariumStoryMoments(source) {
         if (this.shopUi.length > 0) return;
+
+        const completedTheme = this.getUnlockedThemeSets().find((theme) => !this.model.aquariumMomentsSeen?.[theme.storyKey]);
+        if ((source === 'decor' || source === 'create') && completedTheme) {
+            this.model.markAquariumMomentSeen(completedTheme.storyKey);
+
+            const themeStories = {
+                coralThemeStory: [
+                    { speaker: '세연', portrait: 'char_seyeon', text: '우와! 산호랑 조개가 반짝이니까 물고기 집이 훨씬 예뻐졌어!' },
+                    { speaker: '엄마', portrait: 'char_mom', text: '색이 포근해서 보는 사람도 편안해지네. 정우가 수족관을 아주 다정하게 꾸몄구나.' },
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: '산호 가족 테마 완성! 물고기들이 쉬기 좋은 공간이 된 것 같아요!' }
+                ],
+                moonThemeStory: [
+                    { speaker: '엄마', portrait: 'char_mom', text: '달빛 바위와 해초가 어우러지니 밤바다를 작은 방 안에 담아 놓은 것 같네.' },
+                    { speaker: '세연', portrait: 'char_seyeon', text: '오빠, 여기 완전 반짝반짝 밤바다 동굴 같아! 나도 매일 보러 올래!' },
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: '달빛 쉼터 테마 완성! 조용히 쉬는 물고기들한테 딱 어울려요.' }
+                ],
+                pirateThemeStory: [
+                    { speaker: '세연', portrait: 'char_seyeon', text: '해적 성채까지 생기니까 진짜 보물 바다 같아! 물고기들이 모험하는 느낌이야!' },
+                    { speaker: '아빠', portrait: 'char_dad', text: '테마를 하나로 맞추니 수족관이 더 살아 보이는구나. 정우 눈썰미가 좋다!' },
+                    { speaker: '정우', portrait: 'char_jeongwoo', text: '해적 보물 테마도 완성! 다음엔 어떤 물고기가 이곳을 지켜 줄지 궁금해요!' }
+                ]
+            };
+
+            this.scene.start('StoryScene', {
+                storyData: themeStories[completedTheme.storyKey] || themeStories.coralThemeStory,
+                nextScene: 'AquariumScene'
+            });
+            return true;
+        }
 
         if (this.model.getUnlockedDecorCount() >= 5 && !this.model.aquariumMomentsSeen.homeSeaStory) {
             this.model.markAquariumMomentSeen('homeSeaStory');
@@ -1260,8 +1439,26 @@ class AquariumScene extends Phaser.Scene {
     update(time, delta) {
         const dt = delta / 1000;
         const crumbColor = this.currentFeedConfig?.snackItem?.crumbColor || 0xf5f2cf;
+        const nextMoodState = this.getAquariumMoodState();
+
+        if (nextMoodState.id !== this.currentMoodState?.id) {
+            this.currentMoodState = nextMoodState;
+            this.refreshUiState();
+        }
 
         this.updateFeedTarget(delta);
+
+        if (!this.isFeeding && this.fishes.length > 0) {
+            this.moodBubbleTimer -= delta;
+            if (this.moodBubbleTimer <= 0) {
+                const candidates = this.fishes.filter((fish) => !fish.isFixed);
+                const speakerFish = Phaser.Utils.Array.GetRandom(candidates);
+                if (speakerFish) {
+                    this.emitMoodBubble(speakerFish, this.currentMoodState);
+                }
+                this.moodBubbleTimer = Phaser.Math.Between(3400, 5200);
+            }
+        }
 
         this.fishes.forEach((fish) => {
             if (fish.isFixed) {

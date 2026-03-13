@@ -5,6 +5,11 @@ import {
     getRecommendedComboGoalIds,
     isComboCompleted
 } from '../data/ComboBookData.js';
+import {
+    getCollectorTitle,
+    getUnlockedCollectionStamps,
+    processCollectionStampUnlocks
+} from '../data/CollectionStampData.js';
 
 const SAVE_KEY = 'fishingGameData';
 const TUTORIAL_BOOST_DURATION_MS = 5 * 60 * 1000;
@@ -44,6 +49,9 @@ export default class PlayerModel {
             this.snackUsageCounts = savedData.snackUsageCounts || {};
             this.specialSnackBehaviorsSeen = savedData.specialSnackBehaviorsSeen || {};
             this.aquariumMomentsSeen = savedData.aquariumMomentsSeen || {};
+            this.collectionStamps = savedData.collectionStamps || {};
+            this.lastAquariumSnackAt = savedData.lastAquariumSnackAt || 0;
+            this.lastAquariumVisitAt = savedData.lastAquariumVisitAt || 0;
             this.firstPlayStartedAt = savedData.firstPlayStartedAt || now;
             this.tutorialBoostEndsAt = savedData.tutorialBoostEndsAt ?? (this.firstPlayStartedAt + TUTORIAL_BOOST_DURATION_MS);
         } else {
@@ -76,6 +84,9 @@ export default class PlayerModel {
             this.snackUsageCounts = {};
             this.specialSnackBehaviorsSeen = {};
             this.aquariumMomentsSeen = {};
+            this.collectionStamps = {};
+            this.lastAquariumSnackAt = 0;
+            this.lastAquariumVisitAt = 0;
             this.firstPlayStartedAt = now;
             this.tutorialBoostEndsAt = now + TUTORIAL_BOOST_DURATION_MS;
         }
@@ -99,6 +110,9 @@ export default class PlayerModel {
             savedData.snackUsageCounts === undefined ||
             savedData.specialSnackBehaviorsSeen === undefined ||
             savedData.aquariumMomentsSeen === undefined ||
+            savedData.collectionStamps === undefined ||
+            savedData.lastAquariumSnackAt === undefined ||
+            savedData.lastAquariumVisitAt === undefined ||
             goalStateChanged;
 
         if (needsMigrationSave) {
@@ -135,6 +149,9 @@ export default class PlayerModel {
             snackUsageCounts: this.snackUsageCounts,
             specialSnackBehaviorsSeen: this.specialSnackBehaviorsSeen,
             aquariumMomentsSeen: this.aquariumMomentsSeen,
+            collectionStamps: this.collectionStamps,
+            lastAquariumSnackAt: this.lastAquariumSnackAt,
+            lastAquariumVisitAt: this.lastAquariumVisitAt,
             firstPlayStartedAt: this.firstPlayStartedAt,
             tutorialBoostEndsAt: this.tutorialBoostEndsAt
         });
@@ -258,6 +275,7 @@ export default class PlayerModel {
         }
         this.specialSnackFedCount += amount;
         this.snackUsageCounts[snackId] = (this.snackUsageCounts[snackId] || 0) + amount;
+        this.lastAquariumSnackAt = Date.now();
         this.notify();
         return true;
     }
@@ -288,8 +306,21 @@ export default class PlayerModel {
         return true;
     }
 
+    markAquariumVisit() {
+        this.lastAquariumVisitAt = Date.now();
+        this.persist();
+    }
+
     getUnlockedDecorCount() {
         return Object.values(this.decorPurchased || {}).filter((count) => count > 0).length;
+    }
+
+    getUnlockedCollectionStamps() {
+        return getUnlockedCollectionStamps(this);
+    }
+
+    getCollectorTitle() {
+        return getCollectorTitle(this);
     }
 
     ensureActiveComboGoals(count = 3) {
@@ -346,6 +377,14 @@ export default class PlayerModel {
         }
 
         return { unlocked, rewardTotal };
+    }
+
+    processCollectionStampUnlocks() {
+        const result = processCollectionStampUnlocks(this);
+        if (result.unlocked.length > 0) {
+            this.notify();
+        }
+        return result;
     }
 
     cheatSetAllFish(fishIds, count = 8) {

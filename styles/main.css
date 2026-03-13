@@ -650,6 +650,128 @@ body.modal-open #game-container canvas {
     flex-direction: column;
 }
 
+.encyclopedia-popup {
+    width: min(920px, 96vw) !important;
+    padding: 16px;
+    gap: 12px;
+    overflow: hidden;
+}
+
+.encyclopedia-header {
+    align-items: flex-start;
+}
+
+.encyclopedia-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    padding-right: 4px;
+    min-height: 0;
+}
+
+.collection-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fff8d9 0%, #eef8ff 100%);
+    border: 3px solid #d9e9f6;
+}
+
+.collection-summary-main {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    color: #294866;
+    font-size: 14px;
+}
+
+.collection-summary-main strong {
+    color: #1f4262;
+    font-size: 18px;
+}
+
+.collection-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.collection-action-btn,
+.collection-filter-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #214260;
+    background: #dbeeff;
+    box-shadow: 0 4px 0 rgba(40, 86, 124, 0.2);
+}
+
+.collection-action-btn {
+    background: #ffefbd;
+    color: #7f5b0e;
+}
+
+.collection-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.collection-filter-btn.active {
+    background: #4aa8ff;
+    color: #ffffff;
+}
+
+.collection-stamp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.collection-stamp-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    border: 2px solid color-mix(in srgb, var(--stamp-color) 72%, white);
+    background: color-mix(in srgb, var(--stamp-color) 22%, #ffffff);
+    color: #284462;
+    min-height: 64px;
+}
+
+.collection-stamp-chip.locked {
+    filter: grayscale(1);
+    opacity: 0.72;
+}
+
+.collection-stamp-emoji {
+    font-size: 28px;
+    line-height: 1;
+}
+
+.collection-stamp-copy {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    gap: 2px;
+}
+
+.collection-stamp-copy strong {
+    font-size: 14px;
+}
+
+.collection-stamp-copy span {
+    font-size: 12px;
+    color: #47647f;
+}
+
 #book-close-btn,
 #combo-book-close-btn {
     background: #FF6347;
@@ -666,7 +788,6 @@ body.modal-open #game-container canvas {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 20px;
-    overflow-y: auto;
     padding: 10px;
     /* 모바일 스크롤 지원 */
     touch-action: pan-y;
@@ -689,6 +810,47 @@ body.modal-open #game-container canvas {
     margin: 10px 0 5px 0;
     font-size: 20px;
     color: #333;
+}
+
+.enhanced-fish-card {
+    gap: 6px;
+    align-items: stretch;
+}
+
+.fish-card-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+}
+
+.fish-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.region-tag {
+    background: #dcefff;
+    color: #325c84;
+}
+
+.event-tag {
+    background: #fff1bd;
+    color: #8c6503;
+}
+
+.count-tag {
+    background: #eef6df;
+    color: #53711d;
+}
+
+.book-filter-hidden {
+    display: none !important;
 }
 
 .fish-grade {
@@ -988,6 +1150,10 @@ body.modal-open #game-container canvas {
 
 .combo-sticker-burst-card span:last-child {
     font-size: 12px;
+}
+
+.collection-stamp-card.title-card {
+    min-width: 170px;
 }
 
 .combo-sticker-burst-emoji {

@@ -10,6 +10,8 @@ import {
     getComboProgress,
     getComboSticker
 } from '../data/ComboBookData.js';
+import { COLLECTION_STAMP_ENTRIES } from '../data/CollectionStampData.js';
+import { WEEKLY_EVENT_ROTATION } from '../data/WeeklyEventData.js';
 
 const FISH_BY_ID = Object.fromEntries(FISH_TYPES.map((fish) => [fish.id, fish]));
 const DECOR_PREVIEW_MAP = {
@@ -43,6 +45,28 @@ const SNACK_PREVIEW_MAP = {
         { type: 'fish', fishId: 'fish_boonguh' }
     ]
 };
+
+const REGION_LABELS = {
+    1: '민물',
+    2: '연안',
+    3: '먼 바다',
+    4: '보물섬'
+};
+
+const EVENT_CARD_LIBRARY = [
+    { id: 'event_pirate', name: '해적선 발견', desc: '멀리 지나가는 해적선에서 반짝이는 보물 상자를 발견했다.', emoji: '🏴‍☠️' },
+    { id: 'event_octopus', name: '대왕 문어 습격', desc: '거대한 촉수가 배 옆을 스치며 바다를 크게 흔들어 놓았다.', emoji: '🐙' },
+    { id: 'event_mermaid', name: '인어의 노래', desc: '안개 너머에서 들려온 신비한 노랫소리가 바다를 잔잔하게 감쌌다.', emoji: '🧜‍♀️' },
+    { id: 'event_rainbow', name: '무지개 출현', desc: '비가 그친 뒤 하늘 끝에 밝은 무지개가 떠올라 행운을 비춰 주었다.', emoji: '🌈' },
+    { id: 'event_ghost', name: '유령선 조우', desc: '짙은 안개 속에서 낡은 배가 소리 없이 다가왔다가 다시 사라졌다.', emoji: '👻' },
+    ...WEEKLY_EVENT_ROTATION.map((eventInfo) => ({
+        id: eventInfo.id,
+        name: eventInfo.name,
+        desc: eventInfo.description,
+        emoji: eventInfo.cardEmoji
+    })),
+    { id: 'event_weekend_boss', name: '주말 이벤트 보스', desc: '주말에만 모습을 드러내는 거대한 이벤트 보스와 정면 승부를 벌였다.', emoji: '👑' }
+];
 
 export default class UIManager {
     constructor(playerModel) {
@@ -204,20 +228,91 @@ export default class UIManager {
                 `;
             }
 
+            const previewFish = item.fishId ? FISH_BY_ID[item.fishId] : null;
             const src = item.type === 'decor'
                 ? item.src
-                : `assets/images/${item.fishId}.png`;
-            const label = item.label || FISH_BY_ID[item.fishId]?.name || '미리보기';
+                : this.getFishImageSrc(previewFish || { id: item.fishId });
+            const label = item.label || previewFish?.name || '미리보기';
+            const styleAttr = item.type === 'decor' ? '' : this.getFishImageStyle(previewFish || {}, true);
 
             return `
                 <div class="combo-preview-item">
-                    <img src="${src}" alt="${label}" class="combo-preview-image" />
+                    <img src="${src}" alt="${label}" class="combo-preview-image" ${styleAttr} />
                     <span class="combo-preview-label">${label}</span>
                 </div>
             `;
         }).join('');
 
         return `<div class="combo-preview-strip">${itemsHTML}</div>`;
+    }
+
+    getFishImageSrc(fish) {
+        return `assets/images/${fish.textureKey || fish.id}.png`;
+    }
+
+    getFishImageStyle(fish, isDiscovered = true) {
+        const filters = [];
+
+        if (!isDiscovered) {
+            filters.push('brightness(0)', 'opacity(0.55)');
+        } else if (fish.imageFilter) {
+            filters.push(fish.imageFilter);
+        }
+
+        return filters.length > 0 ? `style="filter:${filters.join(' ')};"` : '';
+    }
+
+    showCollectionStampCelebration(unlockedStamps = [], collectorTitle = '') {
+        if (!unlockedStamps || unlockedStamps.length === 0) return;
+
+        this.clearComboStickerCelebration();
+        const burst = document.createElement('div');
+        burst.className = 'combo-sticker-burst collection-stamp-burst';
+
+        burst.innerHTML = unlockedStamps.slice(0, 3).map((entry, index) => `
+            <div class="combo-sticker-burst-card collection-stamp-card" style="--sticker-color:${entry.color}; --sticker-delay:${index * 0.08}s;">
+                <span class="combo-sticker-burst-emoji">${entry.emoji}</span>
+                <strong>${entry.name}</strong>
+                <span>+${entry.reward}G</span>
+            </div>
+        `).join('') + (collectorTitle ? `
+            <div class="combo-sticker-burst-card collection-stamp-card title-card" style="--sticker-color:#8fd8ff; --sticker-delay:${unlockedStamps.length * 0.08}s;">
+                <span class="combo-sticker-burst-emoji">🏅</span>
+                <strong>새 칭호</strong>
+                <span>${collectorTitle}</span>
+            </div>
+        ` : '');
+
+        this.container.appendChild(burst);
+        this.activeStickerBurst = burst;
+        this.comboStickerTimer = setTimeout(() => {
+            this.clearComboStickerCelebration();
+        }, 3400);
+    }
+
+    bindEncyclopediaFilters(popup) {
+        const buttons = popup.querySelectorAll('[data-book-filter]');
+        const cards = popup.querySelectorAll('.fish-card[data-filter-region]');
+
+        buttons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const filter = button.dataset.bookFilter || 'all';
+                buttons.forEach((target) => target.classList.toggle('active', target === button));
+
+                cards.forEach((card) => {
+                    const region = card.dataset.filterRegion;
+                    const isEvent = card.dataset.filterEvent === '1';
+                    const isDiscovered = card.dataset.filterDiscovered === '1';
+
+                    let visible = true;
+                    if (filter === 'hidden') visible = !isDiscovered;
+                    else if (filter === 'event') visible = isEvent;
+                    else if (filter.startsWith('region-')) visible = region === filter.replace('region-', '');
+
+                    card.classList.toggle('book-filter-hidden', !visible);
+                });
+            });
+        });
     }
 
     // --- 수학 퀴즈 시스템 (도상학 기반 물고기 아이콘 시각화) ---
@@ -1505,46 +1600,95 @@ export default class UIManager {
         this.container.style.pointerEvents = 'auto';
 
         const collection = this.playerModel.fishCollection;
+        const discoveredCount = FISH_TYPES.filter((fish) => (collection[fish.id] || 0) > 0).length;
+        const totalCaught = Object.values(collection).reduce((sum, count) => sum + count, 0);
+        const completionPercent = Math.round((discoveredCount / Math.max(1, FISH_TYPES.length)) * 100);
+        const collectorTitle = this.playerModel.getCollectorTitle();
 
-        let fishCardsHTML = '';
-        FISH_TYPES.forEach(fish => {
+        const stampHTML = COLLECTION_STAMP_ENTRIES.map((entry) => {
+            const unlocked = !!this.playerModel.collectionStamps?.[entry.id]?.discovered;
+            const subLabel = unlocked ? entry.title : `보상 +${entry.reward}G`;
+            return `
+                <div class="collection-stamp-chip ${unlocked ? 'unlocked' : 'locked'}" style="--stamp-color:${entry.color};">
+                    <span class="collection-stamp-emoji">${unlocked ? entry.emoji : '❔'}</span>
+                    <div class="collection-stamp-copy">
+                        <strong>${unlocked ? entry.name : '비밀 스탬프'}</strong>
+                        <span>${subLabel}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const fishCardsHTML = FISH_TYPES.map((fish) => {
             const count = collection[fish.id] || 0;
             const isDiscovered = count > 0;
+            const src = this.getFishImageSrc(fish);
+            const styleAttr = this.getFishImageStyle(fish, isDiscovered);
+            const name = isDiscovered ? fish.name : (fish.eventOnly ? '주간 이벤트 실루엣' : '???');
+            const gradeText = isDiscovered ? fish.grade : '???';
+            const noteText = isDiscovered
+                ? (fish.eventOnly ? '이번 주에만 만날 수 있는 특별한 물고기예요.' : `기본 보상 ${fish.baseReward}G`)
+                : (fish.eventOnly ? '주간 이벤트가 열리는 동안 등장합니다.' : '아직 만나지 못한 물고기예요.');
+            const tags = `
+                <span class="fish-tag region-tag">${REGION_LABELS[fish.region] || '미지'}</span>
+                ${fish.eventOnly ? '<span class="fish-tag event-tag">주간 이벤트</span>' : ''}
+                <span class="fish-tag count-tag">${isDiscovered ? `${count}마리` : '미발견'}</span>
+            `;
 
-            if (isDiscovered) {
-                fishCardsHTML += `
-                    <div class="fish-card discovered">
-                        <div class="fish-img-container">
-                            <img src="assets/images/${fish.id}.png" class="fish-img-sprite" />
-                        </div>
-                        <h3>${fish.name}</h3>
-                        <p class="fish-grade grade-${fish.grade}">등급: ${fish.grade}</p>
-                        <p class="fish-count">포획 수: ${count}마리</p>
-                        <p class="fish-reward">기본 보상: 💰${fish.baseReward}</p>
+            return `
+                <article class="fish-card ${isDiscovered ? 'discovered' : 'undiscovered'} enhanced-fish-card"
+                    data-filter-region="${fish.region}"
+                    data-filter-event="${fish.eventOnly ? '1' : '0'}"
+                    data-filter-discovered="${isDiscovered ? '1' : '0'}">
+                    <div class="fish-card-top">${tags}</div>
+                    <div class="fish-img-container">
+                        <img src="${src}" class="fish-img-sprite" alt="${name}" ${styleAttr} />
                     </div>
-                `;
-            } else {
-                fishCardsHTML += `
-                    <div class="fish-card undiscovered">
-                        <div class="fish-img-container">
-                            <img src="assets/images/${fish.id}.png" class="fish-img-sprite silhouette-img" />
-                        </div>
-                        <h3>???</h3>
-                        <p class="fish-grade">등급: ???</p>
-                        <p class="fish-count">포획 수: 0마리</p>
-                    </div>
-                `;
-            }
-        });
+                    <h3>${name}</h3>
+                    <p class="fish-grade ${isDiscovered ? `grade-${fish.grade}` : ''}">${isDiscovered ? `등급 ${gradeText}` : '등급 ???'}</p>
+                    <p class="fish-count">${isDiscovered ? `포획 수 ${count}마리` : '포획 수 0마리'}</p>
+                    <p class="fish-reward">${noteText}</p>
+                </article>
+            `;
+        }).join('');
 
         const encyclopediaHTML = `
-            <div id="encyclopedia-popup" class="popup-box">
-                <div class="shop-header">
-                    <h2>내 물고기 도감 📖</h2>
+            <div id="encyclopedia-popup" class="popup-box encyclopedia-popup">
+                <div class="shop-header encyclopedia-header">
+                    <div>
+                        <h2>내 물고기 도감 📖</h2>
+                        <p class="milestone-subcopy">새 물고기, 주간 이벤트, 수집 스탬프를 한눈에 확인해 보세요.</p>
+                    </div>
                     <button id="book-close-btn">❌ 닫기</button>
                 </div>
-                <div class="encyclopedia-grid">
-                    ${fishCardsHTML}
+                <div class="encyclopedia-scroll">
+                    <section class="collection-summary">
+                        <div class="collection-summary-main">
+                            <strong>${collectorTitle}</strong>
+                            <span>도감 ${discoveredCount}/${FISH_TYPES.length} (${completionPercent}%)</span>
+                            <span>총 포획 ${totalCaught}마리</span>
+                        </div>
+                        <div class="collection-action-row">
+                            <button id="encyclopedia-open-combo" class="collection-action-btn">🧩 조합 도감</button>
+                            <button id="encyclopedia-open-event" class="collection-action-btn">🃏 이벤트 카드</button>
+                            <button id="encyclopedia-open-milestone" class="collection-action-btn">🏆 포획 기록</button>
+                        </div>
+                        <div class="collection-stamp-grid">
+                            ${stampHTML}
+                        </div>
+                    </section>
+                    <div class="collection-filter-bar">
+                        <button class="collection-filter-btn active" data-book-filter="all">전체</button>
+                        <button class="collection-filter-btn" data-book-filter="hidden">미발견</button>
+                        <button class="collection-filter-btn" data-book-filter="event">주간 이벤트</button>
+                        <button class="collection-filter-btn" data-book-filter="region-1">민물</button>
+                        <button class="collection-filter-btn" data-book-filter="region-2">연안</button>
+                        <button class="collection-filter-btn" data-book-filter="region-3">먼 바다</button>
+                        <button class="collection-filter-btn" data-book-filter="region-4">보물섬</button>
+                    </div>
+                    <div class="encyclopedia-grid">
+                        ${fishCardsHTML}
+                    </div>
                 </div>
             </div>
         `;
@@ -1553,6 +1697,10 @@ export default class UIManager {
         this.currentPopup = this.mountModal('encyclopedia-popup');
 
         document.getElementById('book-close-btn').onclick = () => { this.closePopup(); };
+        document.getElementById('encyclopedia-open-combo').onclick = () => { this.resetPopupState(false); this.openComboBook(); };
+        document.getElementById('encyclopedia-open-event').onclick = () => { this.resetPopupState(false); this.openEventCardBook(); };
+        document.getElementById('encyclopedia-open-milestone').onclick = () => { this.resetPopupState(false); this.openFishMilestonePopup(); };
+        this.bindEncyclopediaFilters(this.currentPopup);
     }
 
     openComboBook() {
@@ -1710,7 +1858,7 @@ export default class UIManager {
                 fishCardsHTML += `
                     <div class="fish-card discovered" style="border-color: ${titleText !== '없음' ? '#FFD700' : '#DEB887'};">
                         <div class="fish-img-container">
-                            <img src="assets/images/${fish.id}.png" class="fish-img-sprite" />
+                            <img src="${this.getFishImageSrc(fish)}" class="fish-img-sprite" ${this.getFishImageStyle(fish, true)} />
                         </div>
                         <h3>${fish.name}</h3>
                         <p class="fish-count">총 <strong>${count}</strong>마리</p>
@@ -1722,7 +1870,7 @@ export default class UIManager {
                 fishCardsHTML += `
                     <div class="fish-card undiscovered">
                         <div class="fish-img-container">
-                            <img src="assets/images/${fish.id}.png" class="fish-img-sprite silhouette-img" />
+                            <img src="${this.getFishImageSrc(fish)}" class="fish-img-sprite silhouette-img" ${this.getFishImageStyle(fish, false)} />
                         </div>
                         <h3>???</h3>
                         <p class="fish-count">0마리</p>
@@ -1762,18 +1910,10 @@ export default class UIManager {
         this.hidePersistentUI();
         this.container.style.pointerEvents = 'auto';
 
-        const eventData = [
-            { id: 'event_pirate', name: '해적선 발견', desc: '멀리 지나가는 해적선에서 반짝이는 보물 상자를 발견했다.', emoji: '🏴‍☠️' },
-            { id: 'event_octopus', name: '대왕 문어 습격', desc: '거대한 촉수가 배 옆을 스치며 바다를 크게 흔들어 놓았다.', emoji: '🐙' },
-            { id: 'event_mermaid', name: '인어의 노래', desc: '안개 너머에서 들려온 신비한 노랫소리가 바다를 잔잔하게 감쌌다.', emoji: '🧜‍♀️' },
-            { id: 'event_rainbow', name: '무지개 출현', desc: '비가 그친 뒤 하늘 끝에 밝은 무지개가 떠올라 행운을 비춰 주었다.', emoji: '🌈' },
-            { id: 'event_ghost', name: '유령선 조우', desc: '짙은 안개 속에서 낡은 배가 소리 없이 다가왔다가 다시 사라졌다.', emoji: '👻' }
-        ];
-
         const cards = this.playerModel.eventCards || {};
 
         let cardsHTML = '';
-        eventData.forEach(ev => {
+        EVENT_CARD_LIBRARY.forEach(ev => {
             const cardInfo = cards[ev.id];
             if (cardInfo && cardInfo.discovered) {
                 const d = new Date(cardInfo.firstSeenDate);
@@ -1804,7 +1944,7 @@ export default class UIManager {
             <div id="eventcard-popup" class="popup-box" style="width: 85%; max-width: 500px;">
                 <div class="shop-header" style="flex-direction: column; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 10px;">
                     <h2 style="margin: 0; color: #4B0082;">🃏 보물섬 이벤트 도감</h2>
-                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">신비의 바다에서 겪은 특별한 일들</p>
+                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">보물섬과 주간 이벤트에서 겪은 특별한 일들</p>
                     <button id="card-close-btn" style="position: absolute; right: 10px; top: 10px;">❌</button>
                 </div>
                 <div class="eventcard-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 15px 0; overflow-y: auto; max-height: 60vh;">
