@@ -212,7 +212,7 @@ class AquariumScene extends Phaser.Scene {
         this.currentMoodState = null;
         this.activeThemeSets = [];
         this.magRadius = 150;
-        this.magZoom = 2.6;
+        this.magZoom = 3.1;
         this.topUiSafeY = 226;
 
         const height = this.scale.height;
@@ -677,25 +677,15 @@ class AquariumScene extends Phaser.Scene {
     }
 
     setupMagnifier() {
-        const radius = this.magRadius;
-        const sourceCanvas = this.sys.game.canvas;
-        const scaleX = sourceCanvas.clientWidth / this.scale.width;
-        const diameterCss = Math.max(120, Math.round(radius * 2 * scaleX));
-        const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
-
         this.magPointerX = 0;
         this.magPointerY = 0;
-        this.magLensDiameter = diameterCss;
+        this.magLensDiameter = Math.max(120, this.magRadius * 2);
         this.magZoomCanvas = document.createElement('canvas');
-        this.magZoomCanvas.width = diameterCss * dpr;
-        this.magZoomCanvas.height = diameterCss * dpr;
-        this.magZoomCanvas.style.width = `${diameterCss}px`;
-        this.magZoomCanvas.style.height = `${diameterCss}px`;
         this.magZoomCanvas.style.display = 'block';
+        this.magZoomCanvas.style.imageRendering = 'pixelated';
 
-        this.magZoomContext = this.magZoomCanvas.getContext('2d');
+        this.magZoomContext = this.magZoomCanvas.getContext('2d', { alpha: true, desynchronized: true });
         this.magZoomContext.imageSmoothingEnabled = false;
-        this.magZoomContext.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         this.magLensEl = document.createElement('div');
         this.magLensEl.className = 'aquarium-magnifier-lens';
@@ -703,30 +693,75 @@ class AquariumScene extends Phaser.Scene {
         this.magLensEl.style.position = 'fixed';
         this.magLensEl.style.left = '0px';
         this.magLensEl.style.top = '0px';
-        this.magLensEl.style.width = `${diameterCss}px`;
-        this.magLensEl.style.height = `${diameterCss}px`;
         this.magLensEl.style.borderRadius = '50%';
         this.magLensEl.style.overflow = 'hidden';
         this.magLensEl.style.pointerEvents = 'none';
-        this.magLensEl.style.border = '6px solid rgba(255,255,255,0.96)';
-        this.magLensEl.style.boxShadow = 'inset 0 0 0 2px rgba(184,220,255,0.72), 0 10px 24px rgba(4,14,28,0.25)';
-        this.magLensEl.style.background = 'rgba(255,255,255,0.08)';
+        this.magLensEl.style.border = '5px solid rgba(255,255,255,0.96)';
+        this.magLensEl.style.boxShadow = 'inset 0 0 0 1px rgba(184,220,255,0.6), 0 12px 28px rgba(4,14,28,0.3)';
+        this.magLensEl.style.background = 'transparent';
         this.magLensEl.style.zIndex = '25';
         this.magLensEl.appendChild(this.magZoomCanvas);
         document.body.appendChild(this.magLensEl);
 
-        this.input.on('pointermove', (pointer) => {
+        this.syncMagnifierCanvasSize();
+
+        this.magPointerMoveHandler = (pointer) => {
             if (this.isMagnifying) {
                 this.updateMagnifier(pointer.x, pointer.y);
             }
-        });
+        };
+        this.magResizeHandler = () => {
+            this.syncMagnifierCanvasSize();
+            if (this.isMagnifying) {
+                const pointer = this.input.activePointer;
+                this.updateMagnifier(pointer.x, pointer.y);
+            }
+        };
+
+        this.input.on('pointermove', this.magPointerMoveHandler);
+        this.scale.on(Phaser.Scale.Events.RESIZE, this.magResizeHandler);
 
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            if (this.magPointerMoveHandler) {
+                this.input.off('pointermove', this.magPointerMoveHandler);
+                this.magPointerMoveHandler = null;
+            }
+            if (this.magResizeHandler) {
+                this.scale.off(Phaser.Scale.Events.RESIZE, this.magResizeHandler);
+                this.magResizeHandler = null;
+            }
             if (this.magLensEl) {
                 this.magLensEl.remove();
                 this.magLensEl = null;
             }
         });
+    }
+
+    getMagnifierDpr() {
+        return Math.max(1, window.devicePixelRatio || 1);
+    }
+
+    syncMagnifierCanvasSize() {
+        if (!this.magZoomCanvas || !this.magLensEl || !this.magZoomContext) return;
+
+        const sourceCanvas = this.sys.game.canvas;
+        const canvasRect = sourceCanvas.getBoundingClientRect();
+        const renderScaleX = canvasRect.width > 0
+            ? canvasRect.width / this.scale.width
+            : (sourceCanvas.clientWidth || this.scale.width) / this.scale.width;
+        const diameterCss = Math.max(120, Math.round(this.magRadius * 2 * renderScaleX));
+        const dpr = this.getMagnifierDpr();
+        const diameterPx = Math.max(1, Math.round(diameterCss * dpr));
+
+        this.magLensDiameter = diameterCss;
+        this.magZoomCanvas.width = diameterPx;
+        this.magZoomCanvas.height = diameterPx;
+        this.magZoomCanvas.style.width = `${diameterCss}px`;
+        this.magZoomCanvas.style.height = `${diameterCss}px`;
+        this.magLensEl.style.width = `${diameterCss}px`;
+        this.magLensEl.style.height = `${diameterCss}px`;
+        this.magZoomContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+        this.magZoomContext.imageSmoothingEnabled = false;
     }
 
     toggleMagnifier(forceState = null) {
@@ -743,6 +778,8 @@ class AquariumScene extends Phaser.Scene {
     }
 
     updateMagnifier(x, y) {
+        this.syncMagnifierCanvasSize();
+
         const radius = this.magRadius;
         const zoom = this.magZoom;
         const visibleWidth = (radius * 2) / zoom;
@@ -756,16 +793,22 @@ class AquariumScene extends Phaser.Scene {
         const scaleX = canvasRect.width / this.scale.width;
         const scaleY = canvasRect.height / this.scale.height;
         const diameterCss = this.magLensDiameter;
+        const pointerCssX = canvasRect.left + (lensX * scaleX);
+        const pointerCssY = canvasRect.top + (lensY * scaleY);
+        const pointerOffset = Math.max(18, Math.round(diameterCss * 0.16));
         const lensLeft = Phaser.Math.Clamp(
-            canvasRect.left + (lensX * scaleX) - (diameterCss / 2),
+            pointerCssX - (diameterCss / 2),
             canvasRect.left,
             canvasRect.right - diameterCss
         );
-        const lensTop = Phaser.Math.Clamp(
-            canvasRect.top + (lensY * scaleY) - (diameterCss / 2),
-            canvasRect.top,
-            canvasRect.bottom - diameterCss
-        );
+        let desiredTop = pointerCssY - diameterCss - pointerOffset;
+        if (desiredTop < canvasRect.top) {
+            desiredTop = pointerCssY + pointerOffset;
+        }
+        if (desiredTop > canvasRect.bottom - diameterCss) {
+            desiredTop = pointerCssY - diameterCss - pointerOffset;
+        }
+        const lensTop = Phaser.Math.Clamp(desiredTop, canvasRect.top, canvasRect.bottom - diameterCss);
 
         this.magPointerX = Phaser.Math.Clamp(x - (visibleWidth / 2), 0, maxScrollX);
         this.magPointerY = Phaser.Math.Clamp(y - (visibleHeight / 2), 0, maxScrollY);
@@ -781,21 +824,25 @@ class AquariumScene extends Phaser.Scene {
     refreshMagnifierTexture() {
         if (!this.isMagnifying || !this.magZoomContext || !this.magZoomCanvas) return;
 
-        const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
-        const diameter = this.magZoomCanvas.width / dpr;
-        const sourceWidth = (this.magRadius * 2) / this.magZoom;
-        const sourceHeight = (this.magRadius * 2) / this.magZoom;
+        const sourceCanvas = this.sys.game.canvas;
+        const diameter = this.magLensDiameter;
+        const sourceScaleX = sourceCanvas.width / this.scale.width;
+        const sourceScaleY = sourceCanvas.height / this.scale.height;
+        const sourceWidth = ((this.magRadius * 2) / this.magZoom) * sourceScaleX;
+        const sourceHeight = ((this.magRadius * 2) / this.magZoom) * sourceScaleY;
+        const sourceX = this.magPointerX * sourceScaleX;
+        const sourceY = this.magPointerY * sourceScaleY;
 
         this.magZoomContext.clearRect(0, 0, diameter, diameter);
         this.magZoomContext.save();
         this.magZoomContext.beginPath();
-        this.magZoomContext.arc(diameter / 2, diameter / 2, (diameter / 2) - 3, 0, Math.PI * 2);
+        this.magZoomContext.arc(diameter / 2, diameter / 2, (diameter / 2) - 4, 0, Math.PI * 2);
         this.magZoomContext.closePath();
         this.magZoomContext.clip();
         this.magZoomContext.drawImage(
-            this.sys.game.canvas,
-            this.magPointerX,
-            this.magPointerY,
+            sourceCanvas,
+            sourceX,
+            sourceY,
             sourceWidth,
             sourceHeight,
             0,
@@ -803,6 +850,14 @@ class AquariumScene extends Phaser.Scene {
             diameter,
             diameter
         );
+        this.magZoomContext.restore();
+
+        this.magZoomContext.save();
+        this.magZoomContext.beginPath();
+        this.magZoomContext.arc(diameter / 2, diameter / 2, (diameter / 2) - 4, 0, Math.PI * 2);
+        this.magZoomContext.strokeStyle = 'rgba(255,255,255,0.42)';
+        this.magZoomContext.lineWidth = 2;
+        this.magZoomContext.stroke();
         this.magZoomContext.restore();
     }
 

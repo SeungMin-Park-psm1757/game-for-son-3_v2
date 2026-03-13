@@ -182,7 +182,7 @@ export default class UIManager {
         if (!this.persistentContainer) return;
 
         const rect = this.persistentContainer.getBoundingClientRect();
-        const safeHeight = Math.max(40, Math.ceil(rect.height + 14));
+        const safeHeight = Math.max(0, Math.ceil(rect.bottom));
         document.documentElement.style.setProperty('--persistent-ui-height', `${safeHeight}px`);
     }
 
