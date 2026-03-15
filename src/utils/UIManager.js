@@ -75,6 +75,7 @@ export default class UIManager {
         this.isQuizActive = false;
         this.currentPopup = null;
         this.currentModalBackdrop = null;
+        this.lockedSceneInput = null;
         this.activeSpeechUtterance = null;
         this.activeStickerBurst = null;
         this.comboStickerTimer = null;
@@ -124,6 +125,24 @@ export default class UIManager {
         return true;
     }
 
+    lockSceneInput(scene) {
+        if (!scene || !scene.input || this.lockedSceneInput === scene) return;
+
+        this.unlockSceneInput();
+        this.lockedSceneInput = scene;
+        scene.input.enabled = false;
+    }
+
+    unlockSceneInput() {
+        if (!this.lockedSceneInput || !this.lockedSceneInput.input) {
+            this.lockedSceneInput = null;
+            return;
+        }
+
+        this.lockedSceneInput.input.enabled = true;
+        this.lockedSceneInput = null;
+    }
+
     resetPopupState(restorePersistentUI = true) {
         this.stopSpeech();
         this.clearComboStickerCelebration();
@@ -138,6 +157,7 @@ export default class UIManager {
         this.container.innerHTML = '';
         this.container.style.pointerEvents = restorePersistentUI ? 'none' : 'auto';
         document.body.classList.remove('modal-open');
+        this.unlockSceneInput();
         this.isQuizActive = false;
         if (restorePersistentUI) {
             this.renderPersistentUI();
@@ -1841,6 +1861,7 @@ export default class UIManager {
         if (this.isQuizActive) return;
         this.hidePersistentUI();
         this.container.style.pointerEvents = 'auto';
+        this.lockSceneInput(currentScene);
 
         const collection = this.playerModel.fishCollection;
         const milestones = this.playerModel.fishMilestonesSeen || {};

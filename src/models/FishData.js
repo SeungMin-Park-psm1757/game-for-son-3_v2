@@ -70,6 +70,27 @@ export const FISH_TYPES = [
 ];
 
 // 특별 아이템 데이터 (1% 확률용)
+// Cap chapter 3/4 hard-fish catch time so maxed shop gear still wins within about 5 seconds.
+const CHAPTER_34_HARD_FISH_CATCH_TUNING = {
+    fish_striped_jewfish: { catchMax: 1900 },
+    fish_cheongsaechi: { catchMax: 1750 },
+    fish_whale_shark: { catchMax: 1550 },
+    fish_storm_tuna: { catchMax: 2100 },
+    fish_hammerhead: { catchMax: 2100 },
+    fish_manta_ray: { catchMax: 2150 },
+    fish_giant_squid: { catchMax: 1950 },
+    fish_golden_fish: { catchMax: 1050 },
+    fish_coelacanth: { catchMax: 950 },
+    fish_oarfish: { catchMax: 830 }
+};
+
+FISH_TYPES.forEach((fish) => {
+    const tuning = CHAPTER_34_HARD_FISH_CATCH_TUNING[fish.id];
+    if (tuning) {
+        Object.assign(fish, tuning);
+    }
+});
+
 export const SPECIAL_ITEMS = [
     { id: 'item_shoe', name: '낡은 신발', grade: 'N', baseReward: 0, isSpecialItem: true, color: 0x654321, scale: 0.4102, catchMax: 50, difficulty: 1.0 },
     { id: 'item_trash', name: '빈 깡통', grade: 'N', baseReward: 0, isSpecialItem: true, color: 0x999999, scale: 0.5469, catchMax: 50, difficulty: 1.0 },

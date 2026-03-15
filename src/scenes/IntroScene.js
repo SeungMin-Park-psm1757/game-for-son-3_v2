@@ -12,6 +12,10 @@ export default class IntroScene extends Phaser.Scene {
         super('IntroScene');
     }
 
+    isModalOpen() {
+        return typeof document !== 'undefined' && document.body.classList.contains('modal-open');
+    }
+
     create() {
         const width = this.scale.width;
         const height = this.scale.height;
@@ -150,6 +154,7 @@ export default class IntroScene extends Phaser.Scene {
         }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
         resetBtn.on('pointerdown', () => {
+            if (this.isModalOpen()) return;
             const firstConfirm = confirm("⚠️ 경고: 모든 게임 데이터(골드, 강화 능력치, 물고기 도감)가 영구적으로 삭제됩니다.\n정말로 초기화하시겠습니까?");
             if (firstConfirm) {
                 const secondConfirm = confirm("다시 한번 확인합니다. 정말 모든 데이터를 지울까요? 이 작업은 취소할 수 없습니다.");
@@ -242,6 +247,7 @@ export default class IntroScene extends Phaser.Scene {
 
         // 클릭 이벤트: 지역 코드를 들고 GameScene으로 진입
         bg.on('pointerdown', () => {
+            if (this.isModalOpen()) return;
             window.gameManagers.soundManager.playCoin(); // 임시 효과음
 
             // 카메라 페이드 아웃 후 씬 전환
@@ -298,7 +304,10 @@ export default class IntroScene extends Phaser.Scene {
             this.tweens.add({ targets: container, scale: 1, duration: 100 });
         });
 
-        bg.on('pointerdown', onClick);
+        bg.on('pointerdown', () => {
+            if (this.isModalOpen()) return;
+            onClick();
+        });
 
         this.tweens.add({
             targets: container,

@@ -611,14 +611,25 @@ export default class GameScene extends Phaser.Scene {
     }
 
     getBossConfig() {
-        const configs = {
+        const baseConfigs = {
             first: { catchMultiplier: 2.4, timeLimit: 18, rewardMultiplier: 1.6, startRatio: 0.18 },
             returning: { catchMultiplier: 2.0, timeLimit: 18, rewardMultiplier: 1.45, startRatio: 0.22 },
             empowered: { catchMultiplier: 2.6, timeLimit: 17, rewardMultiplier: 1.8, startRatio: 0.2 },
             event: { catchMultiplier: 2.5, timeLimit: 19, rewardMultiplier: 1.6, startRatio: 0.2 }
         };
 
-        return configs[this.bossVariant] || configs.first;
+        if (this.region >= 3) {
+            const lateRegionConfigs = {
+                first: { catchMultiplier: 1.75, timeLimit: 17, rewardMultiplier: 1.6, startRatio: 0.22 },
+                returning: { catchMultiplier: 1.55, timeLimit: 17, rewardMultiplier: 1.45, startRatio: 0.26 },
+                empowered: { catchMultiplier: 1.9, timeLimit: 16, rewardMultiplier: 1.8, startRatio: 0.22 },
+                event: { catchMultiplier: 1.8, timeLimit: 18, rewardMultiplier: 1.6, startRatio: 0.24 }
+            };
+
+            return lateRegionConfigs[this.bossVariant] || lateRegionConfigs.first;
+        }
+
+        return baseConfigs[this.bossVariant] || baseConfigs.first;
     }
 
     getBossRematchStory() {
