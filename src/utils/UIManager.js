@@ -1118,8 +1118,15 @@ export default class UIManager {
             const phaserGame = window.gameManagers?._phaserGame;
             if (phaserGame) {
                 this.hidePersistentUI();
+                phaserGame.scene.stop('IntroScene');
                 phaserGame.scene.stop('GameScene');
                 phaserGame.scene.start('AquariumScene');
+                window.setTimeout(() => {
+                    const aquariumScene = phaserGame.scene.getScene('AquariumScene');
+                    if (phaserGame.scene.isActive('AquariumScene') && typeof aquariumScene?.openAquariumUpgradeShop === 'function') {
+                        aquariumScene.openAquariumUpgradeShop();
+                    }
+                }, 350);
                 return;
             }
         }

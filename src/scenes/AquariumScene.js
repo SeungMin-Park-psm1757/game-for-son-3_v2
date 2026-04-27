@@ -207,6 +207,7 @@ class AquariumScene extends Phaser.Scene {
         this.soundManager = window.gameManagers.soundManager;
 
         this.fishes = [];
+        this.backgroundObjects = [];
         this.decorObjects = {};
         this.honorTrophyObjects = [];
         this.shopUi = [];
@@ -254,16 +255,27 @@ class AquariumScene extends Phaser.Scene {
     }
 
     drawBackground() {
+        if (Array.isArray(this.backgroundObjects) && this.backgroundObjects.length > 0) {
+            this.backgroundObjects.forEach((item) => {
+                if (!item) return;
+                this.tweens.killTweensOf(item);
+                item.destroy();
+            });
+        }
+        this.backgroundObjects = [];
+
         const width = this.scale.width;
         const height = this.scale.height;
         const tank = getAquariumTankUpgrade(this.model?.aquariumTankLevel || 1);
         const regionColors = tank.regionColors || [0x9ed4ef, 0x688ec0, 0x0d3587, 0x23236e];
 
         regionColors.forEach((color, index) => {
-            this.add.rectangle(0, this.regionYStarts[index], width, this.regionHeights[index], color).setOrigin(0).setDepth(0);
+            const region = this.add.rectangle(0, this.regionYStarts[index], width, this.regionHeights[index], color).setOrigin(0).setDepth(0);
+            this.backgroundObjects.push(region);
         });
 
         const waveGraphics = this.add.graphics().setDepth(0.15);
+        this.backgroundObjects.push(waveGraphics);
         const waveColors = [0x5f89bd, 0x103f97, 0x1d1d7d];
         for (let i = 1; i < this.regionYStarts.length; i += 1) {
             const y = this.regionYStarts[i];
@@ -281,6 +293,7 @@ class AquariumScene extends Phaser.Scene {
 
         if ((this.model?.aquariumTankLevel || 1) >= 3) {
             const glow = this.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0.04).setDepth(0.18);
+            this.backgroundObjects.push(glow);
             this.tweens.add({
                 targets: glow,
                 alpha: { from: 0.025, to: 0.08 },
@@ -293,6 +306,7 @@ class AquariumScene extends Phaser.Scene {
 
         if ((this.model?.aquariumTankLevel || 1) >= 4) {
             const treasureLight = this.add.ellipse(width * 0.72, height * 0.78, width * 0.42, height * 0.18, 0xffd27f, 0.12).setDepth(0.2);
+            this.backgroundObjects.push(treasureLight);
             this.tweens.add({
                 targets: treasureLight,
                 scaleX: { from: 0.92, to: 1.08 },
@@ -303,6 +317,42 @@ class AquariumScene extends Phaser.Scene {
                 ease: 'Sine.easeInOut'
             });
         }
+    }
+
+    refreshTankVisuals(tank) {
+        this.drawBackground();
+        const width = this.scale.width;
+        const height = this.scale.height;
+        const accent = Phaser.Display.Color.HexStringToColor(tank.accentColor || '#d7f7ff').color;
+        const ring = this.add.ellipse(width / 2, height * 0.46, width * 0.72, height * 0.22, accent, 0)
+            .setStrokeStyle(5, accent, 0.86)
+            .setDepth(29);
+        const label = this.add.text(width / 2, height * 0.46, `${tank.emoji} ${tank.name} 업그레이드!`, {
+            fontSize: '24px',
+            fontFamily: 'Arial',
+            fontStyle: 'bold',
+            color: tank.accentColor || '#d7f7ff',
+            stroke: '#000000',
+            strokeThickness: 5
+        }).setOrigin(0.5).setDepth(30);
+
+        this.tweens.add({
+            targets: ring,
+            scaleX: 1.3,
+            scaleY: 1.45,
+            alpha: 0,
+            duration: 780,
+            ease: 'Sine.easeOut',
+            onComplete: () => ring.destroy()
+        });
+        this.tweens.add({
+            targets: label,
+            y: label.y - 24,
+            alpha: 0,
+            duration: 1050,
+            ease: 'Sine.easeOut',
+            onComplete: () => label.destroy()
+        });
     }
 
     createBaseDecorations() {
@@ -1190,8 +1240,9 @@ class AquariumScene extends Phaser.Scene {
                 this.soundManager.playSuccess();
                 if (isTank) {
                     this.cameras?.main?.flash?.(520, 120, 220, 255);
+                    this.refreshTankVisuals(item);
                     this.refreshUiState();
-                    feedback.setText(`${item.name} 완성! 더 넓어진 수조는 다시 들어오면 바로 보여.`);
+                    feedback.setText(`${item.name} 완성! 배경과 조명이 바로 바뀌었어.`);
                     this.showNotice(`${item.name} 완성! 물고기들이 더 넓게 헤엄쳐!`, '#d7f7ff');
                     this.time.delayedCall(120, () => this.closeAquariumUpgradeShop());
                 } else {
