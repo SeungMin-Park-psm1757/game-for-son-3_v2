@@ -2,7 +2,9 @@ import { FISH_TYPES } from '../models/FishData.js';
 import {
     AQUARIUM_TANK_UPGRADES,
     HONOR_TROPHY_ITEMS,
-    getAquariumTankUpgrade
+    getAquariumTankUpgrade,
+    getNextAquariumTankUpgrade,
+    getNextHonorTrophy
 } from '../data/LateGameContentData.js';
 
 const AQUARIUM_DECOR_ITEMS = [
@@ -931,7 +933,21 @@ class AquariumScene extends Phaser.Scene {
             ? `테마 ${this.activeThemeSets.length}개 완성`
             : '테마 준비 중';
         const hiddenSummary = this.hiddenFishCount > 0 ? ` · 대기 ${this.hiddenFishCount}마리` : '';
-        this.statusText.setText(`${tank.emoji} ${tank.name} · 전시 ${this.fishes.length}/${tank.maxFish}${hiddenSummary} · 명예 ${trophyCount}개\n${snackSummary} · 장식 ${decorCount}개 · ${themeSummary}`);
+        const nextTank = getNextAquariumTankUpgrade(this.model.aquariumTankLevel || 1);
+        const nextTrophy = getNextHonorTrophy(this.model);
+        let nextGoalText = '후반 목표 모두 완성!';
+        if (nextTank) {
+            const remaining = Math.max(0, nextTank.cost - (this.model.gold || 0));
+            nextGoalText = remaining > 0
+                ? `다음 확장: ${nextTank.name}까지 ${remaining}G`
+                : `다음 확장: ${nextTank.name} 구매 가능`;
+        } else if (nextTrophy) {
+            const remaining = Math.max(0, nextTrophy.cost - (this.model.gold || 0));
+            nextGoalText = remaining > 0
+                ? `다음 명예: ${nextTrophy.name}까지 ${remaining}G`
+                : `다음 명예: ${nextTrophy.name} 구매 가능`;
+        }
+        this.statusText.setText(`${tank.emoji} ${tank.name} · 전시 ${this.fishes.length}/${tank.maxFish}${hiddenSummary} · 명예 ${trophyCount}개\n${snackSummary} · 장식 ${decorCount}개 · ${themeSummary}\n${nextGoalText}`);
     }
 
     renderUnlockedDecor() {
@@ -971,7 +987,7 @@ class AquariumScene extends Phaser.Scene {
             const trophy = this.add.text(x, baseY - 8, item.emoji, {
                 fontSize: '34px',
                 fontFamily: 'Arial'
-            }).setOrigin(0.5).setDepth(3.8);
+            }).setOrigin(0.5).setDepth(3.8).setInteractive({ useHandCursor: true });
             const label = this.add.text(x, baseY + 27, item.name.replace(' 트로피', '').replace(' 왕관', ''), {
                 fontSize: '10px',
                 fontFamily: 'Arial',
@@ -987,6 +1003,11 @@ class AquariumScene extends Phaser.Scene {
                 yoyo: true,
                 repeat: -1,
                 ease: 'Sine.easeInOut'
+            });
+
+            trophy.on('pointerdown', () => {
+                this.soundManager.playCoin();
+                this.showNotice(`${item.name}: ${item.description}`, '#ffe4a8');
             });
 
             this.honorTrophyObjects.push(pedestal, trophy, label);
@@ -1168,14 +1189,19 @@ class AquariumScene extends Phaser.Scene {
 
                 this.soundManager.playSuccess();
                 if (isTank) {
-                    this.closeAquariumUpgradeShop();
-                    this.scene.restart();
+                    this.cameras?.main?.flash?.(520, 120, 220, 255);
+                    this.refreshUiState();
+                    feedback.setText(`${item.name} 완성! 더 넓어진 수조는 다시 들어오면 바로 보여.`);
+                    this.showNotice(`${item.name} 완성! 물고기들이 더 넓게 헤엄쳐!`, '#d7f7ff');
+                    this.time.delayedCall(120, () => this.closeAquariumUpgradeShop());
                 } else {
                     this.renderHonorTrophies();
                     this.refreshUiState();
                     feedback.setText(`${item.name}을 세웠어! 수족관에 오래 남을 명예야.`);
-                    this.closeAquariumUpgradeShop();
-                    this.openAquariumUpgradeShop();
+                    this.time.delayedCall(120, () => {
+                        this.closeAquariumUpgradeShop();
+                        this.openAquariumUpgradeShop();
+                    });
                 }
             });
 

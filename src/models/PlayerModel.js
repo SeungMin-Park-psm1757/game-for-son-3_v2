@@ -10,6 +10,10 @@ import {
     getUnlockedCollectionStamps,
     processCollectionStampUnlocks
 } from '../data/CollectionStampData.js';
+import {
+    AQUARIUM_TANK_UPGRADES,
+    SPECIAL_BAIT_BY_ID
+} from '../data/LateGameContentData.js';
 
 const SAVE_KEY = 'fishingGameData';
 const TUTORIAL_BOOST_DURATION_MS = 5 * 60 * 1000;
@@ -110,6 +114,7 @@ export default class PlayerModel {
             4: 26000
         };
 
+        const lateGameStateChanged = this.normalizeLateGameState();
         const goalStateChanged = this.ensureActiveComboGoals();
         const needsMigrationSave = !savedData ||
             savedData.firstPlayStartedAt === undefined ||
@@ -128,6 +133,7 @@ export default class PlayerModel {
             savedData.honorTrophies === undefined ||
             savedData.lastAquariumSnackAt === undefined ||
             savedData.lastAquariumVisitAt === undefined ||
+            lateGameStateChanged ||
             goalStateChanged;
 
         if (needsMigrationSave) {
@@ -180,6 +186,46 @@ export default class PlayerModel {
     notify() {
         this.listeners.forEach((callback) => callback(this));
         this.persist();
+    }
+
+    normalizeLateGameState() {
+        let changed = false;
+        const ensurePlainObject = (value) => {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) {
+                changed = true;
+                return {};
+            }
+            return value;
+        };
+
+        this.baitInventory = ensurePlainObject(this.baitInventory);
+        this.baitUsageCounts = ensurePlainObject(this.baitUsageCounts);
+        this.honorTrophies = ensurePlainObject(this.honorTrophies);
+
+        Object.keys(this.baitInventory).forEach((baitId) => {
+            const count = Number(this.baitInventory[baitId]) || 0;
+            if (!SPECIAL_BAIT_BY_ID[baitId] || count <= 0) {
+                delete this.baitInventory[baitId];
+                changed = true;
+            } else if (this.baitInventory[baitId] !== count) {
+                this.baitInventory[baitId] = count;
+                changed = true;
+            }
+        });
+
+        if (this.selectedBaitId && (!SPECIAL_BAIT_BY_ID[this.selectedBaitId] || (this.baitInventory[this.selectedBaitId] || 0) <= 0)) {
+            this.selectedBaitId = null;
+            changed = true;
+        }
+
+        const maxTankLevel = AQUARIUM_TANK_UPGRADES.length;
+        const normalizedTankLevel = Math.max(1, Math.min(maxTankLevel, Number(this.aquariumTankLevel) || 1));
+        if (this.aquariumTankLevel !== normalizedTankLevel) {
+            this.aquariumTankLevel = normalizedTankLevel;
+            changed = true;
+        }
+
+        return changed;
     }
 
     checkChapterGoal() {

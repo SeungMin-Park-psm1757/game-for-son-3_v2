@@ -12,7 +12,11 @@ import {
 } from '../data/ComboBookData.js';
 import { COLLECTION_STAMP_ENTRIES } from '../data/CollectionStampData.js';
 import { WEEKLY_EVENT_ROTATION } from '../data/WeeklyEventData.js';
-import { SPECIAL_BAIT_ITEMS } from '../data/LateGameContentData.js';
+import {
+    SPECIAL_BAIT_ITEMS,
+    getLateGameGoal,
+    getSelectedBait
+} from '../data/LateGameContentData.js';
 
 const FISH_BY_ID = Object.fromEntries(FISH_TYPES.map((fish) => [fish.id, fish]));
 const DECOR_PREVIEW_MAP = {
@@ -1044,6 +1048,12 @@ export default class UIManager {
         this.goldDisplay.id = 'gold-display';
         this.goldDisplay.innerHTML = `💰 <span>${this.playerModel.gold}</span>`;
 
+        this.goalDisplay = document.createElement('button');
+        this.goalDisplay.id = 'late-goal-display';
+        this.goalDisplay.className = 'persistent-btn';
+        this.goalDisplay.type = 'button';
+        this.goalDisplay.onclick = () => this.openLateGameGoal();
+
         this.shopBtn = document.createElement('button');
         this.shopBtn.id = 'shop-open-btn';
         this.shopBtn.innerText = '🛒 상점 (Shop)';
@@ -1073,6 +1083,7 @@ export default class UIManager {
         };
 
         this.persistentContainer.appendChild(this.goldDisplay);
+        this.persistentContainer.appendChild(this.goalDisplay);
         this.persistentContainer.appendChild(this.bookBtn);
         this.persistentContainer.appendChild(this.muteBtn);
         this.persistentContainer.appendChild(this.shopBtn);
@@ -1080,6 +1091,7 @@ export default class UIManager {
 
         this.playerModel.subscribe(() => this.updatePersistentUI());
         window.addEventListener('resize', this.syncPersistentUIHeightBound);
+        this.updatePersistentUI();
         requestAnimationFrame(() => this.syncPersistentUIHeight());
     }
 
@@ -1087,7 +1099,32 @@ export default class UIManager {
         if (this.goldDisplay) {
             this.goldDisplay.querySelector('span').innerText = this.playerModel.gold;
         }
+        if (this.goalDisplay) {
+            const selectedBait = getSelectedBait(this.playerModel);
+            const goal = getLateGameGoal(this.playerModel);
+            const label = selectedBait
+                ? `${selectedBait.emoji} ${selectedBait.name}`
+                : (goal?.shortLabel || '다음 목표 보기');
+            this.goalDisplay.innerText = `🎯 ${label}`;
+            this.goalDisplay.title = goal ? `${goal.title} - ${goal.detail}` : '다음에 할 일을 추천해요';
+            this.goalDisplay.dataset.action = goal?.action || 'bait';
+        }
         this.syncPersistentUIHeight();
+    }
+
+    openLateGameGoal() {
+        const goal = getLateGameGoal(this.playerModel);
+        if (goal?.action === 'aquarium') {
+            const phaserGame = window.gameManagers?._phaserGame;
+            if (phaserGame) {
+                this.hidePersistentUI();
+                phaserGame.scene.stop('GameScene');
+                phaserGame.scene.start('AquariumScene');
+                return;
+            }
+        }
+
+        this.openShop('bait');
     }
 
     renderPersistentUI() {
@@ -1115,6 +1152,13 @@ export default class UIManager {
             focusRing: { max: 3, costBase: 1000, costStep: 1500 } // 1000, 2500, 4000
         };
         const s = this.playerModel.stats;
+        const lateGoal = getLateGameGoal(this.playerModel);
+        const lateGoalHTML = lateGoal ? `
+            <div class="shop-goal-strip">
+                <strong>다음 추천:</strong> ${lateGoal.title}
+                <span>${lateGoal.detail}</span>
+            </div>
+        ` : '';
 
         const getCost = (statName, currentLevel) => {
             const data = shopData[statName];
@@ -1247,7 +1291,7 @@ export default class UIManager {
                     <div class="up-icon" style="font-size:30px;">${item.emoji}</div>
                     <div class="up-info">
                         <h3>${item.name} <span style="font-size:14px; font-weight:normal; color:#555;">(보유: ${count}개)</span></h3>
-                        <p>${item.description}<br><strong>${item.shortEffect}</strong></p>
+                        <p>${item.description}<br><strong>${item.shortEffect}</strong><br><span class="bait-use-note">다음 낚시 1번에만 사용</span></p>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:8px; align-items:center;">
                         <button class="buy-bait-btn ${canBuy ? '' : 'maxed'}" data-id="${item.id}" data-cost="${item.cost}"
@@ -1277,6 +1321,7 @@ export default class UIManager {
                     <div class="shop-gold" style="margin-bottom:0;">현재 골드: <span>${this.playerModel.gold}</span></div>
                     <button id="shop-close-btn" style="position: absolute; right: 10px; top: 10px; font-size:24px;">❌</button>
                 </div>
+                ${lateGoalHTML}
                 
                 <div class="shop-tabs" style="display:flex; justify-content:space-around; margin-bottom: 10px; border-bottom: 2px solid #ccc; padding-bottom:5px;">
                     <button id="tab-upgrade" class="shop-tab-btn active" style="flex:1; padding:10px; font-size:16px; font-weight:bold; background:#0055FF; color:white; border:none; border-radius:10px 0 0 0;">👨‍🔧 장비</button>
@@ -1284,7 +1329,7 @@ export default class UIManager {
                     <button id="tab-seyeon" class="shop-tab-btn" style="flex:1; padding:10px; font-size:16px; font-weight:bold; background:#ccc; color:#333; border:none; border-radius:0 10px 0 0;">👧 선물</button>
                 </div>
 
-                <div class="shop-content" style="overflow-y: auto; max-height: calc(90vh - 120px);">
+                <div class="shop-content" style="overflow-y: auto; max-height: calc(90vh - 170px);">
                     <!-- 장비 탭 -->
                     <div id="content-upgrade" class="tab-content" style="display:block;">
                         <div class="shop-npc">

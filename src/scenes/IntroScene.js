@@ -1,3 +1,5 @@
+import { getLateGameGoal } from '../data/LateGameContentData.js';
+
 export default class IntroScene extends Phaser.Scene {
     // Helper to brighten a hex color (compatible with all Phaser 3 versions)
     brightenColor(color, amount) {
@@ -90,6 +92,19 @@ export default class IntroScene extends Phaser.Scene {
             this.add.text(width / 2, height * 0.70, '🎉 모든 챕터 클리어! 상점에서 엔딩 아이템을 확인하세요!', {
                 fontSize: goalFontSize, fontFamily: 'Arial', color: '#FFD700',
                 stroke: '#000', strokeThickness: 3
+            }).setOrigin(0.5);
+        }
+
+        const lateGoal = getLateGameGoal(pm);
+        if (lateGoal) {
+            this.add.text(width / 2, height * 0.725, `다음 추천: ${lateGoal.title} · ${lateGoal.detail}`, {
+                fontSize: width < 360 ? '13px' : '15px',
+                fontFamily: 'Arial',
+                color: '#fff4b1',
+                stroke: '#000000',
+                strokeThickness: 3,
+                align: 'center',
+                wordWrap: { width: width * 0.88 }
             }).setOrigin(0.5);
         }
 

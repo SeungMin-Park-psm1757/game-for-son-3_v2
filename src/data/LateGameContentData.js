@@ -148,3 +148,107 @@ export function getAquariumTankUpgrade(level = 1) {
     const normalizedLevel = Math.max(1, Math.min(AQUARIUM_TANK_UPGRADES.length, level || 1));
     return AQUARIUM_TANK_BY_LEVEL[normalizedLevel] || AQUARIUM_TANK_UPGRADES[0];
 }
+
+export function getNextAquariumTankUpgrade(level = 1) {
+    const currentLevel = getAquariumTankUpgrade(level).level;
+    return AQUARIUM_TANK_UPGRADES.find((item) => item.level === currentLevel + 1) || null;
+}
+
+export function getSelectedBait(playerModel) {
+    const baitId = playerModel?.selectedBaitId;
+    const count = playerModel?.baitInventory?.[baitId] || 0;
+    return baitId && count > 0 ? SPECIAL_BAIT_BY_ID[baitId] || null : null;
+}
+
+export function getNextHonorTrophy(playerModel) {
+    const owned = playerModel?.honorTrophies || {};
+    return HONOR_TROPHY_ITEMS.find((item) => !owned[item.id]) || null;
+}
+
+export function getLateGameGoal(playerModel) {
+    if (!playerModel) {
+        return null;
+    }
+
+    const selectedBait = getSelectedBait(playerModel);
+    if (selectedBait) {
+        return {
+            type: 'bait-ready',
+            title: `${selectedBait.emoji} ${selectedBait.name} 장착 중`,
+            detail: '다음 낚시 1번에 바로 써져요.',
+            shortLabel: `${selectedBait.emoji} 미끼 준비`,
+            action: 'bait'
+        };
+    }
+
+    const stockedBait = SPECIAL_BAIT_ITEMS.find((item) => (playerModel.baitInventory?.[item.id] || 0) > 0);
+    if (stockedBait) {
+        return {
+            type: 'bait-select',
+            title: `${stockedBait.emoji} ${stockedBait.name} 장착하기`,
+            detail: '보유 미끼를 골라 다음 낚시에 써 봐요.',
+            shortLabel: `${stockedBait.emoji} 미끼 장착`,
+            action: 'bait'
+        };
+    }
+
+    const hasLateProgress = (playerModel.highestChapter || 1) >= 3 ||
+        (playerModel.gold || 0) >= 8000 ||
+        (playerModel.aquariumTankLevel || 1) > 1 ||
+        Object.keys(playerModel.honorTrophies || {}).length > 0;
+    if (!hasLateProgress) {
+        const starterBait = SPECIAL_BAIT_BY_ID.sparkle_bait;
+        const remaining = Math.max(0, starterBait.cost - (playerModel.gold || 0));
+        return {
+            type: 'bait-buy',
+            title: `${starterBait.emoji} ${starterBait.name} 도전`,
+            detail: remaining > 0 ? `${remaining}G 더 모으면 희귀 물고기 찬스!` : '지금 희귀 물고기에 도전할 수 있어요!',
+            shortLabel: remaining > 0 ? `${starterBait.name} ${remaining}G 남음` : `${starterBait.name} 가능`,
+            action: 'bait',
+            cost: starterBait.cost,
+            remaining
+        };
+    }
+
+    const nextTank = getNextAquariumTankUpgrade(playerModel.aquariumTankLevel || 1);
+    if (nextTank) {
+        const remaining = Math.max(0, nextTank.cost - (playerModel.gold || 0));
+        return {
+            type: 'tank',
+            title: `${nextTank.emoji} ${nextTank.name} 확장`,
+            detail: remaining > 0 ? `${remaining}G 더 모으면 살 수 있어요.` : '지금 바로 수족관을 넓힐 수 있어요!',
+            shortLabel: remaining > 0 ? `${nextTank.name} ${remaining}G 남음` : `${nextTank.name} 가능`,
+            action: 'aquarium',
+            cost: nextTank.cost,
+            remaining
+        };
+    }
+
+    const nextTrophy = getNextHonorTrophy(playerModel);
+    if (nextTrophy) {
+        const remaining = Math.max(0, nextTrophy.cost - (playerModel.gold || 0));
+        return {
+            type: 'trophy',
+            title: `${nextTrophy.emoji} ${nextTrophy.name}`,
+            detail: remaining > 0 ? `${remaining}G 더 모으면 명예 장식 완성!` : '지금 명예의 전당에 세울 수 있어요!',
+            shortLabel: remaining > 0 ? `명예 ${remaining}G 남음` : '명예 장식 가능',
+            action: 'aquarium',
+            cost: nextTrophy.cost,
+            remaining
+        };
+    }
+
+    const suggestedBait = (playerModel.gold || 0) >= 50000
+        ? SPECIAL_BAIT_BY_ID.boss_call_ticket
+        : SPECIAL_BAIT_BY_ID.deep_ssr_bait;
+
+    return {
+        type: 'bait-buy',
+        title: `${suggestedBait.emoji} ${suggestedBait.name} 도전`,
+        detail: '골드는 다음 도전과 수집 확률에 쓰면 좋아요.',
+        shortLabel: `${suggestedBait.name} 추천`,
+        action: 'bait',
+        cost: suggestedBait.cost,
+        remaining: Math.max(0, suggestedBait.cost - (playerModel.gold || 0))
+    };
+}
