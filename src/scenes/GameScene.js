@@ -638,6 +638,27 @@ export default class GameScene extends Phaser.Scene {
         };
     }
 
+    async showCatchBonusQuiz() {
+        const uiManager = window.gameManagers.uiManager;
+
+        if (this.region >= 3) {
+            const quizChance = this.region === 4 ? 0.60 : 0.50;
+            if (Math.random() > quizChance) {
+                return null;
+            }
+
+            const correct = await uiManager.showSpellingQuiz();
+            return {
+                correct,
+                attempt: 1,
+                type: 'spelling'
+            };
+        }
+
+        const result = await uiManager.showMathQuizSecondChance(this.region);
+        return result ? { ...result, type: 'math' } : null;
+    }
+
     getBossConfig() {
         const baseConfigs = {
             first: { catchMultiplier: 2.4, timeLimit: 18, rewardMultiplier: 1.6, startRatio: 0.18 },
@@ -1890,21 +1911,22 @@ export default class GameScene extends Phaser.Scene {
                     this.uiElements.instruction.setText(randomMsg);
                 }
             } else {
-                // 50% ?뺣쪧 ?섑븰 ?댁쫰 ?앹뾽 (UIManager ?곕룞)
-                const quizResult = await window.gameManagers.uiManager.showMathQuizSecondChance(this.region);
+                // 지역 3/4는 기본 보너스 퀴즈를 맞춤법으로 진행하고, 지역 1/2는 기존 수학 퀴즈를 유지합니다.
+                const quizResult = await this.showCatchBonusQuiz();
                 let bonusQuizType = null;
 
                 if (quizResult && quizResult.correct) {
-                    // ?뺣떟 ??20% 異붽? 蹂댁긽
-                    const mathBonusMultiplier = quizResult.attempt === 2 ? 1.1 : 1.2;
-                    finalGold = Math.floor(finalGold * mathBonusMultiplier);
+                    const quizBonusMultiplier = quizResult.attempt === 2 ? 1.1 : 1.2;
+                    finalGold = Math.floor(finalGold * quizBonusMultiplier);
                     this.cameras.main.flash(300, 255, 215, 0); // ?⑷툑???뚮옒??蹂대꼫???쇰뱶諛?
 
-                    // 수학 퀴즈 정답 후 학습 보너스 퀴즈를 추가로 진행
-                    const bonusLearningQuizChance = this.region === 4 ? 0.50 : 0.35;
-                    const quizTypeRoll = Math.random();
-                    if (this.currentFish.grade !== 'N' && quizTypeRoll < bonusLearningQuizChance) {
-                        bonusQuizType = quizTypeRoll < bonusLearningQuizChance / 2 ? 'typing' : 'spelling';
+                    // 기본 맞춤법 퀴즈가 나온 지역에서는 추가 맞춤법을 중복으로 띄우지 않습니다.
+                    if (quizResult.type === 'math') {
+                        const bonusLearningQuizChance = this.region === 4 ? 0.50 : 0.35;
+                        const quizTypeRoll = Math.random();
+                        if (this.currentFish.grade !== 'N' && quizTypeRoll < bonusLearningQuizChance) {
+                            bonusQuizType = quizTypeRoll < bonusLearningQuizChance / 2 ? 'typing' : 'spelling';
+                        }
                     }
                 } else if (quizResult && !quizResult.correct) {
                     // ?ㅻ떟 ??50% ??컧
