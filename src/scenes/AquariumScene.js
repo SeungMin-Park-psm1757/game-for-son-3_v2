@@ -1,4 +1,9 @@
 import { FISH_TYPES } from '../models/FishData.js';
+import {
+    AQUARIUM_TANK_UPGRADES,
+    HONOR_TROPHY_ITEMS,
+    getAquariumTankUpgrade
+} from '../data/LateGameContentData.js';
 
 const AQUARIUM_DECOR_ITEMS = [
     {
@@ -201,7 +206,9 @@ class AquariumScene extends Phaser.Scene {
 
         this.fishes = [];
         this.decorObjects = {};
+        this.honorTrophyObjects = [];
         this.shopUi = [];
+        this.upgradeShopUi = [];
         this.feedVisuals = [];
         this.isMagnifying = false;
         this.isFeeding = false;
@@ -232,6 +239,7 @@ class AquariumScene extends Phaser.Scene {
         this.model.markAquariumVisit();
         this.createFishCollection();
         this.renderUnlockedDecor();
+        this.renderHonorTrophies();
         this.activeThemeSets = this.getUnlockedThemeSets();
         this.setupMagnifier();
         this.refreshUiState();
@@ -246,7 +254,8 @@ class AquariumScene extends Phaser.Scene {
     drawBackground() {
         const width = this.scale.width;
         const height = this.scale.height;
-        const regionColors = [0x9ed4ef, 0x688ec0, 0x0d3587, 0x23236e];
+        const tank = getAquariumTankUpgrade(this.model?.aquariumTankLevel || 1);
+        const regionColors = tank.regionColors || [0x9ed4ef, 0x688ec0, 0x0d3587, 0x23236e];
 
         regionColors.forEach((color, index) => {
             this.add.rectangle(0, this.regionYStarts[index], width, this.regionHeights[index], color).setOrigin(0).setDepth(0);
@@ -266,6 +275,31 @@ class AquariumScene extends Phaser.Scene {
             waveGraphics.lineTo(0, height);
             waveGraphics.closePath();
             waveGraphics.fillPath();
+        }
+
+        if ((this.model?.aquariumTankLevel || 1) >= 3) {
+            const glow = this.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0.04).setDepth(0.18);
+            this.tweens.add({
+                targets: glow,
+                alpha: { from: 0.025, to: 0.08 },
+                duration: 1800,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+        }
+
+        if ((this.model?.aquariumTankLevel || 1) >= 4) {
+            const treasureLight = this.add.ellipse(width * 0.72, height * 0.78, width * 0.42, height * 0.18, 0xffd27f, 0.12).setDepth(0.2);
+            this.tweens.add({
+                targets: treasureLight,
+                scaleX: { from: 0.92, to: 1.08 },
+                alpha: { from: 0.08, to: 0.16 },
+                duration: 2200,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
         }
     }
 
@@ -331,6 +365,12 @@ class AquariumScene extends Phaser.Scene {
         this.shopBtn.on('pointerdown', () => {
             this.soundManager.playCoin();
             this.openAquariumShop();
+        });
+
+        this.upgradeBtn = this.createButton(24, 168, '🏗 확장 & 명예', 0);
+        this.upgradeBtn.on('pointerdown', () => {
+            this.soundManager.playCoin();
+            this.openAquariumUpgradeShop();
         });
 
         this.noticeText = this.add.text(width / 2, this.scale.height - 72, '', {
@@ -424,13 +464,29 @@ class AquariumScene extends Phaser.Scene {
 
     createFishCollection() {
         const collection = this.model.fishCollection;
+        const tank = getAquariumTankUpgrade(this.model.aquariumTankLevel || 1);
+        this.hiddenFishCount = 0;
 
-        Object.keys(collection).forEach((fishId) => {
+        const displayFishIds = Object.keys(collection)
+            .filter((fishId) => {
+                const fishData = FISH_TYPES.find((fish) => fish.id === fishId);
+                return fishData && !fishData.isSpecialItem && (collection[fishId] || 0) >= 5;
+            })
+            .sort((a, b) => {
+                const fishA = FISH_TYPES.find((fish) => fish.id === a);
+                const fishB = FISH_TYPES.find((fish) => fish.id === b);
+                const gradeScore = { SSR: 4, SR: 3, R: 2, N: 1 };
+                const countDiff = (collection[b] || 0) - (collection[a] || 0);
+                if (countDiff !== 0) return countDiff;
+                return (gradeScore[fishB?.grade] || 0) - (gradeScore[fishA?.grade] || 0);
+            });
+
+        this.hiddenFishCount = Math.max(0, displayFishIds.length - tank.maxFish);
+
+        displayFishIds.slice(0, tank.maxFish).forEach((fishId) => {
             const count = collection[fishId] || 0;
-            if (count < 5) return;
-
             const fishData = FISH_TYPES.find((fish) => fish.id === fishId);
-            if (fishData && !fishData.isSpecialItem) {
+            if (fishData) {
                 this.createFish(fishData, count);
             }
         });
@@ -864,15 +920,18 @@ class AquariumScene extends Phaser.Scene {
     refreshUiState() {
         this.currentMoodState = this.getAquariumMoodState();
         this.activeThemeSets = this.getUnlockedThemeSets();
+        const tank = getAquariumTankUpgrade(this.model.aquariumTankLevel || 1);
         const snackSummary = SPECIAL_SNACK_ITEMS.map((item) => {
             const count = this.model.snacksPurchased[item.id] || 0;
             return `${item.shortLabel} ${count}개`;
         }).join(' · ');
         const decorCount = this.model.getUnlockedDecorCount();
+        const trophyCount = Object.keys(this.model.honorTrophies || {}).length;
         const themeSummary = this.activeThemeSets.length > 0
             ? `테마 ${this.activeThemeSets.length}개 완성`
             : '테마 준비 중';
-        this.statusText.setText(`${snackSummary} · 장식 ${decorCount}개 · 기분 ${this.currentMoodState.icon} ${this.currentMoodState.label}\n${themeSummary}`);
+        const hiddenSummary = this.hiddenFishCount > 0 ? ` · 대기 ${this.hiddenFishCount}마리` : '';
+        this.statusText.setText(`${tank.emoji} ${tank.name} · 전시 ${this.fishes.length}/${tank.maxFish}${hiddenSummary} · 명예 ${trophyCount}개\n${snackSummary} · 장식 ${decorCount}개 · ${themeSummary}`);
     }
 
     renderUnlockedDecor() {
@@ -888,6 +947,49 @@ class AquariumScene extends Phaser.Scene {
         AQUARIUM_DECOR_ITEMS.forEach((item) => {
             if ((this.model.decorPurchased[item.id] || 0) <= 0) return;
             this.decorObjects[item.id] = this.createDecorSprite(item);
+        });
+    }
+
+    renderHonorTrophies() {
+        this.honorTrophyObjects.forEach((item) => {
+            if (!item) return;
+            this.tweens.killTweensOf(item);
+            item.destroy();
+        });
+        this.honorTrophyObjects = [];
+
+        const ownedTrophies = HONOR_TROPHY_ITEMS.filter((item) => this.model.honorTrophies?.[item.id]);
+        if (ownedTrophies.length === 0) return;
+
+        const baseY = this.scale.height - 34;
+        const startX = this.scale.width / 2 - ((ownedTrophies.length - 1) * 54);
+        ownedTrophies.forEach((item, index) => {
+            const x = startX + (index * 108);
+            const pedestal = this.add.rectangle(x, baseY + 14, 76, 18, 0x0b1830, 0.64)
+                .setStrokeStyle(2, item.color, 0.72)
+                .setDepth(3.5);
+            const trophy = this.add.text(x, baseY - 8, item.emoji, {
+                fontSize: '34px',
+                fontFamily: 'Arial'
+            }).setOrigin(0.5).setDepth(3.8);
+            const label = this.add.text(x, baseY + 27, item.name.replace(' 트로피', '').replace(' 왕관', ''), {
+                fontSize: '10px',
+                fontFamily: 'Arial',
+                color: '#fff1b8',
+                stroke: '#000000',
+                strokeThickness: 3
+            }).setOrigin(0.5).setDepth(3.8);
+
+            this.tweens.add({
+                targets: trophy,
+                y: trophy.y - 4,
+                duration: 1200 + (index * 120),
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+
+            this.honorTrophyObjects.push(pedestal, trophy, label);
         });
     }
 
@@ -954,8 +1056,164 @@ class AquariumScene extends Phaser.Scene {
         return objects;
     }
 
+    openAquariumUpgradeShop() {
+        if (this.upgradeShopUi.length > 0) return false;
+        if (this.shopUi.length > 0) this.closeAquariumShop();
+        if (this.isMagnifying) this.toggleMagnifier(false);
+
+        const width = this.scale.width;
+        const height = this.scale.height;
+        const panelWidth = width * 0.88;
+        const panelHeight = height * 0.79;
+        const panelX = width / 2;
+        const panelY = height / 2 + 18;
+        const cardWidth = panelWidth * 0.42;
+        const cardHeight = 112;
+        const columns = 2;
+        const currentTankLevel = this.model.aquariumTankLevel || 1;
+
+        const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6)
+            .setDepth(220)
+            .setInteractive();
+        const panel = this.add.rectangle(panelX, panelY, panelWidth, panelHeight, 0x122036, 0.98)
+            .setStrokeStyle(4, 0xffd27f)
+            .setDepth(221);
+        const title = this.add.text(panelX, panelY - panelHeight / 2 + 28, '수족관 확장 & 명예의 전당', {
+            fontSize: '25px',
+            fontFamily: 'Arial',
+            fontStyle: 'bold',
+            color: '#ffffff'
+        }).setOrigin(0.5).setDepth(222);
+        const subtitle = this.add.text(panelX, panelY - panelHeight / 2 + 58, '남는 골드를 넓은 수조와 오래 남는 트로피로 바꿔요.', {
+            fontSize: '14px',
+            fontFamily: 'Arial',
+            color: '#ffeec2'
+        }).setOrigin(0.5).setDepth(222);
+        const feedback = this.add.text(panelX, panelY + panelHeight / 2 - 24, '', {
+            fontSize: '17px',
+            fontFamily: 'Arial',
+            color: '#fff4b1',
+            stroke: '#000000',
+            strokeThickness: 4,
+            align: 'center',
+            wordWrap: { width: panelWidth * 0.86 }
+        }).setOrigin(0.5).setDepth(222);
+        const closeBtn = this.add.text(panelX + panelWidth / 2 - 22, panelY - panelHeight / 2 + 16, '✕', {
+            fontSize: '24px',
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            backgroundColor: '#2f4158',
+            padding: { x: 8, y: 4 }
+        }).setOrigin(1, 0).setDepth(222).setInteractive({ useHandCursor: true });
+
+        closeBtn.on('pointerdown', () => {
+            this.soundManager.playCoin();
+            this.closeAquariumUpgradeShop();
+        });
+
+        const upgradeItems = [
+            ...AQUARIUM_TANK_UPGRADES.filter((item) => item.level > 1).map((item) => ({ ...item, type: 'tank' })),
+            ...HONOR_TROPHY_ITEMS.map((item) => ({ ...item, type: 'trophy' }))
+        ];
+
+        upgradeItems.forEach((item, index) => {
+            const row = Math.floor(index / columns);
+            const col = index % columns;
+            const x = panelX - panelWidth * 0.23 + (col * panelWidth * 0.46);
+            const y = panelY - panelHeight / 2 + 132 + (row * 122);
+            const isTank = item.type === 'tank';
+            const isOwned = isTank
+                ? currentTankLevel >= item.level
+                : !!this.model.honorTrophies?.[item.id];
+            const isNextTank = isTank && item.level === currentTankLevel + 1;
+            const canBuy = !isOwned && (!isTank || isNextTank) && this.model.gold >= item.cost;
+            const disabledLabel = isOwned ? '보유 중' : (isTank && !isNextTank ? '이전 단계 필요' : `${item.cost}G 부족`);
+            const buttonLabel = isOwned ? '보유 중' : (canBuy ? `${item.cost}G 구매` : disabledLabel);
+
+            const card = this.add.rectangle(x, y, cardWidth, cardHeight, isTank ? 0x183b58 : 0x2d2549, 0.96)
+                .setStrokeStyle(2, isTank ? 0x8bd7ff : 0xffd27f)
+                .setDepth(221.5);
+            const icon = this.add.text(x - cardWidth * 0.36, y - 24, item.emoji, {
+                fontSize: '25px',
+                fontFamily: 'Arial'
+            }).setOrigin(0.5).setDepth(222);
+            const name = this.add.text(x - cardWidth * 0.21, y - 30, item.name, {
+                fontSize: '14px',
+                fontFamily: 'Arial',
+                fontStyle: 'bold',
+                color: '#ffffff',
+                wordWrap: { width: cardWidth * 0.58 }
+            }).setOrigin(0, 0.5).setDepth(222);
+            const desc = this.add.text(x - cardWidth * 0.21, y, item.description, {
+                fontSize: '10px',
+                fontFamily: 'Arial',
+                color: '#d9e8f5',
+                wordWrap: { width: cardWidth * 0.58 }
+            }).setOrigin(0, 0.5).setDepth(222);
+            const meta = this.add.text(x - cardWidth * 0.21, y + 32, isTank ? `전시 ${item.maxFish}마리` : '영구 명예 장식', {
+                fontSize: '11px',
+                fontFamily: 'Arial',
+                color: isTank ? '#c8f7ff' : '#ffe4a8'
+            }).setOrigin(0, 0.5).setDepth(222);
+            const button = this.createUpgradeShopButton(x + cardWidth * 0.23, y + 26, buttonLabel, isOwned ? '#6c7f94' : '#bd8a20', canBuy, () => {
+                const success = isTank
+                    ? this.model.purchaseAquariumTank(item.level, item.cost)
+                    : this.model.purchaseHonorTrophy(item.id, item.cost);
+
+                if (!success) {
+                    this.soundManager.playError();
+                    feedback.setText('골드가 부족하거나 아직 이전 단계가 필요해.');
+                    return;
+                }
+
+                this.soundManager.playSuccess();
+                if (isTank) {
+                    this.closeAquariumUpgradeShop();
+                    this.scene.restart();
+                } else {
+                    this.renderHonorTrophies();
+                    this.refreshUiState();
+                    feedback.setText(`${item.name}을 세웠어! 수족관에 오래 남을 명예야.`);
+                    this.closeAquariumUpgradeShop();
+                    this.openAquariumUpgradeShop();
+                }
+            });
+
+            this.upgradeShopUi.push(card, icon, name, desc, meta, button);
+        });
+
+        this.upgradeShopUi.push(dim, panel, title, subtitle, feedback, closeBtn);
+    }
+
+    createUpgradeShopButton(x, y, label, backgroundColor, enabled, onClick) {
+        const button = this.add.text(x, y, label, {
+            fontSize: '12px',
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            backgroundColor: enabled ? backgroundColor : '#666666',
+            padding: { x: 7, y: 5 },
+            align: 'center',
+            wordWrap: { width: 92 }
+        }).setOrigin(0.5).setDepth(222);
+
+        if (enabled) {
+            button.setInteractive({ useHandCursor: true });
+            button.on('pointerdown', onClick);
+        } else {
+            button.setAlpha(0.78);
+        }
+
+        return button;
+    }
+
+    closeAquariumUpgradeShop() {
+        this.upgradeShopUi.forEach((item) => item.destroy());
+        this.upgradeShopUi = [];
+    }
+
     openAquariumShop() {
         if (this.shopUi.length > 0) return false;
+        if (this.upgradeShopUi.length > 0) this.closeAquariumUpgradeShop();
         if (this.isMagnifying) this.toggleMagnifier(false);
 
         const width = this.scale.width;

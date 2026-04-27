@@ -644,6 +644,26 @@ body.modal-open #game-container canvas {
     box-shadow: none;
 }
 
+.buy-bait-btn,
+.select-bait-btn {
+    color: white;
+    border: none;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    min-width: 84px;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.22);
+}
+
+.buy-bait-btn:disabled,
+.select-bait-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.78;
+    box-shadow: none;
+}
+
 /* --- 도감(Encyclopedia) 전용 스타일 --- */
 #encyclopedia-popup {
     width: min(800px, 95vw);

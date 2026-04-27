@@ -106,12 +106,13 @@ export const SPECIAL_ITEMS = [
 // castingBonus: 0=빗나감, 1=보통, 2=좋음, 3=완벽
 // comboCount: 연속 성공 횟수 (SSR 가중치 보너스)
 // castingMultiplier: 보라색 더블 과녁 성공 시 2
-export const getRandomFish = (rodLuckLevel, currentRegion, castingBonus = 1, comboCount = 0, castingMultiplier = 1) => {
+export const getRandomFish = (rodLuckLevel, currentRegion, castingBonus = 1, comboCount = 0, castingMultiplier = 1, options = {}) => {
     const pm = window.gameManagers && window.gameManagers.playerModel;
     const isTutorialBoostActive = pm && typeof pm.isTutorialBoostActive === 'function' && pm.isTutorialBoostActive();
+    const specialItemChance = options.avoidSpecialItems ? 0 : (options.specialItemChance ?? 0.01);
 
-    // 1% 확률로 특별 아이템 등장 (보물섬에서는 전용 아이템)
-    if (Math.random() < 0.01) {
+    // 기본 1% 확률로 특별 아이템 등장 (보물섬에서는 전용 아이템)
+    if (Math.random() < specialItemChance) {
         let availableItems;
         if (currentRegion === 4) {
             availableItems = SPECIAL_ITEMS.filter(item => item.region === 4);
@@ -171,6 +172,10 @@ export const getRandomFish = (rodLuckLevel, currentRegion, castingBonus = 1, com
         // --- 연속 성공 콤보: SSR 가중치 보너스 (최대 +15) ---
         if (fish.grade === 'SSR' && comboCount > 0) {
             weight += Math.min(15, comboCount * 0.4);
+        }
+
+        if (fish.grade === 'SSR' && options.ssrBonusWeight) {
+            weight += options.ssrBonusWeight;
         }
 
         // --- 마일스톤 달성 시 N, R 등급 확률 대폭 감소 (1/2, 1/4, 1/8) ---

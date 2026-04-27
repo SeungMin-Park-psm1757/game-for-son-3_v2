@@ -50,6 +50,11 @@ export default class PlayerModel {
             this.specialSnackBehaviorsSeen = savedData.specialSnackBehaviorsSeen || {};
             this.aquariumMomentsSeen = savedData.aquariumMomentsSeen || {};
             this.collectionStamps = savedData.collectionStamps || {};
+            this.baitInventory = savedData.baitInventory || {};
+            this.selectedBaitId = savedData.selectedBaitId || null;
+            this.baitUsageCounts = savedData.baitUsageCounts || {};
+            this.aquariumTankLevel = savedData.aquariumTankLevel || 1;
+            this.honorTrophies = savedData.honorTrophies || {};
             this.lastAquariumSnackAt = savedData.lastAquariumSnackAt || 0;
             this.lastAquariumVisitAt = savedData.lastAquariumVisitAt || 0;
             this.firstPlayStartedAt = savedData.firstPlayStartedAt || now;
@@ -85,6 +90,11 @@ export default class PlayerModel {
             this.specialSnackBehaviorsSeen = {};
             this.aquariumMomentsSeen = {};
             this.collectionStamps = {};
+            this.baitInventory = {};
+            this.selectedBaitId = null;
+            this.baitUsageCounts = {};
+            this.aquariumTankLevel = 1;
+            this.honorTrophies = {};
             this.lastAquariumSnackAt = 0;
             this.lastAquariumVisitAt = 0;
             this.firstPlayStartedAt = now;
@@ -111,6 +121,11 @@ export default class PlayerModel {
             savedData.specialSnackBehaviorsSeen === undefined ||
             savedData.aquariumMomentsSeen === undefined ||
             savedData.collectionStamps === undefined ||
+            savedData.baitInventory === undefined ||
+            savedData.selectedBaitId === undefined ||
+            savedData.baitUsageCounts === undefined ||
+            savedData.aquariumTankLevel === undefined ||
+            savedData.honorTrophies === undefined ||
             savedData.lastAquariumSnackAt === undefined ||
             savedData.lastAquariumVisitAt === undefined ||
             goalStateChanged;
@@ -150,6 +165,11 @@ export default class PlayerModel {
             specialSnackBehaviorsSeen: this.specialSnackBehaviorsSeen,
             aquariumMomentsSeen: this.aquariumMomentsSeen,
             collectionStamps: this.collectionStamps,
+            baitInventory: this.baitInventory,
+            selectedBaitId: this.selectedBaitId,
+            baitUsageCounts: this.baitUsageCounts,
+            aquariumTankLevel: this.aquariumTankLevel,
+            honorTrophies: this.honorTrophies,
             lastAquariumSnackAt: this.lastAquariumSnackAt,
             lastAquariumVisitAt: this.lastAquariumVisitAt,
             firstPlayStartedAt: this.firstPlayStartedAt,
@@ -245,6 +265,89 @@ export default class PlayerModel {
         if (this.gold >= cost) {
             this.gold -= cost;
             this.decorPurchased[decorId] = (this.decorPurchased[decorId] || 0) + 1;
+            this.notify();
+            return true;
+        }
+        return false;
+    }
+
+    purchaseBait(baitId, cost) {
+        if (this.gold >= cost) {
+            this.gold -= cost;
+            this.baitInventory[baitId] = (this.baitInventory[baitId] || 0) + 1;
+            this.selectedBaitId = baitId;
+            this.notify();
+            return true;
+        }
+        return false;
+    }
+
+    selectBait(baitId) {
+        if (!baitId) {
+            this.selectedBaitId = null;
+            this.notify();
+            return true;
+        }
+
+        if ((this.baitInventory?.[baitId] || 0) <= 0) {
+            return false;
+        }
+
+        this.selectedBaitId = baitId;
+        this.notify();
+        return true;
+    }
+
+    consumeSelectedBait() {
+        const baitId = this.selectedBaitId;
+        if (!baitId) {
+            return null;
+        }
+
+        if ((this.baitInventory?.[baitId] || 0) <= 0) {
+            this.selectedBaitId = null;
+            this.notify();
+            return null;
+        }
+
+        this.baitInventory[baitId] -= 1;
+        if (this.baitInventory[baitId] <= 0) {
+            delete this.baitInventory[baitId];
+            this.selectedBaitId = null;
+        }
+        this.baitUsageCounts[baitId] = (this.baitUsageCounts[baitId] || 0) + 1;
+        this.notify();
+        return baitId;
+    }
+
+    purchaseAquariumTank(level, cost) {
+        if (level <= (this.aquariumTankLevel || 1)) {
+            return false;
+        }
+
+        if (level !== (this.aquariumTankLevel || 1) + 1) {
+            return false;
+        }
+
+        if (this.gold >= cost) {
+            this.gold -= cost;
+            this.aquariumTankLevel = level;
+            this.notify();
+            return true;
+        }
+        return false;
+    }
+
+    purchaseHonorTrophy(trophyId, cost) {
+        if (this.honorTrophies?.[trophyId]) {
+            return false;
+        }
+
+        if (this.gold >= cost) {
+            this.gold -= cost;
+            this.honorTrophies[trophyId] = {
+                purchasedAt: new Date().toISOString()
+            };
             this.notify();
             return true;
         }

@@ -2,6 +2,7 @@ import { getRandomFish, FISH_TYPES } from '../models/FishData.js';
 import { BOSS_STORIES, FIRST_CATCH_STORIES } from '../models/StoryData.js';
 import { getFishSizeTier } from '../data/ComboBookData.js';
 import { getCurrentWeeklyEvent, isWeekendEventDay, isWeeklyEventRegion } from '../data/WeeklyEventData.js';
+import { SPECIAL_BAIT_BY_ID } from '../data/LateGameContentData.js';
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -52,6 +53,7 @@ export default class GameScene extends Phaser.Scene {
         this.bossVariant = 'normal';
         this.treasureIslandBuff = null;
         this.activeCatchBuff = null;
+        this.activeBait = null;
         this.weeklyEvent = null;
         this.isWeeklyEventActive = false;
         this.isWeekendEvent = false;
@@ -97,6 +99,7 @@ export default class GameScene extends Phaser.Scene {
         this.bossVariant = 'normal';
         this.treasureIslandBuff = null;
         this.activeCatchBuff = null;
+        this.activeBait = null;
         this.weeklyEvent = null;
         this.isWeeklyEventActive = false;
         this.isWeekendEvent = false;
@@ -610,6 +613,31 @@ export default class GameScene extends Phaser.Scene {
         return { variant, fish };
     }
 
+    getForcedBossEncounter(playerModel) {
+        const defeatedCount = playerModel.bossDefeatedCount[this.region] || 0;
+        const clearedBefore = !!playerModel.bossDefeated[this.region];
+        const regionList = FISH_TYPES.filter(f => f.region === this.region && !f.eventOnly);
+        const ssrFishes = regionList.filter(f => f.grade === 'SSR');
+        const bossIndex = ssrFishes.length > 0 ? (defeatedCount % ssrFishes.length) : Math.max(0, regionList.length - 1);
+        const fish = ssrFishes.length > 0 ? ssrFishes[bossIndex] : regionList[regionList.length - 1];
+        const variant = !clearedBefore ? 'first' : (defeatedCount >= 3 ? 'empowered' : 'returning');
+
+        return { variant, fish };
+    }
+
+    getActiveBaitOptions() {
+        const bait = this.activeBait || null;
+        if (!bait) return { rareMultiplier: 1, fishOptions: {} };
+
+        return {
+            rareMultiplier: bait.rareMultiplier || 1,
+            fishOptions: {
+                avoidSpecialItems: !!bait.avoidSpecialItems,
+                ssrBonusWeight: bait.ssrBonusWeight || 0
+            }
+        };
+    }
+
     getBossConfig() {
         const baseConfigs = {
             first: { catchMultiplier: 2.4, timeLimit: 18, rewardMultiplier: 1.6, startRatio: 0.18 },
@@ -954,6 +982,11 @@ export default class GameScene extends Phaser.Scene {
     startApproach(targetX, targetY) {
         this.gameState = 'APPROACH';
         this.regionFishCount++;
+        const consumedBaitId = window.gameManagers.playerModel.consumeSelectedBait();
+        this.activeBait = consumedBaitId ? SPECIAL_BAIT_BY_ID[consumedBaitId] : null;
+        if (this.activeBait) {
+            this.showFloatingNotice(this.activeBait.notice, '#f6ddff', 0.24, '22px');
+        }
 
         // --- 罹먯뒪???ㅽ궗???먯젙 (媛??媛源뚯슫 怨쇰뀅 李얘린) ---
         const targetScale = (window.gameManagers.playerModel.stats.focusRing || 1) / 3;
@@ -1024,7 +1057,17 @@ export default class GameScene extends Phaser.Scene {
         const waitTime = Phaser.Math.Between(800, maxWait);
 
         const pm = window.gameManagers.playerModel;
-        const bossEncounter = this.getBossEncounterData(pm);
+        if (this.activeBait?.treasureSignal) {
+            if (this.region === 4) {
+                this.triggerTreasureIslandEvent();
+            } else {
+                this.treasureIslandBuff = { type: 'ssrBoost', remaining: 1 };
+                this.showFloatingNotice('탐지기가 먼 바다의 희귀 신호를 잡았어!', '#b7ecff');
+            }
+        }
+
+        const forcedBossEncounter = this.activeBait?.forceBoss ? this.getForcedBossEncounter(pm) : null;
+        const bossEncounter = forcedBossEncounter || this.getBossEncounterData(pm);
 
         if (bossEncounter) {
             this.isBossFight = true;
@@ -1043,6 +1086,9 @@ export default class GameScene extends Phaser.Scene {
             this.cameras.main.shake(1500, 0.02);
             this.cameras.main.flash(500, 255, 0, 0);
             window.gameManagers.soundManager.playError();
+            if (forcedBossEncounter) {
+                this.showFloatingNotice('호출권 성공! 보스가 바로 응답했어!', '#ffcf6b');
+            }
             if (this.bossVariant === 'event') {
                 this.announceWeeklyEventEncounter(this.currentFish, true);
             }
@@ -1053,6 +1099,7 @@ export default class GameScene extends Phaser.Scene {
             const rodLuckLevel = pm.stats.rodLuck;
             const comboCount = pm.comboCount || 0;
             let rareFishBoost = 1;
+            const baitOptions = this.getActiveBaitOptions();
 
             if (this.treasureIslandBuff && this.treasureIslandBuff.type === 'ssrBoost' && this.treasureIslandBuff.remaining > 0) {
                 rareFishBoost = 3;
@@ -1060,7 +1107,8 @@ export default class GameScene extends Phaser.Scene {
                 this.showFloatingNotice('보물섬 버프 발동! 희귀 물고기 확률이 크게 올랐어!', '#8be9fd');
             }
 
-            this.currentFish = getRandomFish(rodLuckLevel, this.region, this.castingBonus, comboCount, rareFishBoost);
+            rareFishBoost *= baitOptions.rareMultiplier;
+            this.currentFish = getRandomFish(rodLuckLevel, this.region, this.castingBonus, comboCount, rareFishBoost, baitOptions.fishOptions);
             this.currentFish = this.maybeSelectWeeklyEventFish(this.currentFish);
             if (this.currentFish.eventOnly) {
                 this.announceWeeklyEventEncounter(this.currentFish, false);
@@ -1082,7 +1130,8 @@ export default class GameScene extends Phaser.Scene {
             // 臾쇨퀬湲?醫낅쪟 寃곗젙 (罹먯뒪??蹂대꼫??+ 肄ㅻ낫 ?곸슜)
             const rodLuckLevel = pm.stats.rodLuck;
             const comboCount = pm.comboCount || 0;
-            this.currentFish = getRandomFish(rodLuckLevel, this.region, this.castingBonus, comboCount);
+            const baitOptions = this.getActiveBaitOptions();
+            this.currentFish = getRandomFish(rodLuckLevel, this.region, this.castingBonus, comboCount, baitOptions.rareMultiplier, baitOptions.fishOptions);
         }
 
         const catchFeel = this.getCatchFeelProfile(this.currentFish);
@@ -1337,6 +1386,12 @@ export default class GameScene extends Phaser.Scene {
             this.activeCatchBuff = { ...this.treasureIslandBuff };
             this.consumeTreasureIslandBuff();
             this.showFloatingNotice('보물섬 버프 발동! 잠시 동안 게이지가 줄지 않아!', '#7fdcff');
+        }
+
+        if (this.activeBait?.gaugeImmunityMs) {
+            this.activeCatchBuff = { type: 'gaugeImmunity', duration: this.activeBait.gaugeImmunityMs };
+            this.catchGauge = Math.max(this.catchGauge, this.catchMax * 0.28);
+            this.showFloatingNotice('정화 미끼 효과! 초반 게이지가 안정돼!', '#c8fff0');
         }
 
         if (this.consecutiveFails >= 3) {
@@ -1905,6 +1960,7 @@ export default class GameScene extends Phaser.Scene {
 
             // ?꾩뿭 PlayerModel??怨⑤뱶 異붽?
             window.gameManagers.playerModel.addGold(finalGold);
+            this.activeBait = null;
             const comboUnlocks = window.gameManagers.playerModel.processComboUnlocks();
             const stampUnlocks = window.gameManagers.playerModel.processCollectionStampUnlocks();
             console.log(`획득 골드: ${finalGold} (현재 총합: ${window.gameManagers.playerModel.gold})`);
@@ -2048,6 +2104,7 @@ export default class GameScene extends Phaser.Scene {
         this.clearDrawGuides(true);
         this.lineTension = 0;
         this.activeCatchBuff = null;
+        this.activeBait = null;
         this.clearApproachFishes();
         this.clearApproachPreview();
 

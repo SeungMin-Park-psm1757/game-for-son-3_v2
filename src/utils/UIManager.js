@@ -12,6 +12,7 @@ import {
 } from '../data/ComboBookData.js';
 import { COLLECTION_STAMP_ENTRIES } from '../data/CollectionStampData.js';
 import { WEEKLY_EVENT_ROTATION } from '../data/WeeklyEventData.js';
+import { SPECIAL_BAIT_ITEMS } from '../data/LateGameContentData.js';
 
 const FISH_BY_ID = Object.fromEntries(FISH_TYPES.map((fish) => [fish.id, fish]));
 const DECOR_PREVIEW_MAP = {
@@ -1237,6 +1238,37 @@ export default class UIManager {
         snacksData.forEach(item => snackDecorHTML += generateItemHTML(item, 'snack', this.playerModel.snacksPurchased || {}));
         decorData.forEach(item => snackDecorHTML += generateItemHTML(item, 'decor', this.playerModel.decorPurchased || {}));
 
+        const baitHTML = SPECIAL_BAIT_ITEMS.map((item) => {
+            const count = this.playerModel.baitInventory?.[item.id] || 0;
+            const isSelected = this.playerModel.selectedBaitId === item.id && count > 0;
+            const canBuy = this.playerModel.gold >= item.cost;
+            return `
+                <div class="upgrade-item" style="border-color:#8A2BE2; background:linear-gradient(135deg,#f7f2ff,#edf9ff);">
+                    <div class="up-icon" style="font-size:30px;">${item.emoji}</div>
+                    <div class="up-info">
+                        <h3>${item.name} <span style="font-size:14px; font-weight:normal; color:#555;">(보유: ${count}개)</span></h3>
+                        <p>${item.description}<br><strong>${item.shortEffect}</strong></p>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:8px; align-items:center;">
+                        <button class="buy-bait-btn ${canBuy ? '' : 'maxed'}" data-id="${item.id}" data-cost="${item.cost}"
+                            ${canBuy ? '' : 'disabled'}
+                            style="${canBuy ? 'background:#7b4dd8;' : 'background-color:#999; cursor:not-allowed;'}">
+                            💰 ${item.cost}
+                        </button>
+                        <button class="select-bait-btn ${count > 0 ? '' : 'maxed'}" data-id="${item.id}"
+                            ${count > 0 ? '' : 'disabled'}
+                            style="${isSelected ? 'background:#18a058;' : (count > 0 ? 'background:#2a79b8;' : 'background:#999; cursor:not-allowed;')}">
+                            ${isSelected ? '장착 중' : '장착'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const selectedBait = SPECIAL_BAIT_ITEMS.find((item) => item.id === this.playerModel.selectedBaitId);
+        const selectedBaitLabel = selectedBait && (this.playerModel.baitInventory?.[selectedBait.id] || 0) > 0
+            ? `${selectedBait.emoji} ${selectedBait.name} 장착 중`
+            : '장착한 미끼 없음';
 
         const shopHTML = `
             <div id="shop-popup" class="popup-box" style="padding-top: 10px; max-height: 90vh;">
@@ -1247,8 +1279,9 @@ export default class UIManager {
                 </div>
                 
                 <div class="shop-tabs" style="display:flex; justify-content:space-around; margin-bottom: 10px; border-bottom: 2px solid #ccc; padding-bottom:5px;">
-                    <button id="tab-upgrade" class="shop-tab-btn active" style="flex:1; padding:10px; font-size:18px; font-weight:bold; background:#0055FF; color:white; border:none; border-radius:10px 0 0 0;">👨‍🔧 장비 강화</button>
-                    <button id="tab-seyeon" class="shop-tab-btn" style="flex:1; padding:10px; font-size:18px; font-weight:bold; background:#ccc; color:#333; border:none; border-radius:0 10px 0 0;">👧 세연이 선물사기</button>
+                    <button id="tab-upgrade" class="shop-tab-btn active" style="flex:1; padding:10px; font-size:16px; font-weight:bold; background:#0055FF; color:white; border:none; border-radius:10px 0 0 0;">👨‍🔧 장비</button>
+                    <button id="tab-bait" class="shop-tab-btn" style="flex:1; padding:10px; font-size:16px; font-weight:bold; background:#ccc; color:#333; border:none;">🎣 특수 미끼</button>
+                    <button id="tab-seyeon" class="shop-tab-btn" style="flex:1; padding:10px; font-size:16px; font-weight:bold; background:#ccc; color:#333; border:none; border-radius:0 10px 0 0;">👧 선물</button>
                 </div>
 
                 <div class="shop-content" style="overflow-y: auto; max-height: calc(90vh - 120px);">
@@ -1295,6 +1328,17 @@ export default class UIManager {
                         </div>
                     </div>
 
+                    <!-- 특수 미끼 탭 -->
+                    <div id="content-bait" class="tab-content" style="display:none;">
+                        <div class="shop-npc" style="background:#f0f6ff; border-color:#7b4dd8;">
+                            ${shopkeeperPortraitHTML}
+                            <div class="npc-bubble" id="bait-bubble">"${selectedBaitLabel}. 미끼는 다음 낚시 1번에만 써진단다!"</div>
+                        </div>
+                        <div class="upgrade-list">
+                            ${baitHTML}
+                        </div>
+                    </div>
+
                     <!-- 세연이 선물사기 탭 -->
                     <div id="content-seyeon" class="tab-content" style="display:none;">
                         <div class="shop-npc" style="background:#FFF0F5; border-color:#FFB6C1;">
@@ -1317,26 +1361,40 @@ export default class UIManager {
 
         // 탭 전환 로직
         const tabUpgrade = document.getElementById('tab-upgrade');
+        const tabBait = document.getElementById('tab-bait');
         const tabSeyeon = document.getElementById('tab-seyeon');
         const contentUpgrade = document.getElementById('content-upgrade');
+        const contentBait = document.getElementById('content-bait');
         const contentSeyeon = document.getElementById('content-seyeon');
 
         const switchTab = (tabStr, playSound = false) => {
             if (playSound) window.gameManagers.soundManager.playCoin();
             if (tabStr === 'upgrade') {
                 tabUpgrade.style.background = '#0055FF'; tabUpgrade.style.color = 'white';
+                tabBait.style.background = '#ccc'; tabBait.style.color = '#333';
                 tabSeyeon.style.background = '#ccc'; tabSeyeon.style.color = '#333';
                 contentUpgrade.style.display = 'block';
+                contentBait.style.display = 'none';
+                contentSeyeon.style.display = 'none';
+            } else if (tabStr === 'bait') {
+                tabUpgrade.style.background = '#ccc'; tabUpgrade.style.color = '#333';
+                tabBait.style.background = '#7b4dd8'; tabBait.style.color = 'white';
+                tabSeyeon.style.background = '#ccc'; tabSeyeon.style.color = '#333';
+                contentUpgrade.style.display = 'none';
+                contentBait.style.display = 'block';
                 contentSeyeon.style.display = 'none';
             } else {
                 tabUpgrade.style.background = '#ccc'; tabUpgrade.style.color = '#333';
+                tabBait.style.background = '#ccc'; tabBait.style.color = '#333';
                 tabSeyeon.style.background = '#FF69B4'; tabSeyeon.style.color = 'white';
                 contentUpgrade.style.display = 'none';
+                contentBait.style.display = 'none';
                 contentSeyeon.style.display = 'block';
             }
         };
 
         tabUpgrade.onclick = () => switchTab('upgrade', true);
+        tabBait.onclick = () => switchTab('bait', true);
         tabSeyeon.onclick = () => switchTab('seyeon', true);
 
         // 초기 탭 설정
@@ -1415,6 +1473,52 @@ export default class UIManager {
                     bubble.style.color = '#FF0000';
                     btn.classList.add('quiz-shake');
                     setTimeout(() => { btn.classList.remove('quiz-shake'); bubble.style.color = '#333'; }, 400);
+                }
+            };
+        });
+
+        const baitBuyBtns = this.container.querySelectorAll('.buy-bait-btn');
+        baitBuyBtns.forEach(btn => {
+            btn.onclick = (e) => {
+                const id = e.target.getAttribute('data-id');
+                const cost = parseInt(e.target.getAttribute('data-cost'));
+                const item = SPECIAL_BAIT_ITEMS.find((bait) => bait.id === id);
+                const success = this.playerModel.purchaseBait(id, cost);
+                const bubble = document.getElementById('bait-bubble');
+
+                if (success) {
+                    window.gameManagers.soundManager.playSuccess();
+                    this.openShop('bait');
+                    const newBubble = document.getElementById('bait-bubble');
+                    if (newBubble && item) {
+                        newBubble.innerText = `"${item.name}을 담았어! 다음 낚시에서 바로 써 보자."`;
+                    }
+                } else {
+                    window.gameManagers.soundManager.playError();
+                    if (bubble) {
+                        bubble.innerText = '"골드가 조금 모자라네. 큰 물고기 한 마리만 더 노려 보자!"';
+                        bubble.style.color = '#FF0000';
+                        setTimeout(() => { bubble.style.color = '#333'; }, 400);
+                    }
+                }
+            };
+        });
+
+        const baitSelectBtns = this.container.querySelectorAll('.select-bait-btn');
+        baitSelectBtns.forEach(btn => {
+            btn.onclick = (e) => {
+                const id = e.target.getAttribute('data-id');
+                const item = SPECIAL_BAIT_ITEMS.find((bait) => bait.id === id);
+                const success = this.playerModel.selectBait(id);
+                if (success) {
+                    window.gameManagers.soundManager.playCoin();
+                    this.openShop('bait');
+                    const newBubble = document.getElementById('bait-bubble');
+                    if (newBubble && item) {
+                        newBubble.innerText = `"${item.name} 장착 완료! 다음 낚시 1번에만 쓰인다."`;
+                    }
+                } else {
+                    window.gameManagers.soundManager.playError();
                 }
             };
         });
