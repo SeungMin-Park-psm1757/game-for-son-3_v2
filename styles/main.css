@@ -113,31 +113,39 @@ body.modal-open #game-container canvas {
 
     /* 우측 상단 상시 UI 과감하게 축소 */
     #persistent-ui {
-        top: 10px;
-        left: 8px;
-        right: 8px;
+        top: 8px;
+        left: 6px;
+        right: 6px;
         gap: 4px;
     }
 
     #gold-display {
-        font-size: 11px;
-        padding: 3px 7px;
+        max-width: 86px;
+        font-size: 10px;
+        padding: 3px 6px;
         border-width: 2px;
     }
 
     #late-goal-display {
-        max-width: 120px;
+        max-width: none;
         font-size: 10px;
-        padding: 3px 7px;
+        padding: 3px 6px;
         border-width: 2px;
     }
 
     #shop-open-btn,
     .persistent-btn {
-        font-size: 11px;
-        padding: 4px 7px;
+        font-size: 10px;
+        padding: 4px 6px;
         border-width: 2px;
         box-shadow: 0 2px 0 #cc7000;
+    }
+
+    #mute-btn {
+        min-width: 34px;
+        padding-left: 0;
+        padding-right: 0;
+        text-align: center;
     }
 
     .buy-btn {
@@ -377,9 +385,10 @@ body.modal-open #game-container canvas {
     flex-wrap: nowrap;
     gap: 6px;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     max-width: calc(100vw - 16px);
-    overflow-x: auto;
+    min-width: 0;
+    overflow-x: hidden;
     overflow-y: hidden;
     scrollbar-width: none;
     z-index: 20;
@@ -397,6 +406,11 @@ body.modal-open #game-container canvas {
     font-size: 13px;
     font-weight: bold;
     border: 2px solid #FFD700;
+    flex: 0 0 auto;
+    max-width: 112px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 #late-goal-display {
@@ -411,6 +425,7 @@ body.modal-open #game-container canvas {
     max-width: min(270px, 34vw);
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 #shop-open-btn {
@@ -429,10 +444,14 @@ body.modal-open #game-container canvas {
 #book-open-btn,
 #mute-btn,
 #shop-open-btn,
-#late-goal-display,
 .persistent-btn {
     white-space: nowrap;
     flex: 0 0 auto;
+}
+
+#late-goal-display {
+    flex: 1 1 auto;
+    white-space: nowrap;
 }
 
 #shop-open-btn:active {
@@ -881,7 +900,9 @@ body.modal-open #game-container canvas {
 
 #book-close-btn,
 #card-close-btn,
-#combo-book-close-btn {
+#combo-book-close-btn,
+#daily-mission-close-btn,
+#praise-album-close-btn {
     background: #FF6347;
     color: white;
     border: none;
@@ -1059,6 +1080,16 @@ body.modal-open #game-container canvas {
     background: linear-gradient(180deg, #f7f3f3 0%, #eceff6 100%);
 }
 
+.combo-preview-hidden {
+    border-style: dashed;
+    background: rgba(255, 255, 255, 0.56);
+}
+
+.combo-hint-copy {
+    font-weight: bold;
+    color: #405c79 !important;
+}
+
 .combo-card.discovered {
     border-color: #ffd56a;
     background: linear-gradient(180deg, #fff7db 0%, #eefcff 100%);
@@ -1082,6 +1113,183 @@ body.modal-open #game-container canvas {
     color: #4e6278;
     line-height: 1.35;
     font-size: 13px;
+}
+
+.daily-mission-popup,
+.praise-album-popup {
+    width: min(720px, 96vw);
+    max-height: calc(100vh - 30px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+    padding: 16px;
+}
+
+.daily-mission-scroll,
+.praise-album-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 4px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.daily-mission-guide,
+.daily-mission-all-clear {
+    border-radius: 14px;
+    padding: 10px 12px;
+    background: #eefcff;
+    color: #2f5b70;
+    font-weight: bold;
+    line-height: 1.35;
+}
+
+.daily-mission-all-clear {
+    background: #fff5ce;
+    color: #7a5a00;
+}
+
+.daily-mission-card,
+.praise-card {
+    border-radius: 16px;
+    padding: 12px;
+    text-align: left;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+}
+
+.daily-mission-card {
+    border: 3px solid #b9ddec;
+    background: linear-gradient(180deg, #ffffff 0%, #eefaff 100%);
+}
+
+.daily-mission-card.complete {
+    border-color: #7ddfbe;
+    background: linear-gradient(180deg, #f1fff7 0%, #eaf9ff 100%);
+}
+
+.daily-mission-card.claimed {
+    border-color: #d7c47a;
+    background: linear-gradient(180deg, #fff8da 0%, #f2f6ea 100%);
+}
+
+.daily-mission-top,
+.daily-mission-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.daily-mission-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #203e55;
+}
+
+.daily-mission-status {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    padding: 4px 8px;
+    background: #e0f1ff;
+    color: #2e638a;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.daily-mission-card p {
+    margin: 8px 0;
+    color: #4d6577;
+    line-height: 1.35;
+}
+
+.daily-mission-progress {
+    position: relative;
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #d8e5ef;
+    margin: 8px 0 10px;
+}
+
+.daily-mission-progress span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #4ecdc4 0%, #6de08f 100%);
+}
+
+.mission-claim-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 8px 12px;
+    background: #ff9f2f;
+    color: #ffffff;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #b96a12;
+}
+
+.mission-claim-btn:disabled {
+    background: #9fb0bf;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.mission-claim-btn.claimed {
+    background: #7fb37a;
+}
+
+.praise-card {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 12px;
+    align-items: center;
+    border: 3px solid #ffd1df;
+    background: linear-gradient(180deg, #fff8fb 0%, #eef9ff 100%);
+}
+
+.praise-card.locked {
+    border-style: dashed;
+    filter: grayscale(20%);
+    opacity: 0.86;
+}
+
+.praise-emoji {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: #fff1b8;
+    font-size: 30px;
+}
+
+.praise-copy h3 {
+    margin: 0 0 4px;
+    color: #3f3153;
+    font-size: 18px;
+}
+
+.praise-copy p {
+    margin: 2px 0;
+    color: #536577;
+    line-height: 1.35;
+}
+
+.praise-speaker,
+.praise-date {
+    display: inline-flex;
+    width: fit-content;
+    border-radius: 999px;
+    padding: 3px 8px;
+    background: #e9f3ff;
+    color: #3a6689 !important;
+    font-size: 12px;
+    font-weight: bold;
 }
 
 .combo-card-header,
@@ -1743,6 +1951,33 @@ body.modal-open #game-container canvas {
     .combo-preview-image {
         max-width: 36px;
         max-height: 28px;
+    }
+
+    .daily-mission-popup,
+    .praise-album-popup {
+        width: min(96vw, 540px);
+        padding: 12px;
+    }
+
+    .daily-mission-title {
+        font-size: 16px;
+    }
+
+    .mission-claim-btn {
+        padding: 7px 9px;
+        font-size: 12px;
+    }
+
+    .praise-card {
+        grid-template-columns: 54px 1fr;
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .praise-emoji {
+        width: 48px;
+        height: 48px;
+        font-size: 26px;
     }
 
     .spelling-choice-grid {

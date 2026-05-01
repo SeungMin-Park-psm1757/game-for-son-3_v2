@@ -14,6 +14,14 @@ import {
     AQUARIUM_TANK_UPGRADES,
     SPECIAL_BAIT_BY_ID
 } from '../data/LateGameContentData.js';
+import {
+    DAILY_MISSION_VERSION,
+    createDailyMissions,
+    doesDailyMissionMatch,
+    getLocalDateKey,
+    isMissionComplete
+} from '../data/DailyMissionData.js';
+import { PRAISE_ALBUM_BY_ID } from '../data/PraiseAlbumData.js';
 
 const SAVE_KEY = 'fishingGameData';
 const TUTORIAL_BOOST_DURATION_MS = 5 * 60 * 1000;
@@ -63,6 +71,8 @@ export default class PlayerModel {
             this.lastAquariumVisitAt = savedData.lastAquariumVisitAt || 0;
             this.firstPlayStartedAt = savedData.firstPlayStartedAt || now;
             this.tutorialBoostEndsAt = savedData.tutorialBoostEndsAt ?? (this.firstPlayStartedAt + TUTORIAL_BOOST_DURATION_MS);
+            this.dailyMissions = savedData.dailyMissions || null;
+            this.praiseAlbum = savedData.praiseAlbum || null;
         } else {
             this.gold = 0;
             this.stats = {
@@ -103,6 +113,8 @@ export default class PlayerModel {
             this.lastAquariumVisitAt = 0;
             this.firstPlayStartedAt = now;
             this.tutorialBoostEndsAt = now + TUTORIAL_BOOST_DURATION_MS;
+            this.dailyMissions = null;
+            this.praiseAlbum = null;
         }
 
         this.listeners = [];
@@ -115,6 +127,8 @@ export default class PlayerModel {
         };
 
         const lateGameStateChanged = this.normalizeLateGameState();
+        const praiseStateChanged = this.normalizePraiseAlbum();
+        const dailyMissionStateChanged = this.ensureDailyMissions();
         const goalStateChanged = this.ensureActiveComboGoals();
         const needsMigrationSave = !savedData ||
             savedData.firstPlayStartedAt === undefined ||
@@ -133,7 +147,11 @@ export default class PlayerModel {
             savedData.honorTrophies === undefined ||
             savedData.lastAquariumSnackAt === undefined ||
             savedData.lastAquariumVisitAt === undefined ||
+            savedData.dailyMissions === undefined ||
+            savedData.praiseAlbum === undefined ||
             lateGameStateChanged ||
+            praiseStateChanged ||
+            dailyMissionStateChanged ||
             goalStateChanged;
 
         if (needsMigrationSave) {
@@ -179,7 +197,9 @@ export default class PlayerModel {
             lastAquariumSnackAt: this.lastAquariumSnackAt,
             lastAquariumVisitAt: this.lastAquariumVisitAt,
             firstPlayStartedAt: this.firstPlayStartedAt,
-            tutorialBoostEndsAt: this.tutorialBoostEndsAt
+            tutorialBoostEndsAt: this.tutorialBoostEndsAt,
+            dailyMissions: this.dailyMissions,
+            praiseAlbum: this.praiseAlbum
         });
     }
 
@@ -226,6 +246,139 @@ export default class PlayerModel {
         }
 
         return changed;
+    }
+
+    normalizePraiseAlbum() {
+        let changed = false;
+
+        if (!this.praiseAlbum || typeof this.praiseAlbum !== 'object' || Array.isArray(this.praiseAlbum)) {
+            this.praiseAlbum = {
+                unlockedPraiseIds: [],
+                seenAt: {}
+            };
+            return true;
+        }
+
+        if (!Array.isArray(this.praiseAlbum.unlockedPraiseIds)) {
+            this.praiseAlbum.unlockedPraiseIds = [];
+            changed = true;
+        }
+
+        if (!this.praiseAlbum.seenAt || typeof this.praiseAlbum.seenAt !== 'object' || Array.isArray(this.praiseAlbum.seenAt)) {
+            this.praiseAlbum.seenAt = {};
+            changed = true;
+        }
+
+        const normalizedPraiseIds = [...new Set(this.praiseAlbum.unlockedPraiseIds)]
+            .filter((praiseId) => !!PRAISE_ALBUM_BY_ID[praiseId]);
+        if (
+            normalizedPraiseIds.length !== this.praiseAlbum.unlockedPraiseIds.length ||
+            normalizedPraiseIds.some((praiseId, index) => praiseId !== this.praiseAlbum.unlockedPraiseIds[index])
+        ) {
+            changed = true;
+        }
+        this.praiseAlbum.unlockedPraiseIds = normalizedPraiseIds;
+
+        return changed;
+    }
+
+    ensureDailyMissions(date = new Date()) {
+        const dateKey = getLocalDateKey(date);
+        const isValidMissionList = Array.isArray(this.dailyMissions?.missions) && this.dailyMissions.missions.length === 3;
+
+        if (
+            !this.dailyMissions ||
+            this.dailyMissions.version !== DAILY_MISSION_VERSION ||
+            this.dailyMissions.dateKey !== dateKey ||
+            !isValidMissionList
+        ) {
+            this.dailyMissions = {
+                version: DAILY_MISSION_VERSION,
+                dateKey,
+                missions: createDailyMissions(this, dateKey)
+            };
+            return true;
+        }
+
+        return false;
+    }
+
+    unlockPraise(praiseId, options = {}) {
+        if (!PRAISE_ALBUM_BY_ID[praiseId]) {
+            return false;
+        }
+
+        this.normalizePraiseAlbum();
+        if (this.praiseAlbum.unlockedPraiseIds.includes(praiseId)) {
+            return false;
+        }
+
+        this.praiseAlbum.unlockedPraiseIds.push(praiseId);
+        this.praiseAlbum.seenAt[praiseId] = getLocalDateKey();
+
+        if (!options.silent) {
+            this.notify();
+        }
+        return true;
+    }
+
+    maybeUnlockDailyMissionPraise(options = {}) {
+        this.ensureDailyMissions();
+        const allCompleted = (this.dailyMissions?.missions || []).length === 3 &&
+            this.dailyMissions.missions.every((mission) => isMissionComplete(mission));
+
+        if (!allCompleted) {
+            return false;
+        }
+
+        return this.unlockPraise('daily_missions_all_done', options);
+    }
+
+    progressDailyMission(eventType, amount = 1, meta = {}, options = {}) {
+        const regenerated = this.ensureDailyMissions();
+        const changedMissions = [];
+        const newlyCompleted = [];
+
+        (this.dailyMissions?.missions || []).forEach((mission) => {
+            if (mission.claimed || isMissionComplete(mission)) return;
+            if (!doesDailyMissionMatch(mission, eventType, meta)) return;
+
+            const beforeComplete = isMissionComplete(mission);
+            mission.progress = Math.min(mission.target, (mission.progress || 0) + amount);
+            changedMissions.push(mission);
+            if (!beforeComplete && isMissionComplete(mission)) {
+                newlyCompleted.push(mission);
+            }
+        });
+
+        const praiseUnlocked = newlyCompleted.length > 0
+            ? this.maybeUnlockDailyMissionPraise({ silent: true })
+            : false;
+
+        if ((regenerated || changedMissions.length > 0 || praiseUnlocked) && !options.silent) {
+            this.notify();
+        }
+
+        return {
+            changed: changedMissions,
+            newlyCompleted,
+            praiseUnlocked
+        };
+    }
+
+    claimDailyMission(missionId) {
+        this.ensureDailyMissions();
+        const mission = (this.dailyMissions?.missions || []).find((item) => item.id === missionId);
+        if (!mission || mission.claimed || !isMissionComplete(mission)) {
+            return { success: false, mission: mission || null, rewardGold: 0 };
+        }
+
+        const rewardGold = Math.max(0, Number(mission.rewardGold) || 0);
+        mission.claimed = true;
+        this.gold += rewardGold;
+        const praiseUnlocked = this.maybeUnlockDailyMissionPraise({ silent: true });
+        this.notify();
+        return { success: true, mission, rewardGold, praiseUnlocked };
     }
 
     checkChapterGoal() {
@@ -294,6 +447,8 @@ export default class PlayerModel {
         } else {
             this.eventCards[cardId].count = (this.eventCards[cardId].count || 0) + 1;
         }
+        this.progressDailyMission('event_card', 1, { cardId }, { silent: true });
+        this.unlockPraise('event_card_found', { silent: true });
         this.notify();
     }
 
@@ -451,6 +606,12 @@ export default class PlayerModel {
             return false;
         }
         this.aquariumMomentsSeen[momentId] = true;
+        if (['coralThemeStory', 'moonThemeStory', 'pirateThemeStory', 'homeSeaStory'].includes(momentId)) {
+            this.unlockPraise('aquarium_decor_theme', { silent: true });
+        }
+        if (momentId === 'recognitionStory') {
+            this.unlockPraise('aquarium_recognition', { silent: true });
+        }
         this.notify();
         return true;
     }
@@ -521,7 +682,14 @@ export default class PlayerModel {
         });
 
         const goalStateChanged = this.ensureActiveComboGoals();
-        if (unlocked.length > 0 || goalStateChanged) {
+        const comboMissionResult = unlocked.length > 0
+            ? this.progressDailyMission('combo_reward', unlocked.length, {}, { silent: true })
+            : { changed: [], newlyCompleted: [] };
+        const praiseUnlocked = unlocked.length > 0
+            ? this.unlockPraise('first_combo_complete', { silent: true })
+            : false;
+
+        if (unlocked.length > 0 || goalStateChanged || comboMissionResult.changed.length > 0 || praiseUnlocked) {
             this.notify();
         }
 

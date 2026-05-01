@@ -582,6 +582,15 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
+    showDailyMissionFeedback(results = []) {
+        const completed = results.flatMap((result) => result?.newlyCompleted || []);
+        if (completed.length === 0) return;
+
+        const firstMission = completed[0];
+        const suffix = completed.length > 1 ? ` 외 ${completed.length - 1}개` : '';
+        this.showFloatingNotice(`오늘 미션 완료!\n${firstMission.title}${suffix}`, '#bdf7ff', 0.24, '22px');
+    }
+
     getBossEncounterData(playerModel) {
         const clearedBefore = !!playerModel.bossDefeated[this.region];
         const defeatedCount = playerModel.bossDefeatedCount[this.region] || 0;
@@ -1732,6 +1741,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.isBossFight) {
             pm.bossDefeated[this.region] = true;
             pm.bossDefeatedCount[this.region] = (pm.bossDefeatedCount[this.region] || 0) + 1;
+            pm.unlockPraise(pm.bossDefeatedCount[this.region] === 1 ? 'first_boss_clear' : 'boss_rematch_win', { silent: true });
             pm.notify();
             isBossCatch = true;
             isBossRematchVictory = bossFailedBefore > 0;
@@ -1799,6 +1809,15 @@ export default class GameScene extends Phaser.Scene {
             const fishId = this.currentFish.id;
             const fishName = this.currentFish.name;
             const model = window.gameManagers.playerModel;
+            const missionResults = [
+                model.progressDailyMission('catch_any', 1, { region: this.region, grade: this.currentFish.grade, fishId }, { silent: true }),
+                model.progressDailyMission('catch_region', 1, { region: this.region, grade: this.currentFish.grade, fishId }, { silent: true }),
+                model.progressDailyMission('catch_rare', 1, { region: this.region, grade: this.currentFish.grade, fishId }, { silent: true })
+            ];
+            if (missionResults.some((result) => result.changed.length > 0 || result.praiseUnlocked)) {
+                model.notify();
+                this.showDailyMissionFeedback(missionResults);
+            }
 
             if (!model.fishMilestonesSeen[fishId]) {
                 model.fishMilestonesSeen[fishId] = {};
@@ -1813,10 +1832,12 @@ export default class GameScene extends Phaser.Scene {
                 const titles15 = ['베테랑 낚시꾼', '바다 탐험가', '수집 달인', '릴 감기 명수', '파도 챔피언'];
                 title = titles15[Math.floor(Math.random() * titles15.length)];
                 model.fishMilestonesSeen[fishId][15] = true;
+                model.unlockPraise('aquarium_growth', { silent: true });
             } else if (count === 30 && !model.fishMilestonesSeen[fishId][30]) {
                 const titles30 = ['전설의 낚시왕', '바다의 수호자', '수집 마스터', '황금 손', '파도 정복자'];
                 title = titles30[Math.floor(Math.random() * titles30.length)];
                 model.fishMilestonesSeen[fishId][30] = true;
+                model.unlockPraise('aquarium_growth', { silent: true });
             }
 
             if (title !== '') {
@@ -1916,6 +1937,8 @@ export default class GameScene extends Phaser.Scene {
                 let bonusQuizType = null;
 
                 if (quizResult && quizResult.correct) {
+                    const quizMissionResult = window.gameManagers.playerModel.progressDailyMission('quiz_correct', 1, { type: quizResult.type });
+                    this.showDailyMissionFeedback([quizMissionResult]);
                     const quizBonusMultiplier = quizResult.attempt === 2 ? 1.1 : 1.2;
                     finalGold = Math.floor(finalGold * quizBonusMultiplier);
                     this.cameras.main.flash(300, 255, 215, 0); // ?⑷툑???뚮옒??蹂대꼫???쇰뱶諛?
@@ -1938,6 +1961,8 @@ export default class GameScene extends Phaser.Scene {
                 if (bonusQuizType === 'typing') {
                     const typingResult = await window.gameManagers.uiManager.showTypingQuiz();
                     if (typingResult) {
+                        const quizMissionResult = window.gameManagers.playerModel.progressDailyMission('quiz_correct', 1, { type: 'typing' });
+                        this.showDailyMissionFeedback([quizMissionResult]);
                         // ??댄븨 ?댁쫰 ?뺣떟 ??湲곗〈 蹂댁긽媛?finalGold)??20% 異붽? ?곸듅 (蹂듬━ 怨꾩궛)
                         finalGold = Math.floor(finalGold * 1.2);
                         this.cameras.main.flash(300, 255, 20, 147); // ?묓겕???뚮옒??蹂대꼫???쇰뱶諛?
@@ -1945,6 +1970,8 @@ export default class GameScene extends Phaser.Scene {
                 } else if (bonusQuizType === 'spelling') {
                     const spellingResult = await window.gameManagers.uiManager.showSpellingQuiz();
                     if (spellingResult) {
+                        const quizMissionResult = window.gameManagers.playerModel.progressDailyMission('quiz_correct', 1, { type: 'spelling' });
+                        this.showDailyMissionFeedback([quizMissionResult]);
                         finalGold = Math.floor(finalGold * 1.2);
                         this.cameras.main.flash(300, 102, 205, 170);
                     }

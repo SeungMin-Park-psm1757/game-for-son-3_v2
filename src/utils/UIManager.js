@@ -12,6 +12,8 @@ import {
 } from '../data/ComboBookData.js';
 import { COLLECTION_STAMP_ENTRIES } from '../data/CollectionStampData.js';
 import { WEEKLY_EVENT_ROTATION } from '../data/WeeklyEventData.js';
+import { isMissionComplete } from '../data/DailyMissionData.js';
+import { PRAISE_ALBUM_ENTRIES } from '../data/PraiseAlbumData.js';
 import {
     SPECIAL_BAIT_ITEMS,
     getLateGameGoal,
@@ -246,16 +248,16 @@ export default class UIManager {
         return [];
     }
 
-    renderComboPreview(entry) {
+    renderComboPreview(entry, reveal = true) {
         const previewItems = this.getComboPreviewItems(entry);
         if (previewItems.length === 0) return '';
 
         const itemsHTML = previewItems.map((item) => {
             if (item.type === 'icon') {
                 return `
-                    <div class="combo-preview-item combo-preview-item-icon">
-                        <span class="combo-preview-icon">${item.icon}</span>
-                        <span class="combo-preview-label">${item.label}</span>
+                    <div class="combo-preview-item combo-preview-item-icon ${reveal ? '' : 'combo-preview-hidden'}">
+                        <span class="combo-preview-icon">${reveal ? item.icon : '❔'}</span>
+                        <span class="combo-preview-label">${reveal ? item.label : '???'}</span>
                     </div>
                 `;
             }
@@ -264,18 +266,30 @@ export default class UIManager {
             const src = item.type === 'decor'
                 ? item.src
                 : this.getFishImageSrc(previewFish || { id: item.fishId });
-            const label = item.label || previewFish?.name || '미리보기';
-            const styleAttr = item.type === 'decor' ? '' : this.getFishImageStyle(previewFish || {}, true);
+            const label = reveal ? (item.label || previewFish?.name || '미리보기') : '???';
+            const styleAttr = item.type === 'decor'
+                ? ''
+                : this.getFishImageStyle(previewFish || {}, reveal);
 
             return `
-                <div class="combo-preview-item">
-                    <img src="${src}" alt="${label}" class="combo-preview-image" ${styleAttr} />
+                <div class="combo-preview-item ${reveal ? '' : 'combo-preview-hidden'}">
+                    <img src="${src}" alt="${label}" class="combo-preview-image ${reveal ? '' : 'silhouette-img'}" ${styleAttr} />
                     <span class="combo-preview-label">${label}</span>
                 </div>
             `;
         }).join('');
 
         return `<div class="combo-preview-strip">${itemsHTML}</div>`;
+    }
+
+    getComboHint(entry, progress) {
+        const baseHint = entry.hint || '조금만 더 모으면 새로운 조합이 보일 거예요.';
+        if (!progress || progress.current <= 0) return baseHint;
+        if (progress.completed) return '완성 준비 완료!';
+        if (progress.ratio >= 0.66) {
+            return `거의 다 왔어요! ${progress.label} · ${baseHint}`;
+        }
+        return `좋은 단서를 찾았어요. ${progress.label} · ${baseHint}`;
     }
 
     getFishImageSrc(fish) {
@@ -1091,13 +1105,27 @@ export default class UIManager {
 
         this.playerModel.subscribe(() => this.updatePersistentUI());
         window.addEventListener('resize', this.syncPersistentUIHeightBound);
+        window.addEventListener('resize', () => this.updatePersistentUI());
         this.updatePersistentUI();
         requestAnimationFrame(() => this.syncPersistentUIHeight());
     }
 
+    isCompactPersistentUI() {
+        return typeof window !== 'undefined'
+            && typeof window.matchMedia === 'function'
+            && window.matchMedia('(max-width: 520px)').matches;
+    }
+
     updatePersistentUI() {
+        const compactHeader = this.isCompactPersistentUI();
         if (this.goldDisplay) {
             this.goldDisplay.querySelector('span').innerText = this.playerModel.gold;
+        }
+        if (this.bookBtn) {
+            this.bookBtn.innerText = compactHeader ? '📖 도감' : '📖 도감 (Book)';
+        }
+        if (this.shopBtn) {
+            this.shopBtn.innerText = compactHeader ? '🛒 상점' : '🛒 상점 (Shop)';
         }
         if (this.goalDisplay) {
             const selectedBait = getSelectedBait(this.playerModel);
@@ -1105,7 +1133,10 @@ export default class UIManager {
             const label = selectedBait
                 ? `${selectedBait.emoji} ${selectedBait.name}`
                 : (goal?.shortLabel || '다음 목표 보기');
-            this.goalDisplay.innerText = `🎯 ${label}`;
+            const compactLabel = compactHeader
+                ? label.replace(/^다음 추천:\s*/, '').replace(/\s*가능$/, '')
+                : label;
+            this.goalDisplay.innerText = `🎯 ${compactLabel}`;
             this.goalDisplay.title = goal ? `${goal.title} - ${goal.detail}` : '다음에 할 일을 추천해요';
             this.goalDisplay.dataset.action = goal?.action || 'bait';
         }
@@ -1892,6 +1923,121 @@ export default class UIManager {
         this.bindEncyclopediaFilters(this.currentPopup);
     }
 
+    openDailyMissionPanel() {
+        if (this.isQuizActive) return;
+        this.hidePersistentUI();
+        this.container.style.pointerEvents = 'auto';
+        const regenerated = this.playerModel.ensureDailyMissions();
+        if (regenerated) {
+            this.playerModel.notify();
+        }
+
+        const daily = this.playerModel.dailyMissions;
+        const missions = daily?.missions || [];
+        const completedCount = missions.filter((mission) => isMissionComplete(mission)).length;
+        const claimedCount = missions.filter((mission) => mission.claimed).length;
+        const missionCardsHTML = missions.map((mission) => {
+            const complete = isMissionComplete(mission);
+            const percent = Math.round(Math.min(1, (mission.progress || 0) / Math.max(1, mission.target || 1)) * 100);
+            const statusText = mission.claimed ? '보상 받았어요' : (complete ? '보상 받을 수 있어요!' : '조금만 더!');
+            const buttonHTML = mission.claimed
+                ? '<button class="mission-claim-btn claimed" disabled>완료</button>'
+                : `<button class="mission-claim-btn" data-mission-id="${mission.id}" ${complete ? '' : 'disabled'}>${complete ? `보상 받기 +${mission.rewardGold}G` : `${mission.rewardGold}G 준비 중`}</button>`;
+
+            return `
+                <div class="daily-mission-card ${complete ? 'complete' : ''} ${mission.claimed ? 'claimed' : ''}">
+                    <div class="daily-mission-top">
+                        <span class="daily-mission-title">${mission.title}</span>
+                        <span class="daily-mission-status">${statusText}</span>
+                    </div>
+                    <p>${mission.desc}</p>
+                    <div class="daily-mission-progress">
+                        <span style="width:${percent}%"></span>
+                    </div>
+                    <div class="daily-mission-bottom">
+                        <strong>${Math.min(mission.progress || 0, mission.target)}/${mission.target}</strong>
+                        ${buttonHTML}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const popupHTML = `
+            <div id="daily-mission-popup" class="popup-box daily-mission-popup">
+                <div class="shop-header daily-mission-header">
+                    <div>
+                        <h2>🌟 오늘의 작은 미션</h2>
+                        <p class="milestone-subcopy">${daily.dateKey} · 완료 ${completedCount}/3 · 보상 ${claimedCount}/3</p>
+                    </div>
+                    <button id="daily-mission-close-btn">❌ 닫기</button>
+                </div>
+                <div class="daily-mission-scroll">
+                    <div class="daily-mission-guide">
+                        오늘은 이것만 해도 충분해요. 하고 싶은 것부터 천천히 해 보자!
+                    </div>
+                    ${missionCardsHTML}
+                    ${completedCount === 3 ? '<div class="daily-mission-all-clear">가족 칭찬 앨범에 오늘의 칭찬이 남았어요!</div>' : ''}
+                </div>
+            </div>
+        `;
+
+        this.container.innerHTML = popupHTML;
+        this.currentPopup = this.mountModal('daily-mission-popup');
+        document.getElementById('daily-mission-close-btn').onclick = () => { this.closePopup(); };
+        this.container.querySelectorAll('.mission-claim-btn[data-mission-id]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const result = this.playerModel.claimDailyMission(button.dataset.missionId);
+                if (result.success) {
+                    window.gameManagers.soundManager.playSuccess();
+                    this.resetPopupState(false);
+                    this.openDailyMissionPanel();
+                }
+            });
+        });
+    }
+
+    openPraiseAlbum() {
+        if (this.isQuizActive) return;
+        this.hidePersistentUI();
+        this.container.style.pointerEvents = 'auto';
+
+        const unlocked = new Set(this.playerModel.praiseAlbum?.unlockedPraiseIds || []);
+        const seenAt = this.playerModel.praiseAlbum?.seenAt || {};
+        const praiseCardsHTML = PRAISE_ALBUM_ENTRIES.map((entry) => {
+            const isUnlocked = unlocked.has(entry.id);
+            return `
+                <div class="praise-card ${isUnlocked ? 'unlocked' : 'locked'}">
+                    <div class="praise-emoji">${isUnlocked ? entry.emoji : '🔒'}</div>
+                    <div class="praise-copy">
+                        <h3>${isUnlocked ? entry.title : '아직 비밀 칭찬이에요'}</h3>
+                        <p class="praise-speaker">${isUnlocked ? entry.speaker : '조금만 더!'}</p>
+                        <p>${isUnlocked ? entry.text : entry.lockedText}</p>
+                        ${isUnlocked ? `<span class="praise-date">${seenAt[entry.id] || '오늘'}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const popupHTML = `
+            <div id="praise-album-popup" class="popup-box praise-album-popup">
+                <div class="shop-header praise-album-header">
+                    <div>
+                        <h2>💌 가족 칭찬 앨범</h2>
+                        <p class="milestone-subcopy">가족이 정우에게 해준 따뜻한 말을 모아 둔 앨범이에요.</p>
+                    </div>
+                    <button id="praise-album-close-btn">❌ 닫기</button>
+                </div>
+                <div class="praise-album-scroll">
+                    ${praiseCardsHTML}
+                </div>
+            </div>
+        `;
+
+        this.container.innerHTML = popupHTML;
+        this.currentPopup = this.mountModal('praise-album-popup');
+        document.getElementById('praise-album-close-btn').onclick = () => { this.closePopup(); };
+    }
+
     openComboBook() {
         if (this.isQuizActive) return;
         this.hidePersistentUI();
@@ -1931,7 +2077,8 @@ export default class UIManager {
             const percent = Math.round(Math.max(0, Math.min(1, progress.ratio)) * 100);
             const isDiscovered = !!this.playerModel.comboBook?.[entry.id]?.discovered;
             const sticker = getComboSticker(entry.id);
-            const previewHTML = this.renderComboPreview(entry);
+            const previewHTML = this.renderComboPreview(entry, isDiscovered);
+            const hintText = this.getComboHint(entry, progress);
 
             if (isDiscovered) {
                 return `
@@ -1968,8 +2115,8 @@ export default class UIManager {
                     <div class="combo-card-body">
                         ${previewHTML}
                         <div class="combo-card-copy">
-                            <h3>${entry.name}</h3>
-                            <p>${entry.hint}</p>
+                            <h3>???</h3>
+                            <p class="combo-hint-copy">힌트: ${hintText}</p>
                         </div>
                     </div>
                     <div class="combo-progress-track">

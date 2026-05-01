@@ -1564,6 +1564,7 @@ class AquariumScene extends Phaser.Scene {
             this.openAquariumShop();
             return;
         }
+        const missionResult = this.model.progressDailyMission('aquarium_feed', 1, { snackId: snackItem.id });
 
         const snackUseCount = this.model.getSnackUsageCount(snackItem.id);
         const activeBehavior = this.getSnackBehavior(snackItem, snackUseCount);
@@ -1580,7 +1581,12 @@ class AquariumScene extends Phaser.Scene {
         this.feedTarget = this.createFeedTarget(snackItem);
         this.isFeeding = true;
         this.refreshUiState();
-        this.showNotice(activeBehavior.notice, '#fff2a8');
+        this.showNotice(
+            missionResult.newlyCompleted.length > 0
+                ? `오늘 미션 완료! ${missionResult.newlyCompleted[0].title}`
+                : activeBehavior.notice,
+            '#fff2a8'
+        );
         this.createSnackVisuals(snackItem, activeBehavior);
 
         if (activeBehavior.behaviorId === 'bubble_ring') {

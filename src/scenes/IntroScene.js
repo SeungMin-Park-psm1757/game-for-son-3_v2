@@ -112,26 +112,34 @@ export default class IntroScene extends Phaser.Scene {
         const actionButtons = [
             {
                 x: width * 0.28,
-                y: height * 0.76,
-                label: '🐟 포획 기록',
-                color: 0xff8c00,
+                y: height * 0.745,
+                label: '🌟 오늘 미션',
+                color: 0x2aa7a7,
                 delay: 0,
-                onClick: () => window.gameManagers.uiManager.openFishMilestonePopup(this)
+                onClick: () => window.gameManagers.uiManager.openDailyMissionPanel()
             },
             {
                 x: width * 0.72,
-                y: height * 0.76,
-                label: '🧩 조합 도감',
-                color: 0xff5a7a,
-                delay: 180,
-                onClick: () => window.gameManagers.uiManager.openComboBook()
+                y: height * 0.745,
+                label: '🐟 포획 기록',
+                color: 0xff8c00,
+                delay: 140,
+                onClick: () => window.gameManagers.uiManager.openFishMilestonePopup(this)
             },
             {
                 x: width * 0.28,
-                y: height * 0.84,
+                y: height * 0.82,
+                label: '🧩 조합 도감',
+                color: 0xff5a7a,
+                delay: 280,
+                onClick: () => window.gameManagers.uiManager.openComboBook()
+            },
+            {
+                x: width * 0.72,
+                y: height * 0.82,
                 label: '🐠 내 수족관',
                 color: 0x00bcd4,
-                delay: 360,
+                delay: 420,
                 onClick: () => {
                     window.gameManagers.soundManager.playCoin();
                     this.cameras.main.fadeOut(300, 0, 0, 0);
@@ -142,14 +150,22 @@ export default class IntroScene extends Phaser.Scene {
             },
             {
                 x: width * 0.72,
-                y: height * 0.84,
+                y: height * 0.895,
                 label: '🃏 이벤트 도감',
                 color: 0x7b4dd8,
-                delay: 540,
+                delay: 700,
                 onClick: () => {
                     window.gameManagers.soundManager.playCoin();
                     window.gameManagers.uiManager.openEventCardBook();
                 }
+            },
+            {
+                x: width * 0.28,
+                y: height * 0.895,
+                label: '💌 칭찬 앨범',
+                color: 0xd26a8c,
+                delay: 560,
+                onClick: () => window.gameManagers.uiManager.openPraiseAlbum()
             }
         ];
 
@@ -160,7 +176,7 @@ export default class IntroScene extends Phaser.Scene {
 
         // --- 초기화 버튼 (좌측 하단) ---
         const resetBtnSize = width < 360 ? '14px' : '18px';
-        const resetBtn = this.add.text(20, height - 86, '⚠️ 데이터 초기화', {
+        const resetBtn = this.add.text(20, height - 52, '⚠️ 데이터 초기화', {
             fontSize: resetBtnSize,
             fontFamily: 'Arial',
             color: '#FFCCCC',
