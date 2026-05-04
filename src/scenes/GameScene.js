@@ -4,6 +4,20 @@ import { getFishSizeTier } from '../data/ComboBookData.js';
 import { getCurrentWeeklyEvent, isWeekendEventDay, isWeeklyEventRegion } from '../data/WeeklyEventData.js';
 import { SPECIAL_BAIT_BY_ID } from '../data/LateGameContentData.js';
 
+const CATCH_BALANCE = {
+    gradeDrain: { N: 15, R: 30, SR: 58, SSR: 88 },
+    regionDrainBonus: { 1: 0, 2: 0, 3: 6, 4: 22 },
+    reelDrainReduction: 1.6,
+    minDrain: 5,
+    tapGainMultiplier: 0.34,
+    maxRequiredTaps: { N: 3.8, R: 4.8, SR: 5.9, SSR: 6.7, boss: 6.9 },
+    bossDrainMultiplier: { normal: 1.08, returning: 1.1, empowered: 1.16, event: 1.12 },
+    lowGaugeDrainMultiplier: 0.86,
+    fatigueDrainMultiplier: 0.82,
+    longFightTapMultiplier: 1.1,
+    failAssistDrainMultiplier: 0.9
+};
+
 export default class GameScene extends Phaser.Scene {
     constructor() {
         super('GameScene');
@@ -114,6 +128,11 @@ export default class GameScene extends Phaser.Scene {
         this.bossTimeLimit = 0;
         this.bossTimer = 0;
         this.regionFishCount = 0;
+        this.fishingRoundId = 0;
+        this.roundTimers = [];
+        this.activeCatchConfig = null;
+        this.catchAssist = null;
+        this.currentCatchSprite = null;
     }
 
     create() {
@@ -243,6 +262,7 @@ export default class GameScene extends Phaser.Scene {
 
         backBtn.on('pointerdown', () => {
             window.gameManagers.soundManager.playCoin();
+            this.cleanupFishingRound({ advanceRound: true, resetCurrentFish: true });
             this.tweens.killAll();
             this.scene.start('IntroScene');
         });
@@ -267,7 +287,107 @@ export default class GameScene extends Phaser.Scene {
             this.handlePointerUp(pointer);
         });
 
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            this.cleanupFishingRound({ advanceRound: true, resetCurrentFish: true });
+        });
+        this.events.once(Phaser.Scenes.Events.DESTROY, () => {
+            this.cleanupFishingRound({ advanceRound: true, resetCurrentFish: true });
+        });
+
         console.log("GameScene Initialized with Core Loops");
+    }
+
+    isCurrentRound(roundId) {
+        return roundId === this.fishingRoundId;
+    }
+
+    trackRoundTimer(timer) {
+        if (timer) this.roundTimers.push(timer);
+        return timer;
+    }
+
+    scheduleRoundDelay(delay, callback) {
+        const roundId = this.fishingRoundId;
+        return this.trackRoundTimer(this.time.delayedCall(delay, () => {
+            if (!this.isCurrentRound(roundId)) return;
+            callback();
+        }));
+    }
+
+    clearRoundTimers() {
+        if (!this.roundTimers) {
+            this.roundTimers = [];
+            return;
+        }
+
+        this.roundTimers.forEach((timer) => {
+            if (timer && !timer.hasDispatched) {
+                timer.remove(false);
+            }
+        });
+        this.roundTimers = [];
+    }
+
+    safeDestroy(gameObject) {
+        if (gameObject && gameObject.active && typeof gameObject.destroy === 'function') {
+            gameObject.destroy();
+        }
+    }
+
+    cleanupFishingRound(options = {}) {
+        const {
+            advanceRound = false,
+            resetCurrentFish = false,
+            clearTimers = true,
+            preserveState = false
+        } = options;
+
+        if (advanceRound) {
+            this.fishingRoundId = (this.fishingRoundId || 0) + 1;
+        }
+        if (clearTimers) this.clearRoundTimers();
+
+        const roundTargets = [
+            this.lure,
+            this.fish,
+            this.uiElements?.exclamation,
+            this.uiElements?.feverText,
+            this.uiElements?.comboText,
+            this.uiElements?.bossTimerText,
+            this.uiElements?.tensionWarn
+        ].filter(Boolean);
+        roundTargets.forEach((target) => this.tweens.killTweensOf(target));
+
+        if (this.lure) this.lure.setVisible(false);
+        if (this.fish) this.fish.setVisible(false);
+        if (this.uiElements?.exclamation) this.uiElements.exclamation.setVisible(false);
+        if (this.uiElements?.bossTimerText) this.uiElements.bossTimerText.setVisible(false);
+        if (this.uiElements?.comboText) this.uiElements.comboText.setVisible(false);
+        if (this.uiElements?.tensionWarn) {
+            this.uiElements.tensionWarn.setVisible(false);
+            this.uiElements.tensionWarn.setText('');
+        }
+
+        ['gaugeBg', 'gaugeBar', 'tensionBg', 'tensionBar'].forEach((key) => {
+            if (this.uiElements?.[key]) this.uiElements[key].setVisible(false);
+        });
+
+        this.clearDrawGuides(true);
+        this.clearApproachFishes();
+        this.clearApproachPreview();
+        if (this.fishingLine) this.fishingLine.clear();
+        this.safeDestroy(this.currentCatchSprite);
+        this.currentCatchSprite = null;
+
+        this.lineTension = 0;
+        this.isCharging = false;
+        this.chargeTimer = 0;
+        this.activeCatchConfig = null;
+        this.catchAssist = null;
+        this.activeCatchBuff = null;
+
+        if (resetCurrentFish) this.currentFish = null;
+        if (!preserveState) this.gameState = 'IDLE';
     }
 
     setupWeeklyEventState() {
@@ -1010,6 +1130,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     startApproach(targetX, targetY) {
+        this.cleanupFishingRound({ advanceRound: true, resetCurrentFish: true, preserveState: true });
+        const roundId = this.fishingRoundId;
         this.gameState = 'APPROACH';
         this.regionFishCount++;
         const consumedBaitId = window.gameManagers.playerModel.consumeSelectedBait();
@@ -1069,13 +1191,15 @@ export default class GameScene extends Phaser.Scene {
             duration: 800,
             ease: 'Quad.easeOut',
             onComplete: () => {
-                this.waitForBite(targetX, targetY);
+                if (!this.isCurrentRound(roundId) || this.gameState !== 'APPROACH') return;
+                this.waitForBite(targetX, targetY, roundId);
             }
         });
     }
 
     // Phase 1 -> 2 ?湲?
-    waitForBite(lureX, lureY) {
+    waitForBite(lureX, lureY, roundId = this.fishingRoundId) {
+        if (!this.isCurrentRound(roundId)) return;
         const chanceLevel = window.gameManagers.playerModel.stats.catchChance;
         const baseMaxWait = this.region === 4 ? 5000 : 4000;
         let maxWait = Math.max(1000, baseMaxWait - (chanceLevel * 200));
@@ -1201,7 +1325,8 @@ export default class GameScene extends Phaser.Scene {
                     duration: waitTime,
                     ease: 'Sine.easeInOut',
                     onComplete: () => {
-                        this.startBite(lureX, lureY);
+                        if (!this.isCurrentRound(roundId) || this.gameState !== 'APPROACH') return;
+                        this.startBite(lureX, lureY, roundId);
                     }
                 });
                 // 硫붿씤 fish ?ㅽ봽?쇱씠?몄뿉??諛섏쁺 (?낆쭏 ?곗텧??
@@ -1297,7 +1422,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // --- Phase 2: ?낆쭏 (Bite) ---
-    startBite(x, y) {
+    startBite(x, y, roundId = this.fishingRoundId) {
+        if (!this.isCurrentRound(roundId)) return;
         const catchFeel = this.getCatchFeelProfile(this.currentFish);
         this.gameState = 'BITE';
         this.uiElements.instruction.setText(catchFeel.biteText);
@@ -1342,11 +1468,11 @@ export default class GameScene extends Phaser.Scene {
 
         // ?쇱젙 ?쒓컙 ?댁뿉 ?대┃ ???섎㈃ ?ㅽ뙣 (蹂대Ъ?ъ? 1.2珥덈줈 ?⑥텞)
         const biteTimeout = this.region === 4 ? 1200 : 1500;
-        this.time.delayedCall(biteTimeout, () => {
-            if (this.gameState === 'BITE') {
+        this.trackRoundTimer(this.time.delayedCall(biteTimeout, () => {
+            if (this.isCurrentRound(roundId) && this.gameState === 'BITE') {
                 this.failFishing('물고기가 도망가 버렸어...');
             }
-        });
+        }));
     }
 
     activateFeverTime() {
@@ -1497,9 +1623,211 @@ export default class GameScene extends Phaser.Scene {
         this.updateGaugeUI();
 
         this.cameras.main.zoomTo(1.1, 300);
+        this.activeCatchConfig = this.getCatchConfig(this.currentFish);
+        this.catchAssist = this.createCatchAssistState();
+        this.logCatchBalance(this.activeCatchConfig);
     }
 
     // ?곕씪 洹몃━湲?寃쎈줈 ?앹꽦
+    createCatchAssistState() {
+        return {
+            elapsedMs: 0,
+            tapTimes: [],
+            fatigueUntil: 0,
+            lastHintAt: 0,
+            lastFatigueAt: 0
+        };
+    }
+
+    getCatchConfig(fish = this.currentFish, model = window.gameManagers?.playerModel, options = {}) {
+        const stats = options.stats || model?.stats || {};
+        const rodPower = Number(stats.rodPower || 1);
+        const reelSpeed = Number(stats.reelSpeed || 1);
+        const focusRing = Number(stats.focusRing || 1);
+        const grade = fish?.grade || 'N';
+        const region = Number(options.region || fish?.region || this.region || 1);
+        const difficulty = Math.max(0.8, Number(fish?.difficulty || 1));
+        const isBoss = options.isBossFight ?? this.isBossFight;
+        const bossVariant = options.bossVariant || this.bossVariant || 'normal';
+        const castingBonus = options.castingBonus ?? this.castingBonus ?? 1;
+        const consecutiveFails = options.consecutiveFails ?? this.consecutiveFails ?? 0;
+
+        const baseDrain = CATCH_BALANCE.gradeDrain[grade] || CATCH_BALANCE.gradeDrain.N;
+        const regionDrain = CATCH_BALANCE.regionDrainBonus[region] || 0;
+        let drainPerSecond = Math.max(
+            CATCH_BALANCE.minDrain,
+            baseDrain + regionDrain - (reelSpeed * CATCH_BALANCE.reelDrainReduction)
+        );
+        if (isBoss) {
+            drainPerSecond *= CATCH_BALANCE.bossDrainMultiplier[bossVariant] || CATCH_BALANCE.bossDrainMultiplier.normal;
+        }
+        if (consecutiveFails >= 2) {
+            drainPerSecond *= CATCH_BALANCE.failAssistDrainMultiplier;
+        }
+
+        const castingMultiplier = castingBonus >= 3 ? 1.08 : (castingBonus === 2 ? 1.04 : 1);
+        const focusMultiplier = 1 + Math.max(0, focusRing - 1) * 0.04;
+        let tapGain = Math.max(5, (rodPower * reelSpeed) / difficulty) *
+            CATCH_BALANCE.tapGainMultiplier * castingMultiplier * focusMultiplier;
+
+        const runtimeCatchMax = Number(options.catchMax ?? ((fish === this.currentFish && this.catchMax) ? this.catchMax : (fish?.catchMax || 100)));
+        const runtimeStartGauge = Number(options.startGauge ?? ((fish === this.currentFish && this.catchGauge) ? this.catchGauge : runtimeCatchMax * (isBoss ? 0.22 : 0.15)));
+        const timeLimit = Number(options.timeLimit ?? (isBoss ? (this.bossTimeLimit || 18) : 0));
+        const fillPerSecond = timeLimit > 0
+            ? Math.max(0, runtimeCatchMax - runtimeStartGauge) / Math.max(8, timeLimit)
+            : 0;
+        const requiredPressurePerSecond = drainPerSecond + fillPerSecond;
+        const requiredCap = this.getCatchTargetTaps(fish, { isBoss, bossVariant, region, grade, difficulty });
+        if (requiredPressurePerSecond / Math.max(0.1, tapGain) > requiredCap) {
+            tapGain = requiredPressurePerSecond / requiredCap;
+        }
+
+        const requiredTapsPerSecond = requiredPressurePerSecond / Math.max(0.1, tapGain);
+        const result = requiredTapsPerSecond <= 4
+            ? 'easy'
+            : (requiredTapsPerSecond <= 5.5 ? 'normal' : (requiredTapsPerSecond <= 7 ? 'hard' : 'impossible'));
+
+        return {
+            fishId: fish?.id || 'unknown',
+            fishName: fish?.name || 'unknown',
+            grade,
+            region,
+            baseDifficulty: difficulty,
+            rodPower,
+            reelSpeed,
+            focusRing,
+            drainPerSecond: Number(drainPerSecond.toFixed(2)),
+            fillPerSecond: Number(fillPerSecond.toFixed(2)),
+            tapGain: Number(tapGain.toFixed(2)),
+            requiredTapsPerSecond: Number(requiredTapsPerSecond.toFixed(2)),
+            targetRequiredTaps: Number(requiredCap.toFixed(2)),
+            result
+        };
+    }
+
+    getCatchTargetTaps(fish, options = {}) {
+        const region = Number(options.region || fish?.region || this.region || 1);
+        const grade = options.grade || fish?.grade || 'N';
+        const difficulty = Number(options.difficulty || fish?.difficulty || 1);
+        const isBoss = !!options.isBoss;
+        const bossVariant = options.bossVariant || 'normal';
+        const baseTargets = {
+            N: { 1: 0.35, 2: 0.45, 3: 0.60, 4: 0.75 },
+            R: { 1: 0.55, 2: 0.85, 3: 1.15, 4: 1.55 },
+            SR: { 1: 1.00, 2: 1.55, 3: 2.30, 4: 3.20 },
+            SSR: { 1: 1.50, 2: 2.50, 3: 3.80, 4: 5.20 }
+        };
+        const rangeTargets = {
+            N: { 1: 0.12, 2: 0.15, 3: 0.18, 4: 0.22 },
+            R: { 1: 0.20, 2: 0.25, 3: 0.35, 4: 0.45 },
+            SR: { 1: 0.35, 2: 0.45, 3: 0.65, 4: 0.80 },
+            SSR: { 1: 0.20, 2: 0.50, 3: 1.00, 4: 0.80 }
+        };
+        const regionBossCaps = { 1: 2.0, 2: 3.2, 3: 5.0, 4: 6.0 };
+        const group = FISH_TYPES.filter((item) => item.region === region && item.grade === grade);
+        const difficulties = group.map((item) => Number(item.difficulty || 1));
+        const minDifficulty = Math.min(...difficulties, difficulty);
+        const maxDifficulty = Math.max(...difficulties, difficulty);
+        const difficultyRatio = maxDifficulty > minDifficulty
+            ? Phaser.Math.Clamp((difficulty - minDifficulty) / (maxDifficulty - minDifficulty), 0, 1)
+            : 0;
+        const base = baseTargets[grade]?.[region] ?? 1.5;
+        const range = rangeTargets[grade]?.[region] ?? 0.5;
+        let target = base + (range * difficultyRatio);
+
+        if (isBoss) {
+            const bossBonus = { first: 0.10, normal: 0.15, returning: 0.25, empowered: 0.35, event: 0.25 };
+            target += bossBonus[bossVariant] || bossBonus.normal;
+            target = Math.min(target, regionBossCaps[region] || 6.0);
+        }
+
+        return Phaser.Math.Clamp(target, 0.25, 6.0);
+    }
+
+    logCatchBalance(config) {
+        if (config) console.info('[CatchBalance]', config);
+    }
+
+    getCatchAssistDrainMultiplier() {
+        if (!this.catchAssist || !this.currentFish) return 1;
+        let multiplier = 1;
+        const gaugeRatio = this.catchMax > 0 ? this.catchGauge / this.catchMax : 1;
+        if (gaugeRatio < 0.28) multiplier *= CATCH_BALANCE.lowGaugeDrainMultiplier;
+        if (this.time.now < this.catchAssist.fatigueUntil) multiplier *= CATCH_BALANCE.fatigueDrainMultiplier;
+        return multiplier;
+    }
+
+    getCatchTapGain() {
+        const config = this.activeCatchConfig || this.getCatchConfig(this.currentFish);
+        this.activeCatchConfig = config;
+        const longFightBoost = this.catchAssist && this.catchAssist.elapsedMs >= 8000
+            ? CATCH_BALANCE.longFightTapMultiplier
+            : 1;
+        return config.tapGain * longFightBoost;
+    }
+
+    registerCatchTapAssist() {
+        if (!this.catchAssist) return;
+        const now = this.time.now;
+        this.catchAssist.tapTimes = this.catchAssist.tapTimes.filter((tapTime) => now - tapTime <= 1500);
+        this.catchAssist.tapTimes.push(now);
+
+        if (this.catchAssist.tapTimes.length >= 8 && now - this.catchAssist.lastFatigueAt > 1800) {
+            this.catchAssist.fatigueUntil = now + 1600;
+            this.catchAssist.lastFatigueAt = now;
+            this.showCatchHint('찬스!');
+        }
+    }
+
+    showCatchHint(message, color = '#fff4b1') {
+        if (!this.catchAssist) return;
+        const now = this.time.now;
+        if (now - this.catchAssist.lastHintAt < 900) return;
+        this.catchAssist.lastHintAt = now;
+        this.showFloatingNotice(message, color, 0.32, '24px');
+    }
+
+    getBossConfigFor(region, variant = 'normal') {
+        const baseConfigs = {
+            first: { catchMultiplier: 2.4, timeLimit: 18, startRatio: 0.18 },
+            normal: { catchMultiplier: 2.4, timeLimit: 18, startRatio: 0.18 },
+            returning: { catchMultiplier: 2.0, timeLimit: 18, startRatio: 0.22 },
+            empowered: { catchMultiplier: 2.6, timeLimit: 17, startRatio: 0.2 },
+            event: { catchMultiplier: 2.5, timeLimit: 19, startRatio: 0.2 }
+        };
+        const lateRegionConfigs = {
+            first: { catchMultiplier: 1.75, timeLimit: 17, startRatio: 0.22 },
+            normal: { catchMultiplier: 1.75, timeLimit: 17, startRatio: 0.22 },
+            returning: { catchMultiplier: 1.55, timeLimit: 17, startRatio: 0.26 },
+            empowered: { catchMultiplier: 1.9, timeLimit: 16, startRatio: 0.22 },
+            event: { catchMultiplier: 1.8, timeLimit: 18, startRatio: 0.24 }
+        };
+        const configs = region >= 3 ? lateRegionConfigs : baseConfigs;
+        return configs[variant] || configs.normal;
+    }
+
+    getCatchBalanceReport(stats = { rodPower: 20, reelSpeed: 20, focusRing: 3 }) {
+        return FISH_TYPES.map((fish) => {
+            const isBossFight = false;
+            const bossVariant = 'normal';
+            const bossConfig = isBossFight ? this.getBossConfigFor(fish.region, bossVariant) : null;
+            const catchMax = (fish.catchMax || 100) * (bossConfig?.catchMultiplier || 1);
+            const startGauge = catchMax * (bossConfig?.startRatio || 0.15);
+
+            return this.getCatchConfig(fish, null, {
+                stats,
+                region: fish.region,
+                isBossFight,
+                bossVariant,
+                catchMax,
+                startGauge,
+                timeLimit: bossConfig?.timeLimit || 0,
+                castingBonus: 1,
+                consecutiveFails: 0
+            });
+        });
+    }
+
     generateDrawPath() {
         this.drawPath = [];
         const cx = this.scale.width / 2;
@@ -1644,11 +1972,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     mashButton() {
-        const powerLevel = window.gameManagers.playerModel.stats.rodPower;
-        const reelLevel = window.gameManagers.playerModel.stats.reelSpeed;
-        const fishDifficulty = this.currentFish.difficulty || 1.0;
-
-        const progress = Math.max(5, (powerLevel * reelLevel) / fishDifficulty);
+        this.registerCatchTapAssist();
+        const progress = this.getCatchTapGain();
         this.catchGauge += progress;
 
         // --- 以??먯뀡 利앷? ?꾩떆 以묐떒 ---
@@ -1707,6 +2032,9 @@ export default class GameScene extends Phaser.Scene {
 
     successFishing() {
         const catchFeel = this.getCatchFeelProfile(this.currentFish);
+        const rewardRoundId = this.fishingRoundId;
+        this.gameState = 'REWARD';
+        this.cleanupFishingRound({ clearTimers: false, resetCurrentFish: false, preserveState: true });
         this.gameState = 'REWARD';
         this.cameras.main.zoomTo(1, 300);
         this.clearDrawGuides(true);
@@ -1876,7 +2204,11 @@ export default class GameScene extends Phaser.Scene {
         }
 
         // 2珥?????＝ ?뚰떚???쒓굅 諛??댁쫰 ?곕룞
-        this.time.delayedCall(2000, async () => {
+        this.trackRoundTimer(this.time.delayedCall(2000, async () => {
+            if (!this.isCurrentRound(rewardRoundId) || !this.currentFish) {
+                particles.destroy();
+                return;
+            }
             particles.destroy();
 
             let finalGold = baseGold;
@@ -2140,10 +2472,12 @@ export default class GameScene extends Phaser.Scene {
             }
 
             this.resetFishing();
-        });
+        }));
     }
 
     failFishing(msg = '물고기가 도망가 버렸어...') {
+        const failRoundId = this.fishingRoundId;
+        this.cleanupFishingRound({ clearTimers: true, resetCurrentFish: false, preserveState: true });
         this.gameState = 'IDLE';
         this.tweens.killTweensOf(this.uiElements.exclamation);
         this.tweens.killTweensOf(this.lure);
@@ -2256,9 +2590,10 @@ export default class GameScene extends Phaser.Scene {
         this.cameras.main.shake(300, 0.02);
         window.gameManagers.soundManager.playFail();
 
-        this.time.delayedCall(1500, () => {
+        this.trackRoundTimer(this.time.delayedCall(1500, () => {
+            if (!this.isCurrentRound(failRoundId)) return;
             this.resetFishing();
-        });
+        }));
     }
 
 
@@ -2447,6 +2782,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     resetFishing() {
+        this.cleanupFishingRound({ clearTimers: true, resetCurrentFish: true, preserveState: true });
         this.gameState = 'IDLE';
         this.catchGauge = 0;
         this.currentFish = null;
@@ -2500,6 +2836,7 @@ export default class GameScene extends Phaser.Scene {
 
         // CATCH ?곹깭?먯꽌??寃뚯씠吏 ?먯뿰 媛먯냼 濡쒖쭅 諛?誘몃땲寃뚯엫 猷⑦봽
         if (this.gameState === 'CATCH') {
+            if (this.catchAssist) this.catchAssist.elapsedMs += delta;
             // 蹂댁뒪 ???由щ컠 泥섎━
             if (this.isBossFight) {
                 this.bossTimer += delta;
@@ -2548,13 +2885,23 @@ export default class GameScene extends Phaser.Scene {
                 }
 
                 // ?ㅽ꺈 Reel Speed???섑빐 珥덈떦 媛먯냼???꾪솕 (?덈꺼??1.5 諛⑹뼱, Lv20 湲곗? 30 諛⑹뼱 = 湲곗〈 Lv10)
-                const dropRate = Math.max(5, baseDrop - (reelLevel * 1.5));
+                const catchConfig = this.activeCatchConfig || this.getCatchConfig(this.currentFish);
+                this.activeCatchConfig = catchConfig;
+                const dropRate = Math.max(
+                    CATCH_BALANCE.minDrain,
+                    catchConfig.drainPerSecond * this.getCatchAssistDrainMultiplier()
+                );
 
                 // 0.3珥??ъ쑀 ?쒓컙 (catchGraceTimer) ?곸슜
                 if (this.catchGraceTimer > 0) {
                     this.catchGraceTimer -= delta;
                 } else {
                     this.catchGauge -= (dropRate * (delta / 1000));
+                    if (this.catchAssist) {
+                        const gaugeRatio = this.catchMax > 0 ? this.catchGauge / this.catchMax : 1;
+                        if (gaugeRatio < 0.25) this.showCatchHint('빠르게 눌러!');
+                        else if (gaugeRatio < 0.45 && catchConfig.requiredTapsPerSecond >= 5) this.showCatchHint('조금만 더!');
+                    }
                 }
             }
 
@@ -2577,7 +2924,7 @@ export default class GameScene extends Phaser.Scene {
                         this.castingBonus,
                         this.castingMultiplier || 1
                     );    // ?고?(mash)??~30% ?섏? 吏꾪뻾??(珥??⑥쐞 ?섏궛??珥덈떦 ??3諛?鍮좊쫫 -> 諛몃윴??
-                    const progress = Math.max(3, (powerLevel * reelLevel) / fishDifficulty) * 0.4;
+                    const progress = this.getCatchTapGain();
 
                     this.catchGauge += progress;
 
