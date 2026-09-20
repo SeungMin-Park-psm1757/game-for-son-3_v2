@@ -60,7 +60,21 @@ async function openOnlyScene(page, key, config) {
     assert(header.gold.left>=0&&header.gold.right<=header.viewport,'Gold clipped on handset');
     assert(header.goal.left>=0&&header.goal.right<=header.viewport,'Goal clipped on handset');
     assert(header.buttons.every(x=>x.left>=0&&x.right<=header.viewport&&x.height>=43),'Tap target clipped/too short');
+    const introFit=await page.evaluate(()=>{
+      const s=window.gameManagers._phaserGame.scene.getScene('IntroScene');
+      return {sx:s.bg.scaleX,sy:s.bg.scaleY,width:s.bg.displayWidth,height:s.bg.displayHeight};
+    });
+    assert(Math.abs(introFit.sx-introFit.sy)<0.001 && introFit.width>=720 && introFit.height>=1280,
+      'Intro background must cover the viewport without distortion');
     await page.screenshot({path:path.join(outputDir,'mobile-intro.png'),fullPage:true});
+    const textureFilters=await page.evaluate(()=>{
+      const textures=window.gameManagers._phaserGame.textures;
+      return Object.fromEntries(['fish_carp','fish_whale_shark','bg_coast','char_lv1']
+        .map(key=>[key,textures.get(key).source[0].scaleMode]));
+    });
+    assert(textureFilters.fish_carp!==textureFilters.fish_whale_shark &&
+      textureFilters.fish_whale_shark===textureFilters.bg_coast,
+      'Texture interpolation policy missing');
     const combos=await page.evaluate(()=>{
       window.gameManagers.uiManager.openComboBook();
       const popup=document.getElementById('combo-book-popup');
@@ -144,11 +158,15 @@ async function openOnlyScene(page, key, config) {
       const fishCount=scene.wanderingFishes.length;
       const widths=scene.wanderingFishes.map(f=>f.displayWidth);
       scene.startApproach(scene.scale.width/2,scene.scale.height*.55);
-      return {fishCount,widths,gameState:scene.gameState};
+      return {fishCount,widths,gameState:scene.gameState,
+        background:{key:scene.bg.texture.key,sx:scene.bg.scaleX,sy:scene.bg.scaleY,
+          width:scene.bg.displayWidth,height:scene.bg.displayHeight}};
     });
     assert(fishing.fishCount>=4&&fishing.fishCount<=7,'No ambient fish');
     assert(fishing.widths.every(w=>w>=70&&w<=300),'Fish display size invalid');
     assert(fishing.gameState==='APPROACH','Fishing did not start');
+    assert(Math.abs(fishing.background.sx-fishing.background.sy)<0.001 &&
+      fishing.background.width>=720&&fishing.background.height>=1280,'Freshwater backdrop distorted');
     await page.screenshot({path:path.join(outputDir,'mobile-fishing.png'),fullPage:true});
     const rare=await page.evaluate(()=>{
       const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
@@ -164,6 +182,12 @@ async function openOnlyScene(page, key, config) {
         const s=window.gameManagers?._phaserGame?.scene?.getScene('GameScene');
         return s?.scene?.isActive() && s.region===region && s.bg?.texture?.key===key;
       },{region,key},{timeout:12000});
+      const background=await page.evaluate(()=>{
+        const bg=window.gameManagers._phaserGame.scene.getScene('GameScene').bg;
+        return {sx:bg.scaleX,sy:bg.scaleY,width:bg.displayWidth,height:bg.displayHeight};
+      });
+      assert(Math.abs(background.sx-background.sy)<0.001 &&
+        background.width>=720 && background.height>=1280,'Backdrop distorted in region '+region);
       await page.screenshot({path:path.join(outputDir,'mobile-region-'+region+'.png'),fullPage:true});
     }
     assert(pageErrors.length===0,'Page errors: '+pageErrors.join(' | '));

@@ -1,3 +1,5 @@
+import { chooseImageFilter } from '../utils/ImagePresentation.js';
+
 export default class BootScene extends Phaser.Scene {
     constructor() {
         super('BootScene');
@@ -106,7 +108,7 @@ export default class BootScene extends Phaser.Scene {
     }
 
     create() {
-        // 로드 완료 후 픽셀 아트 필터 적용 (NEAREST)
+        // Filter original high-res fish while keeping small pixel-art sprites crisp.
         const fishKeys = [
             'fish_pirami', 'fish_loach', 'fish_boonguh', 'fish_smelt', 'fish_catfish', 'fish_ssogari', 'fish_carp', 'fish_gamulchi',
             'fish_mangdoong', 'fish_anchovy', 'fish_gizzard_shad', 'fish_urock', 'fish_webfoot_octopus', 'fish_flounder', 'fish_gwangeo', 'fish_sea_bass', 'fish_black_porgy', 'fish_chamdom',
@@ -116,9 +118,14 @@ export default class BootScene extends Phaser.Scene {
             'decor_coral_garden', 'decor_shell_bed', 'decor_bubble_fountain', 'decor_treasure_castle', 'decor_kelp_arch', 'decor_moon_rocks',
             'platform_dock', 'platform_pier', 'platform_boat', 'platform_sandbar'
         ];
-        fishKeys.forEach(key => {
+        [...fishKeys, 'bg_freshwater', 'bg_coast', 'bg_sea', 'bg_treasure_island'].forEach(key => {
+            if (!this.textures.exists(key)) return;
             const tex = this.textures.get(key);
-            if (tex) tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+            const source = tex.source?.[0];
+            const filter = chooseImageFilter(key, source?.width || 0, source?.height || 0);
+            tex.setFilter(filter === 'linear'
+                ? Phaser.Textures.FilterMode.LINEAR
+                : Phaser.Textures.FilterMode.NEAREST);
         });
 
         // 에셋 로딩이 끝나면 IntroScene으로 전환

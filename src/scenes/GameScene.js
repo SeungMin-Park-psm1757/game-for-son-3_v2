@@ -1,3 +1,4 @@
+import { fitBackgroundCover } from '../utils/ImagePresentation.js';
 import { getRandomFish, FISH_TYPES } from '../models/FishData.js';
 import { BOSS_STORIES, FIRST_CATCH_STORIES } from '../models/StoryData.js';
 import { getFishSizeTier } from '../data/ComboBookData.js';
@@ -164,7 +165,7 @@ export default class GameScene extends Phaser.Scene {
         else if (this.region === 4) bgKey = 'bg_treasure_island';
 
         this.bg = this.add.image(width / 2, height / 2, bgKey);
-        this.bg.setDisplaySize(width, height);
+        fitBackgroundCover(this.bg, width, height);
         this.bg.setInteractive(); // 諛곌꼍 ?대┃?쇰줈 ?싳떆 ?쒖옉
         this.water = this.bg; // 湲곗〈 肄붾뱶 ?명솚???꾪빐 water 蹂?섏뿉 ?좊떦
         this.createPanoramaLayers(width, height);

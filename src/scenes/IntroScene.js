@@ -1,3 +1,4 @@
+import { fitBackgroundCover } from '../utils/ImagePresentation.js';
 import { getLateGameGoal } from '../data/LateGameContentData.js';
 
 export default class IntroScene extends Phaser.Scene {
@@ -32,7 +33,7 @@ export default class IntroScene extends Phaser.Scene {
 
         // 배경 적용 (타이틀용으로 bg_coast 사용하고 어둡게 처리)
         this.bg = this.add.image(width / 2, (height / 2) - 48, 'bg_coast');
-        this.bg.setDisplaySize(width, height + 96);
+        fitBackgroundCover(this.bg, width, height + 96);
         this.bg.setTint(0x777777); // 인트로 화면은 조금 어둡게
 
         const titleFontSize = Math.max(32, Math.round(width * 0.09)) + 'px';
