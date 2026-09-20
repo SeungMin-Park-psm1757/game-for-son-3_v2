@@ -117,6 +117,26 @@ async function openOnlyScene(page, key, config) {
     assert(stickerLayout.cards.every(r=>r.left>=-1&&r.right<=stickerLayout.viewport+1),
       'Combo sticker card rendered outside the phone viewport');
     await page.screenshot({path:path.join(outputDir,'mobile-awards.png'),fullPage:true});
+    const alternateWidths=[];
+    for(const width of [360,412]) {
+      await page.setViewportSize({width,height:844});
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      const layout=await page.evaluate(()=>{
+        const header=document.getElementById('persistent-ui').getBoundingClientRect();
+        const cards=[...document.querySelectorAll('.combo-sticker-burst-card')]
+          .map(el=>el.getBoundingClientRect()).map(r=>({left:r.left,right:r.right}));
+        return {viewport:innerWidth,documentWidth:document.documentElement.scrollWidth,
+          header:{left:header.left,right:header.right},cards};
+      });
+      assert(layout.documentWidth<=width+1,'Horizontal overflow at '+width+'px');
+      assert(layout.header.left>=-1&&layout.header.right<=width+1,'Header clipped at '+width+'px');
+      assert(layout.cards.length===3&&layout.cards.every(c=>c.left>=-1&&c.right<=width+1),
+        'Sticker clipped at '+width+'px');
+      alternateWidths.push({width,layout});
+      await page.screenshot({path:path.join(outputDir,'mobile-awards-'+width+'.png'),fullPage:true});
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await page.evaluate(()=>window.gameManagers.uiManager.clearComboStickerCelebration());
     await openOnlyScene(page,'GameScene',{region:1});
     const fishing=await page.evaluate(()=>{
@@ -148,6 +168,6 @@ async function openOnlyScene(page, key, config) {
     }
     assert(pageErrors.length===0,'Page errors: '+pageErrors.join(' | '));
     assert(consoleErrors.length===0,'Console errors: '+consoleErrors.join(' | '));
-    console.log(JSON.stringify({header,combos,aquarium,stickerLayout,fishing,pageErrors,consoleErrors},null,2));
+    console.log(JSON.stringify({header,combos,aquarium,stickerLayout,alternateWidths,fishing,pageErrors,consoleErrors},null,2));
   } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
