@@ -1,6 +1,7 @@
 import { FISH_TYPES } from '../models/FishData.js';
 import { getAquariumRegionHeights } from '../utils/AquariumLayout.js';
 import { getFishDisplayWidth } from '../utils/FishPresentation.js';
+import { getFishBehavior } from '../utils/FishBehavior.js';
 import {
     AQUARIUM_TANK_UPGRADES,
     HONOR_TROPHY_ITEMS,
@@ -582,8 +583,12 @@ class AquariumScene extends Phaser.Scene {
         fish.fishData = fishData;
         fish.growthStage = growthStage;
         fish.homeRegion = regionIndex;
-        fish.minY = minY;
-        fish.maxY = maxY;
+        const halfHeight = Math.min(54, fish.displayHeight / 2);
+        fish.minY = Math.max(minY, this.regionYStarts[regionIndex] + halfHeight,
+            regionIndex === 0 ? this.topUiSafeY + halfHeight : 0);
+        fish.maxY = Math.max(fish.minY + 8, Math.min(maxY,
+            this.regionYStarts[regionIndex] + this.regionHeights[regionIndex] - halfHeight));
+        fish.y = Phaser.Math.Clamp(fish.y, fish.minY, fish.maxY);
         fish.motionSeed = Phaser.Math.FloatBetween(0, Math.PI * 2);
         fish.feedState = null;
         fish.growthTrailTimer = Phaser.Math.Between(growthStage === 2 ? 320 : 680, growthStage === 2 ? 680 : 1400);
@@ -651,6 +656,8 @@ class AquariumScene extends Phaser.Scene {
 
     initializeFishBehavior(fish) {
         fish.behaviorState = 'cruise';
+        fish.personality = getFishBehavior(fish.fishData);
+        fish.turnUntil = 0;
         fish.pauseTimer = 0;
         fish.targetX = fish.x;
         fish.targetY = fish.y;
@@ -709,8 +716,26 @@ class AquariumScene extends Phaser.Scene {
             fish.pauseTimer = immediate ? 0 : Phaser.Math.Between(500, 1100);
         }
 
-        fish.targetX = Phaser.Math.Clamp(targetX, 48, width - 48);
-        fish.targetY = Phaser.Math.Clamp(targetY, fish.minY + 8, fish.maxY - 8);
+        // An individual fish's preferred habitat matters more than random wandering.
+        if (fish.personality === 'bottom') {
+            targetY = fish.maxY - Phaser.Math.Between(0, 15);
+            fish.speedMultiplier *= 0.82;
+        } else if (fish.personality === 'glide') {
+            targetY = Phaser.Math.Clamp((fish.minY + fish.maxY) / 2 + Phaser.Math.Between(-18, 18), fish.minY, fish.maxY);
+            fish.speedMultiplier *= 0.76;
+        } else if (fish.personality === 'dash') {
+            fish.speedMultiplier *= 1.24;
+        } else if (fish.personality === 'jet') {
+            fish.speedMultiplier *= Phaser.Math.FloatBetween(0.65, 1.4);
+            fish.pauseTimer += 300;
+        } else if (fish.personality === 'school' && nearbyFishes.length > 0) {
+            const friend = Phaser.Utils.Array.GetRandom(nearbyFishes);
+            targetX = friend.x + Phaser.Math.Between(-55, 55);
+            targetY = friend.y + Phaser.Math.Between(-18, 18);
+        }
+        const sideMargin = Math.min(width * 0.44, Math.max(48, fish.displayWidth / 2 + 8));
+        fish.targetX = Phaser.Math.Clamp(targetX, sideMargin, width - sideMargin);
+        fish.targetY = Phaser.Math.Clamp(targetY, fish.minY, fish.maxY);
     }
 
     emitGrowthTrail(fish) {
@@ -762,7 +787,9 @@ class AquariumScene extends Phaser.Scene {
             fish.x += Phaser.Math.Clamp(dx, -moveStep, moveStep);
             fish.y += Phaser.Math.Clamp(dy, -moveStep * 0.8, moveStep * 0.8);
             fish.y += Math.sin((time * 0.0032) + fish.bobOffset) * 0.18;
-            fish.direction = dx >= 0 ? 1 : -1;
+            const nextDirection = dx >= 0 ? 1 : -1;
+            if (nextDirection !== fish.direction) fish.turnUntil = time + 240;
+            fish.direction = nextDirection;
             fish.flipX = fish.direction === 1;
             fish.angle = Phaser.Math.Clamp((dy / 6), -10, 10) + Math.sin((time * 0.004) + fish.motionSeed) * 2;
         } else {
@@ -774,7 +801,8 @@ class AquariumScene extends Phaser.Scene {
             }
         }
 
-        fish.x = Phaser.Math.Clamp(fish.x, 40, width - 40);
+        const edge = Math.min(width * 0.44, Math.max(40, fish.displayWidth / 2 + 8));
+        fish.x = Phaser.Math.Clamp(fish.x, edge, width - edge);
         fish.y = Phaser.Math.Clamp(fish.y, fish.minY, fish.maxY);
         fish.growthTrailTimer -= delta;
         if (fish.growthStage > 0 && fish.growthTrailTimer <= 0) {
@@ -845,7 +873,7 @@ class AquariumScene extends Phaser.Scene {
     }
 
     getMagnifierDpr() {
-        return Math.max(1, window.devicePixelRatio || 1);
+        return Math.min(2, Math.max(1, window.devicePixelRatio || 1)); // cap mobile memory
     }
 
     syncMagnifierCanvasSize() {
@@ -860,6 +888,7 @@ class AquariumScene extends Phaser.Scene {
         const dpr = this.getMagnifierDpr();
         const diameterPx = Math.max(1, Math.round(diameterCss * dpr));
 
+        if (this.magLensDiameter === diameterCss && this.magZoomCanvas.width === diameterPx && this.magZoomCanvas.height === diameterPx) return;
         this.magLensDiameter = diameterCss;
         this.magZoomCanvas.width = diameterPx;
         this.magZoomCanvas.height = diameterPx;
@@ -873,6 +902,7 @@ class AquariumScene extends Phaser.Scene {
 
     toggleMagnifier(forceState = null) {
         this.isMagnifying = forceState === null ? !this.isMagnifying : forceState;
+        this.lastMagRenderAt = 0;
         if (this.magLensEl) {
             this.magLensEl.style.display = this.isMagnifying ? 'block' : 'none';
         }
@@ -930,6 +960,9 @@ class AquariumScene extends Phaser.Scene {
 
     refreshMagnifierTexture() {
         if (!this.isMagnifying || !this.magZoomContext || !this.magZoomCanvas) return;
+        const now = performance.now();
+        if (this.lastMagRenderAt && now - this.lastMagRenderAt < 33) return; // ~30fps lens cap
+        this.lastMagRenderAt = now;
 
         const sourceCanvas = this.sys.game.canvas;
         const diameter = this.magLensDiameter;
@@ -1884,6 +1917,9 @@ class AquariumScene extends Phaser.Scene {
 
         this.fishes.forEach((fish) => {
             if (fish.isFixed) {
+                // Moray eel peeks from its hiding spot rather than remaining a frozen cutout.
+                fish.angle = Math.sin(time * 0.0015 + fish.motionSeed) * 4;
+                fish.y = fish.startY + Math.sin(time * 0.0012 + fish.motionSeed) * 3;
                 this.syncFishAttachments(fish, time);
                 return;
             }
@@ -1953,7 +1989,8 @@ class AquariumScene extends Phaser.Scene {
             }
 
             this.updateIdleFish(fish, time, delta);
-            fish.setScale(fish.baseScaleX, fish.baseScaleY);
+            const turnRatio = Math.max(0, ((fish.turnUntil || 0) - time) / 240);
+            fish.setScale(fish.baseScaleX * (1 - 0.28 * turnRatio), fish.baseScaleY);
             this.syncFishAttachments(fish, time);
         });
 

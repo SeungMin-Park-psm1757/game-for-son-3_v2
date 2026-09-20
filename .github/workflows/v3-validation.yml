@@ -18,3 +18,28 @@ jobs:
           done
       - name: Run regression tests
         run: node --experimental-default-type=module --test tests/*.test.mjs
+
+  phone-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Run 390px mobile browser smoke test
+        run: |
+          python3 -m http.server 4187 --bind 127.0.0.1 >/tmp/fishing-http.log 2>&1 &
+          server=$!
+          trap "kill $server || true" EXIT
+          node tools/smoke_test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fishing-mobile-screenshots
+          path: test-output/
+          if-no-files-found: ignore
