@@ -208,7 +208,7 @@ export default class IntroScene extends Phaser.Scene {
         const maxBtnWidth = 320; // Reduced from 400
         const minBtnWidth = 240;
         const btnWidth = Phaser.Math.Clamp(Math.round(this.scale.width * 0.8), minBtnWidth, maxBtnWidth);
-        const btnHeight = 66; // Reduced from 80
+        const btnHeight = 84; // ~45 CSS px on a 390px-wide phone
         // Adjust font size for small screens
         const btnFontSize = this.scale.width < 360 ? '20px' : '24px'; // Reduced from 24px/28px
 
@@ -308,7 +308,7 @@ export default class IntroScene extends Phaser.Scene {
 
     createMenuActionButton(x, y, label, color, onClick, delay = 0) {
         const buttonWidth = Phaser.Math.Clamp(Math.round(this.scale.width * 0.34), 150, 220);
-        const buttonHeight = this.scale.width < 360 ? 56 : 62;
+        const buttonHeight = this.scale.width < 360 ? 76 : 82; // comfortable touch targets on phones
         const fontSize = this.scale.width < 360 ? '18px' : '22px';
 
         const container = this.add.container(x, y);

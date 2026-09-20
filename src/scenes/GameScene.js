@@ -248,13 +248,13 @@ export default class GameScene extends Phaser.Scene {
         this.repositionTargetRing();
 
         // ?ㅻ줈 媛湲?踰꾪듉 (?꾩튂 ?섑뼢 議곗젙: 24, 80 - 紐⑤컮???몄튂 ?뚰뵾)
-        const backBtnFontSize = width < 360 ? '16px' : '20px';
+        const backBtnFontSize = width < 360 ? '24px' : '28px';
         const backBtn = this.add.text(24, 80, '← 집으로', {
             fontSize: backBtnFontSize,
             fontFamily: 'Arial', color: '#FFFFFF',
             stroke: '#000000', strokeThickness: 4,
             backgroundColor: '#222222',
-            padding: { x: 10, y: 6 }
+            padding: { x: 14, y: 14 }
         }).setDepth(30).setInteractive({ useHandCursor: true });
 
         backBtn.on('pointerover', () => backBtn.setBackgroundColor('#666666'));
