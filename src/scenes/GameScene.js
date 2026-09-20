@@ -5,6 +5,7 @@ import { getCurrentWeeklyEvent, isWeekendEventDay, isWeeklyEventRegion } from '.
 import { SPECIAL_BAIT_BY_ID } from '../data/LateGameContentData.js';
 import { getFishDisplayWidth } from '../utils/FishPresentation.js';
 import { getFishBehavior, makeAmbientMotion, advanceAmbientFish } from '../utils/FishBehavior.js';
+import { getEventFishTheme } from '../utils/EventFishVisual.js';
 
 const CATCH_BALANCE = {
     gradeDrain: { N: 15, R: 30, SR: 58, SSR: 88 },
@@ -2049,6 +2050,26 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    showEventCatchEffect(fishData) {
+        const theme = getEventFishTheme(fishData);
+        if (!theme) return;
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
+        const halo = this.add.ellipse(centerX, centerY, 110, 110,
+            theme.halo, theme.alpha).setStrokeStyle(4, theme.halo, 0.86).setDepth(16);
+        this.tweens.add({ targets: halo, scale: 3.4, alpha: 0,
+            duration: 1100, ease: 'Sine.easeOut', onComplete: () => halo.destroy() });
+        for (let i = 0; i < 5; i++) {
+            const angle = (Math.PI * 2 * i) / 5;
+            const spark = this.add.circle(centerX, centerY, i % 2 ? 5 : 7,
+                i % 2 ? theme.glint : theme.spark, 0.92).setDepth(17);
+            this.tweens.add({ targets: spark,
+                x: centerX + Math.cos(angle) * 155, y: centerY + Math.sin(angle) * 155,
+                alpha: 0, scale: 0.4, duration: 850,
+                onComplete: () => spark.destroy() });
+        }
+    }
+
     successFishing() {
         const catchFeel = this.getCatchFeelProfile(this.currentFish);
         const rewardRoundId = this.fishingRoundId;
@@ -2121,6 +2142,7 @@ export default class GameScene extends Phaser.Scene {
 
         this.uiElements.instruction.setText(`${this.currentFish.name}를 잡았어!`);
         this.showFloatingNotice(catchFeel.successNotice, '#ffe082');
+        this.showEventCatchEffect(this.currentFish);
 
         // ?꾩떆 ?뚰떚????＝ (?ㅽ섏뼱 紐⑥뼇)
         const particles = this.add.particles(0, 0, 'dummy', {

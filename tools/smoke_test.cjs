@@ -6,7 +6,7 @@ const outputDir = path.join(process.cwd(), 'test-output');
 const saveData = {
   gold:18000,
   stats:{rodPower:6,catchChance:4,reelSpeed:5,rodLuck:2,focusRing:2},
-  fishCollection:{fish_pirami:5,fish_carp:15,fish_tuna:30,fish_flying_fish:5,fish_lionfish:5,fish_parrotfish:5,fish_anchovy:5,fish_mangdoong:5,fish_gizzard_shad:5},
+  fishCollection:{fish_pirami:5,fish_carp:15,fish_tuna:30,fish_moon_carp:5,fish_storm_tuna:5,fish_flying_fish:5,fish_lionfish:5,fish_parrotfish:5,fish_anchovy:5,fish_mangdoong:5,fish_gizzard_shad:5},
   currentChapter:4,highestChapter:4,hasSeenFirstStory:true,
   hasSeenMidChapterEvent:{},fishMilestonesSeen:{fish_pirami:{5:true},fish_carp:{5:true,15:true},fish_tuna:{5:true,15:true,30:true}},
   snacksPurchased:{aquarium_swarm_snack:3,aquarium_follow_snack:1},
@@ -71,11 +71,13 @@ function assert(ok, message) {if(!ok) throw new Error(message);}
       return {top,bottom,width,lens:{left:lens.left,right:lens.right,top:lens.top,bottom:lens.bottom},stages,
         decor:Object.keys(scene.decorObjects).length,shopCount,isFeeding:scene.isFeeding,
         reacted:scene.fishes.filter(f=>!!f.feedState).length,recognition:!!scene.model.specialSnackBehaviorsSeen.recognition,
-        validY:scene.fishes.filter(f=>!f.isFixed).every(f=>f.minY<=f.maxY&&f.y>=f.minY&&f.y<=f.maxY)};
+        validY:scene.fishes.filter(f=>!f.isFixed).every(f=>f.minY<=f.maxY&&f.y>=f.minY&&f.y<=f.maxY),
+        eventDecor:scene.fishes.filter(f=>['fish_moon_carp','fish_storm_tuna'].includes(f.fishData.id)).map(f=>({id:f.fishData.id,halo:!!f.eventAura,spark:!!f.eventSpark}))};
     });
     assert(aquarium.bottom>aquarium.top,'Magnifier did not reach lower tank');
     assert(aquarium.width>0&&aquarium.lens.left>=0&&aquarium.lens.right<=390,'Magnifier out of phone bounds');
     assert(aquarium.validY,'Fish outside their swimming band');
+    assert(aquarium.eventDecor.length===2&&aquarium.eventDecor.every(x=>x.halo&&x.spark),'Special event fish visuals missing');
     const stages=Object.fromEntries(aquarium.stages.map(f=>[f.id,f.stage]));
     assert(stages.fish_pirami===0&&stages.fish_carp===1&&stages.fish_tuna===2,'Fish growth stages wrong');
     assert(aquarium.decor>=5&&aquarium.shopCount>0,'Aquarium decoration/shop not rendered');

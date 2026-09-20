@@ -2,6 +2,7 @@ import { FISH_TYPES } from '../models/FishData.js';
 import { getAquariumRegionHeights } from '../utils/AquariumLayout.js';
 import { getFishDisplayWidth } from '../utils/FishPresentation.js';
 import { getFishBehavior } from '../utils/FishBehavior.js';
+import { getEventFishTheme } from '../utils/EventFishVisual.js';
 import {
     AQUARIUM_TANK_UPGRADES,
     HONOR_TROPHY_ITEMS,
@@ -578,6 +579,14 @@ class AquariumScene extends Phaser.Scene {
         const targetWidth = getFishDisplayWidth(fishData, 'aquarium', growthScales[growthStage] * sizeAdjust, Phaser.Math.FloatBetween(0.95, 1.05));
         const baseScale = targetWidth / Math.max(1, fish.width);
         fish.setScale(baseScale);
+        const eventTheme = getEventFishTheme(fishData);
+        if (eventTheme) {
+            fish.eventAura = this.add.ellipse(fish.x, fish.y,
+                Math.max(92, fish.displayWidth * 1.18), Math.max(76, fish.displayHeight * 1.22),
+                eventTheme.halo, eventTheme.alpha)
+                .setStrokeStyle(2, eventTheme.halo, 0.58).setDepth(1.72);
+            fish.eventSpark = this.add.circle(fish.x, fish.y, 4, eventTheme.spark, 0.88).setDepth(2.16);
+        }
         fish.baseScaleX = fish.scaleX;
         fish.baseScaleY = fish.scaleY;
         fish.fishData = fishData;
@@ -761,6 +770,17 @@ class AquariumScene extends Phaser.Scene {
     }
 
     syncFishAttachments(fish, time) {
+        if (fish.eventAura) {
+            fish.eventAura.setPosition(fish.x, fish.y);
+            fish.eventAura.alpha = 0.13 + Math.sin(time * 0.003 + fish.motionSeed) * 0.055;
+        }
+        if (fish.eventSpark) {
+            fish.eventSpark.setPosition(
+                fish.x + fish.displayWidth * 0.30 * (fish.direction || 1),
+                fish.y - fish.displayHeight * 0.30 + Math.sin(time * 0.005 + fish.motionSeed) * 6
+            );
+            fish.eventSpark.alpha = 0.65 + Math.sin(time * 0.007 + fish.motionSeed) * 0.3;
+        }
         if (fish.growthAura) {
             fish.growthAura.setPosition(fish.x, fish.y);
         }
