@@ -123,6 +123,9 @@ def write_reports(items, directory):
         if row.get("error"):
             lines.append(f"| {row['fishId']} | - | - | - | - | error | {row['error']} |")
             continue
+        if row["action"] == "shared_artwork":
+            lines.append(f"| {row['fishId']} | shared: {row['sourceId']} | - | - | - | alias | EVENT_ART_USES_BASE_FISH |")
+            continue
         lines.append(f"| {row['fishId']} | {row['width']}×{row['height']} | "
                      f"{row['subjectFillX']:.0%} | {row['effectivePixelDensity']:.2f}× | "
                      f"{row['maxDisplayWidth']} | {row['action']} | "
