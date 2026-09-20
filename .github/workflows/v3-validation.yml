@@ -43,3 +43,27 @@ jobs:
           name: fishing-mobile-screenshots
           path: test-output/
           if-no-files-found: ignore
+
+  asset-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Pillow
+        run: python3 -m pip install "Pillow>=11,<13"
+      - name: Audit and test PNG resolution (read-only)
+        run: |
+          python3 -m unittest discover -s tools -p 'test_asset_pipeline.py' -v
+          npm run audit:fish-assets
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fishing-asset-audit
+          path: reports/fish_asset_*
+          if-no-files-found: ignore
