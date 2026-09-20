@@ -99,6 +99,15 @@ function assert(ok, message) {if(!ok) throw new Error(message);}
     assert(fishing.gameState==='APPROACH','Fishing did not start');
     assert(fishing.rareReveal&&fishing.rareWidth>200&&fishing.rareWidth<=446,'Rare fish art reveal failed');
     await page.screenshot({path:path.join(outputDir,'mobile-fishing.png'),fullPage:true});
+    // Check all original background assets in-game; do not infer visual quality from MIME type alone.
+    for (const [region,key] of [[2,'bg_coast'],[3,'bg_sea'],[4,'bg_treasure_island']]) {
+      await page.evaluate(r=>window.gameManagers._phaserGame.scene.start('GameScene',{region:r}),region);
+      await page.waitForFunction(({region,key})=>{
+        const s=window.gameManagers?._phaserGame?.scene?.getScene('GameScene');
+        return s?.scene?.isActive() && s.region===region && s.bg?.texture?.key===key;
+      },{region,key},{timeout:12000});
+      await page.screenshot({path:path.join(outputDir,'mobile-region-'+region+'.png'),fullPage:true});
+    }
     assert(pageErrors.length===0,'Page errors: '+pageErrors.join(' | '));
     assert(consoleErrors.length===0,'Console errors: '+consoleErrors.join(' | '));
     console.log(JSON.stringify({header,combos,aquarium,fishing,pageErrors,consoleErrors},null,2));

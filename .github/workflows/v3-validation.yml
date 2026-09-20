@@ -61,11 +61,14 @@ jobs:
         run: |
           python3 -m unittest discover -s tools -p 'test_asset_pipeline.py' -v
           npm run audit:fish-assets
+          python3 tools/audit_scene_assets.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: fishing-asset-audit
-          path: reports/fish_asset_*
+          path: |
+            reports/fish_asset_*
+            reports/scene_asset_*
           if-no-files-found: ignore
 
   asset-normalize:
@@ -93,6 +96,7 @@ jobs:
           python3 -m unittest discover -s tools -p 'test_asset_pipeline.py'
           npm run normalize:fish-assets
           python3 tools/audit_fish_assets.py
+          python3 tools/audit_scene_assets.py
       - name: Test normalized images in a phone-sized browser
         run: |
           npm install --no-audit --no-fund
@@ -119,5 +123,6 @@ jobs:
           name: fishing-normalized-audit
           path: |
             reports/fish_asset_*
+            reports/scene_asset_*
             test-output/
           if-no-files-found: ignore
