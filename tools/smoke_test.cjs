@@ -69,6 +69,8 @@ async function openOnlyScene(page, key, config) {
     });
     assert(combos.goals>=1&&combos.cards>=10,'Combo book fails to render');
     await openOnlyScene(page,'AquariumScene');
+    await page.evaluate(()=>window.gameManagers.uiManager.clearComboStickerCelebration());
+    await page.screenshot({path:path.join(outputDir,'mobile-aquarium.png'),fullPage:true});
     const aquarium=await page.evaluate(()=>{
       const scene=window.gameManagers._phaserGame.scene.getScene('AquariumScene');
       scene.toggleMagnifier(true);
@@ -95,6 +97,12 @@ async function openOnlyScene(page, key, config) {
     assert(stages.fish_pirami===0&&stages.fish_carp===1&&stages.fish_tuna===2,'Fish growth stages wrong');
     assert(aquarium.decor>=5&&aquarium.shopCount>0,'Aquarium decoration/shop not rendered');
     assert(aquarium.isFeeding&&aquarium.reacted>0&&aquarium.recognition,'Aquarium snack reaction failed');
+    // Deterministic three-card award: regression coverage cannot depend on random unlock timing.
+    await page.evaluate(()=>window.gameManagers.uiManager.showComboStickerCelebration([
+      {id:'combo_coast_snack_friends',name:'연안 간식 친구들'},
+      {id:'combo_treasure_scouts',name:'보물섬 정찰대'},
+      {id:'combo_snack_swarm',name:'우르르 간식 파티'}
+    ]));
     const stickerLayout=await page.evaluate(()=>{
       const burst=document.querySelector('.combo-sticker-burst');
       const cards=[...(burst?.querySelectorAll('.combo-sticker-burst-card')||[])].map(el=>{
@@ -104,25 +112,31 @@ async function openOnlyScene(page, key, config) {
       return {viewport:innerWidth,documentWidth:document.documentElement.scrollWidth,
         burst:!!burst,cards};
     });
+    assert(stickerLayout.burst&&stickerLayout.cards.length===3,'Three-card award not visible');
     assert(stickerLayout.documentWidth<=stickerLayout.viewport+1,'Combo stickers cause horizontal scrolling');
     assert(stickerLayout.cards.every(r=>r.left>=-1&&r.right<=stickerLayout.viewport+1),
       'Combo sticker card rendered outside the phone viewport');
-    await page.screenshot({path:path.join(outputDir,'mobile-aquarium.png'),fullPage:true});
+    await page.screenshot({path:path.join(outputDir,'mobile-awards.png'),fullPage:true});
+    await page.evaluate(()=>window.gameManagers.uiManager.clearComboStickerCelebration());
     await openOnlyScene(page,'GameScene',{region:1});
     const fishing=await page.evaluate(()=>{
       const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
       const fishCount=scene.wanderingFishes.length;
       const widths=scene.wanderingFishes.map(f=>f.displayWidth);
       scene.startApproach(scene.scale.width/2,scene.scale.height*.55);
-      const rare=scene.showCatchReveal({id:'fish_whale_shark',grade:'SSR'});
-      return {fishCount,widths,gameState:scene.gameState,
-        rareReveal:!!rare?.image?.active,rareWidth:rare?.image?.displayWidth || 0};
+      return {fishCount,widths,gameState:scene.gameState};
     });
     assert(fishing.fishCount>=4&&fishing.fishCount<=7,'No ambient fish');
     assert(fishing.widths.every(w=>w>=70&&w<=300),'Fish display size invalid');
     assert(fishing.gameState==='APPROACH','Fishing did not start');
-    assert(fishing.rareReveal&&fishing.rareWidth>200&&fishing.rareWidth<=446,'Rare fish art reveal failed');
     await page.screenshot({path:path.join(outputDir,'mobile-fishing.png'),fullPage:true});
+    const rare=await page.evaluate(()=>{
+      const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
+      const reveal=scene.showCatchReveal({id:'fish_whale_shark',grade:'SSR'});
+      return {active:!!reveal?.image?.active,width:reveal?.image?.displayWidth||0};
+    });
+    assert(rare.active&&rare.width>200&&rare.width<=446,'Rare fish art reveal failed');
+    await page.screenshot({path:path.join(outputDir,'mobile-rare-reveal.png'),fullPage:true});
     // Check all original background assets in-game; do not infer visual quality from MIME type alone.
     for (const [region,key] of [[2,'bg_coast'],[3,'bg_sea'],[4,'bg_treasure_island']]) {
       await openOnlyScene(page,'GameScene',{region});
