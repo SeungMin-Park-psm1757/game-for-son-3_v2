@@ -2053,8 +2053,9 @@ body.modal-open #game-container canvas {
     animation: shake-screen 0.3s ease-in-out infinite;
 }
 
-/* V3 phase 2: handset layout. Keep progress visible without shrinking text to 10px. */
+/* V3 phase 6: reserve actual two-row HUD height outside the canvas. */
 @media screen and (max-width: 500px) {
+    :root { --persistent-ui-height: calc(88px + env(safe-area-inset-top, 0px)); }
     #persistent-ui {
         display: grid !important;
         grid-template-columns: minmax(86px, 1fr) auto auto auto;

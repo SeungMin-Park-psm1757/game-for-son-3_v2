@@ -564,7 +564,7 @@ class AquariumScene extends Phaser.Scene {
         const growthStage = count >= 30 ? 2 : (count >= 15 ? 1 : 0);
         const regionMinY = this.regionYStarts[regionIndex] + this.regionHeights[regionIndex] * 0.18;
         const minY = regionIndex === 0 ? Math.max(regionMinY, this.topUiSafeY) : regionMinY;
-        const maxY = this.regionYStarts[regionIndex] + this.regionHeights[regionIndex] * 0.82;
+        const maxY = Math.max(minY + 12, this.regionYStarts[regionIndex] + this.regionHeights[regionIndex] * 0.82);
 
         const fish = this.add.image(
             Phaser.Math.Between(60, width - 60),
