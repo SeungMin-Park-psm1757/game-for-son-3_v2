@@ -166,13 +166,21 @@ async function openOnlyScene(page, key, config) {
       const fishCount=scene.wanderingFishes.length;
       const widths=scene.wanderingFishes.map(f=>f.displayWidth);
       scene.startApproach(scene.scale.width/2,scene.scale.height*.55);
+      const backButton = scene.children.list.find(o=>o.type==='Text' && o.text==='← 집으로');
+      const backBounds=backButton?.getBounds();
+      const instructionBounds=scene.uiElements.instruction.getBounds();
       return {fishCount,widths,gameState:scene.gameState,
+        backButton:{visible:!!backButton?.visible,top:backBounds?.top,bottom:backBounds?.bottom,
+          instructionTop:instructionBounds.top},
         background:{key:scene.bg.texture.key,sx:scene.bg.scaleX,sy:scene.bg.scaleY,
           width:scene.bg.displayWidth,height:scene.bg.displayHeight}};
     });
     assert(fishing.fishCount>=4&&fishing.fishCount<=7,'No ambient fish');
     assert(fishing.widths.every(w=>w>=70&&w<=300),'Fish display size invalid');
     assert(fishing.gameState==='APPROACH','Fishing did not start');
+    assert(fishing.backButton.visible && fishing.backButton.top>=0 &&
+      fishing.backButton.bottom+4<=fishing.backButton.instructionTop,
+      'Return button overlaps the game instruction: '+JSON.stringify(fishing.backButton));
     assert(Math.abs(fishing.background.sx-fishing.background.sy)<0.001 &&
       fishing.background.width>=720&&fishing.background.height>=1280,'Freshwater backdrop distorted');
     await page.screenshot({path:path.join(outputDir,'mobile-fishing.png'),fullPage:true});

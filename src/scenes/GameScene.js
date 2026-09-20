@@ -256,7 +256,7 @@ export default class GameScene extends Phaser.Scene {
 
         // ?ㅻ줈 媛湲?踰꾪듉 (?꾩튂 ?섑뼢 議곗젙: 24, 80 - 紐⑤컮???몄튂 ?뚰뵾)
         const backBtnFontSize = width < 360 ? '24px' : '28px';
-        const backBtn = this.add.text(24, 80, '← 집으로', {
+        const backBtn = this.add.text(24, 8, '← 집으로', {
             fontSize: backBtnFontSize,
             fontFamily: 'Arial', color: '#FFFFFF',
             stroke: '#000000', strokeThickness: 4,
