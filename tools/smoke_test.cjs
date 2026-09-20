@@ -136,6 +136,12 @@ async function openOnlyScene(page, key, config) {
     const alternateWidths=[];
     for(const width of [360,412]) {
       await page.setViewportSize({width,height:844});
+      // Burst auto-dismisses after 2.4s: re-trigger for each viewport under test.
+      await page.evaluate(()=>window.gameManagers.uiManager.showComboStickerCelebration([
+        {id:'combo_coast_snack_friends',name:'연안 간식 친구들'},
+        {id:'combo_treasure_scouts',name:'보물섬 정찰대'},
+        {id:'combo_snack_swarm',name:'우르르 간식 파티'}
+      ]));
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       const layout=await page.evaluate(()=>{
         const header=document.getElementById('persistent-ui').getBoundingClientRect();
