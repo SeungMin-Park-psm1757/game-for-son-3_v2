@@ -13,7 +13,7 @@ const saveData = {
   decorPurchased:{aquarium_coral_garden:1,aquarium_shell_bed:1,aquarium_bubble_fountain:1,aquarium_treasure_castle:1,aquarium_kelp_arch:1},
   eventCards:{},bossDefeated:{},bossFailed:{2:1},bossDefeatedCount:{},maxLevelCelebrated:{},allMaxCelebrated:false,
   seyeonMaxEventSeen:{},comboBook:{},activeComboGoals:[],specialSnackFedCount:7,specialSnackBehaviorsSeen:{swarm_first:true,bubble_ring:true},
-  aquariumMomentsSeen:{homeSeaStory:true},firstPlayStartedAt:Date.now()-600000,tutorialBoostEndsAt:Date.now()-300000
+  aquariumMomentsSeen:{homeSeaStory:true,coralThemeStory:true},firstPlayStartedAt:Date.now()-600000,tutorialBoostEndsAt:Date.now()-300000
 };
 function assert(ok, message) {if(!ok) throw new Error(message);}
 (async () => {
@@ -52,7 +52,10 @@ function assert(ok, message) {if(!ok) throw new Error(message);}
     });
     assert(combos.goals>=1&&combos.cards>=10,'Combo book fails to render');
     await page.evaluate(()=>window.gameManagers._phaserGame.scene.start('AquariumScene'));
-    await page.waitForFunction(()=>window.gameManagers?._phaserGame?.scene?.isActive('AquariumScene'));
+    await page.waitForFunction(()=>window.gameManagers?._phaserGame?.scene?.isActive('AquariumScene'),null,{timeout:8000}).catch(async (error) => {
+      const states=await page.evaluate(()=>window.gameManagers?._phaserGame?.scene?.getScenes(true).map(s=>s.scene.key));
+      throw new Error('Aquarium did not stay active; active scenes: '+JSON.stringify(states)+'; pageErrors='+JSON.stringify(pageErrors)+'; consoleErrors='+JSON.stringify(consoleErrors)+'; '+error.message);
+    });
     const aquarium=await page.evaluate(()=>{
       const scene=window.gameManagers._phaserGame.scene.getScene('AquariumScene');
       scene.toggleMagnifier(true);
