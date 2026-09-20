@@ -65,7 +65,7 @@ function assert(ok, message) {if(!ok) throw new Error(message);}
       scene.updateMagnifier(360,1240);
       const bottom=scene.magPointerY;
       const lens=scene.magLensEl.getBoundingClientRect();
-      const stages=scene.fishes.filter(f=>['fish_pirami','fish_carp','fish_tuna'].includes(f.texture.key)).map(f=>({id:f.texture.key,stage:f.growthStage}));
+      const stages=scene.fishes.filter(f=>['fish_pirami','fish_carp','fish_tuna'].includes(f.fishData.id)).map(f=>({id:f.fishData.id,stage:f.growthStage}));
       scene.openAquariumShop();const shopCount=scene.shopUi.length;scene.closeAquariumShop();
       scene.feedSpecialSnack('aquarium_swarm_snack');
       return {top,bottom,width,lens:{left:lens.left,right:lens.right,top:lens.top,bottom:lens.bottom},stages,
