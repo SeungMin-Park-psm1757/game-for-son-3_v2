@@ -117,6 +117,8 @@ async function openOnlyScene(page, key, config) {
       {id:'combo_treasure_scouts',name:'보물섬 정찰대'},
       {id:'combo_snack_swarm',name:'우르르 간식 파티'}
     ]));
+    // Card intro CSS intentionally overshoots its final box; measure final layout, not a transient rotated frame.
+    await page.addStyleTag({content:'.combo-sticker-burst-card { animation:none !important; transform:none !important; }'});
     const stickerLayout=await page.evaluate(()=>{
       const burst=document.querySelector('.combo-sticker-burst');
       const cards=[...(burst?.querySelectorAll('.combo-sticker-burst-card')||[])].map(el=>{
@@ -145,7 +147,7 @@ async function openOnlyScene(page, key, config) {
       assert(layout.documentWidth<=width+1,'Horizontal overflow at '+width+'px');
       assert(layout.header.left>=-1&&layout.header.right<=width+1,'Header clipped at '+width+'px');
       assert(layout.cards.length===3&&layout.cards.every(c=>c.left>=-1&&c.right<=width+1),
-        'Sticker clipped at '+width+'px');
+        'Sticker clipped at '+width+'px: '+JSON.stringify(layout));
       alternateWidths.push({width,layout});
       await page.screenshot({path:path.join(outputDir,'mobile-awards-'+width+'.png'),fullPage:true});
     }
