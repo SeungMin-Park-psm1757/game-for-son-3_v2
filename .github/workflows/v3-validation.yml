@@ -1,0 +1,20 @@
+name: Fishing v3 regression
+on:
+  push:
+    branches: [feat/mobile-fishing-v3-phased]
+  workflow_dispatch:
+jobs:
+  node-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check game modules
+        run: |
+          for file in src/main.js src/scenes/*.js src/models/*.js src/utils/*.js src/data/*.js; do
+            node --experimental-default-type=module --check "$file" || exit 1
+          done
+      - name: Run regression tests
+        run: node --experimental-default-type=module --test tests/*.test.mjs

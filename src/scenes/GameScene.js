@@ -17,7 +17,10 @@ const CATCH_BALANCE = {
     lowGaugeDrainMultiplier: 0.86,
     fatigueDrainMultiplier: 0.82,
     longFightTapMultiplier: 1.1,
-    failAssistDrainMultiplier: 0.9
+    failAssistDrainMultiplier: 0.9,
+    targetSeconds: { N: 2.2, R: 3.2, SR: 5.3, SSR: 7.5, boss: 10.0 },
+    expectedTapRate: { N: 3.0, R: 3.5, SR: 4.0, SSR: 4.6, boss: 4.8 },
+    minimumTaps: { N: 4, R: 6, SR: 9, SSR: 14, boss: 18 }
 };
 
 export default class GameScene extends Phaser.Scene {
@@ -985,6 +988,21 @@ export default class GameScene extends Phaser.Scene {
     }
 
 
+    playAmbientEncounter(lureX, lureY) {
+        if (Math.random() >= 0.12) return;
+        const notices = {
+            1: ['작은 물고기 떼가 찌를 살펴보고 있어!', '잔물결이 번져! 누가 다가올까?'],
+            2: ['조개껍데기가 반짝였어!', '물고기 그림자가 미끼 주변을 지나갔어!'],
+            3: ['먼바다에서 커다란 그림자가 스쳤어!', '물살이 잠시 빨라졌어!'],
+            4: ['보물섬 물속에서 작은 빛이 반짝였어!', '신비한 물결이 찌 주위를 감싸네!']
+        };
+        const list = notices[this.region] || notices[1];
+        this.showFloatingNotice(Phaser.Utils.Array.GetRandom(list), '#d5f5ff', 0.34, '21px');
+        const ripple = this.add.circle(lureX, lureY, 22, 0xa9edff, 0.12).setDepth(1.5);
+        this.tweens.add({ targets: ripple, scale: 2, alpha: 0, duration: 650,
+            onComplete: () => ripple.destroy() });
+    }
+
     createWanderingFishes() {
         this.wanderingFishes = [];
         const numFishes = Phaser.Math.Between(4, 7);
@@ -1290,6 +1308,9 @@ export default class GameScene extends Phaser.Scene {
 
         const catchFeel = this.getCatchFeelProfile(this.currentFish);
         this.showApproachPreview(lureX, lureY);
+        if (this.currentFish && !this.currentFish.isSpecialItem && !this.isBossFight) {
+            this.playAmbientEncounter(lureX, lureY);
+        }
 
         // --- 3~5留덈━ 臾쇨퀬湲??묎렐 ?곗텧 ---
         this.approachFishes = [];
@@ -1651,36 +1672,35 @@ export default class GameScene extends Phaser.Scene {
         const castingBonus = options.castingBonus ?? this.castingBonus ?? 1;
         const consecutiveFails = options.consecutiveFails ?? this.consecutiveFails ?? 0;
 
+        const runtimeCatchMax = Number(options.catchMax ?? ((fish === this.currentFish && this.catchMax) ? this.catchMax : (fish?.catchMax || 100)));
+        const runtimeStartGauge = Number(options.startGauge ?? ((fish === this.currentFish && this.catchGauge) ? this.catchGauge : runtimeCatchMax * (isBoss ? 0.22 : 0.15)));
+        const timeLimit = Number(options.timeLimit ?? (isBoss ? (this.bossTimeLimit || 18) : 0));
+        const remainingGauge = Math.max(0, runtimeCatchMax - runtimeStartGauge);
+
         const baseDrain = CATCH_BALANCE.gradeDrain[grade] || CATCH_BALANCE.gradeDrain.N;
         const regionDrain = CATCH_BALANCE.regionDrainBonus[region] || 0;
-        let drainPerSecond = Math.max(
-            CATCH_BALANCE.minDrain,
-            baseDrain + regionDrain - (reelSpeed * CATCH_BALANCE.reelDrainReduction)
-        );
-        if (isBoss) {
-            drainPerSecond *= CATCH_BALANCE.bossDrainMultiplier[bossVariant] || CATCH_BALANCE.bossDrainMultiplier.normal;
-        }
-        if (consecutiveFails >= 2) {
-            drainPerSecond *= CATCH_BALANCE.failAssistDrainMultiplier;
-        }
+        let drainPerSecond = Math.max(CATCH_BALANCE.minDrain,
+            baseDrain + regionDrain - (reelSpeed * CATCH_BALANCE.reelDrainReduction));
+        if (isBoss) drainPerSecond *= CATCH_BALANCE.bossDrainMultiplier[bossVariant] || CATCH_BALANCE.bossDrainMultiplier.normal;
+        if (consecutiveFails >= 2) drainPerSecond *= CATCH_BALANCE.failAssistDrainMultiplier;
+        // Very small early fish must not drain their entire gauge in one second.
+        drainPerSecond = Math.min(drainPerSecond, runtimeCatchMax * (isBoss ? 0.10 : 0.20));
 
         const castingMultiplier = castingBonus >= 3 ? 1.08 : (castingBonus === 2 ? 1.04 : 1);
         const focusMultiplier = 1 + Math.max(0, focusRing - 1) * 0.04;
         let tapGain = Math.max(5, (rodPower * reelSpeed) / difficulty) *
             CATCH_BALANCE.tapGainMultiplier * castingMultiplier * focusMultiplier;
-
-        const runtimeCatchMax = Number(options.catchMax ?? ((fish === this.currentFish && this.catchMax) ? this.catchMax : (fish?.catchMax || 100)));
-        const runtimeStartGauge = Number(options.startGauge ?? ((fish === this.currentFish && this.catchGauge) ? this.catchGauge : runtimeCatchMax * (isBoss ? 0.22 : 0.15)));
-        const timeLimit = Number(options.timeLimit ?? (isBoss ? (this.bossTimeLimit || 18) : 0));
-        const fillPerSecond = timeLimit > 0
-            ? Math.max(0, runtimeCatchMax - runtimeStartGauge) / Math.max(8, timeLimit)
-            : 0;
-        const requiredPressurePerSecond = drainPerSecond + fillPerSecond;
-        const requiredCap = this.getCatchTargetTaps(fish, { isBoss, bossVariant, region, grade, difficulty });
-        if (requiredPressurePerSecond / Math.max(0.1, tapGain) > requiredCap) {
-            tapGain = requiredPressurePerSecond / requiredCap;
-        }
-
+        const expectedRate = CATCH_BALANCE.expectedTapRate[isBoss ? 'boss' : grade];
+        const targetSeconds = isBoss
+            ? Math.min(CATCH_BALANCE.targetSeconds.boss, Math.max(6, timeLimit * 0.75))
+            : CATCH_BALANCE.targetSeconds[grade];
+        const targetFillPerSecond = remainingGauge / Math.max(1, targetSeconds);
+        const requiredPressurePerSecond = drainPerSecond + targetFillPerSecond;
+        // Adjust the average playtime while retaining a minimum number of visible reel actions.
+        tapGain = Math.max(tapGain, requiredPressurePerSecond / expectedRate);
+        tapGain = Math.min(tapGain, remainingGauge / CATCH_BALANCE.minimumTaps[isBoss ? 'boss' : grade]);
+        const fillPerSecond = timeLimit > 0 ? remainingGauge / Math.max(1, timeLimit) : 0;
+        const requiredCap = expectedRate;
         const requiredTapsPerSecond = requiredPressurePerSecond / Math.max(0.1, tapGain);
         const result = requiredTapsPerSecond <= 4
             ? 'easy'
@@ -2882,10 +2902,7 @@ export default class GameScene extends Phaser.Scene {
                 // ?ㅽ꺈 Reel Speed???섑빐 珥덈떦 媛먯냼???꾪솕 (?덈꺼??1.5 諛⑹뼱, Lv20 湲곗? 30 諛⑹뼱 = 湲곗〈 Lv10)
                 const catchConfig = this.activeCatchConfig || this.getCatchConfig(this.currentFish);
                 this.activeCatchConfig = catchConfig;
-                const dropRate = Math.max(
-                    CATCH_BALANCE.minDrain,
-                    catchConfig.drainPerSecond * this.getCatchAssistDrainMultiplier()
-                );
+                const dropRate = Math.max(0.3, catchConfig.drainPerSecond * this.getCatchAssistDrainMultiplier());
 
                 // 0.3珥??ъ쑀 ?쒓컙 (catchGraceTimer) ?곸슜
                 if (this.catchGraceTimer > 0) {
