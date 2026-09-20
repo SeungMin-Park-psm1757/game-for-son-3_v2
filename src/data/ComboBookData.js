@@ -28,14 +28,8 @@ export const DECOR_SET_IDS = {
     treasureHideout: ['aquarium_treasure_castle', 'aquarium_shell_bed', 'aquarium_moon_rocks']
 };
 
-export function getFishSizeTier(fishOrScale) {
-    const scale = typeof fishOrScale === 'number' ? fishOrScale : (fishOrScale?.scale || 0);
-    if (scale < 0.09) return 'tiny';
-    if (scale < 0.24) return 'small';
-    if (scale < 0.75) return 'medium';
-    if (scale < 1.05) return 'large';
-    return 'giant';
-}
+export { getFishSizeTier } from '../utils/FishPresentation.js';
+import { getFishSizeTier } from '../utils/FishPresentation.js';
 
 export function getFishSizeTierLabel(sizeTier) {
     const labels = {

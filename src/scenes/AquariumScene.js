@@ -1,5 +1,6 @@
 import { FISH_TYPES } from '../models/FishData.js';
 import { getAquariumRegionHeights } from '../utils/AquariumLayout.js';
+import { getFishDisplayWidth } from '../utils/FishPresentation.js';
 import {
     AQUARIUM_TANK_UPGRADES,
     HONOR_TROPHY_ITEMS,
@@ -572,12 +573,9 @@ class AquariumScene extends Phaser.Scene {
         this.applyFishVisual(fish, fishData);
 
         const growthScales = [1, 1.16, 1.34];
-        const aquariumScaleAdjustments = {
-            fish_carp: 0.82,
-            fish_moon_carp: 0.78
-        };
-        const sizeAdjust = aquariumScaleAdjustments[fishData.id] || 1;
-        const baseScale = (fishData.scale || 1) * Phaser.Math.FloatBetween(0.6, 0.82) * growthScales[growthStage] * sizeAdjust;
+        const sizeAdjust = (fishData.id === 'fish_carp' || fishData.id === 'fish_moon_carp') ? 0.86 : 1;
+        const targetWidth = getFishDisplayWidth(fishData, 'aquarium', growthScales[growthStage] * sizeAdjust, Phaser.Math.FloatBetween(0.95, 1.05));
+        const baseScale = targetWidth / Math.max(1, fish.width);
         fish.setScale(baseScale);
         fish.baseScaleX = fish.scaleX;
         fish.baseScaleY = fish.scaleY;
