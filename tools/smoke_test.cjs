@@ -90,11 +90,14 @@ function assert(ok, message) {if(!ok) throw new Error(message);}
       const fishCount=scene.wanderingFishes.length;
       const widths=scene.wanderingFishes.map(f=>f.displayWidth);
       scene.startApproach(scene.scale.width/2,scene.scale.height*.55);
-      return {fishCount,widths,gameState:scene.gameState};
+      const rare=scene.showCatchReveal({id:'fish_whale_shark',grade:'SSR'});
+      return {fishCount,widths,gameState:scene.gameState,
+        rareReveal:!!rare?.image?.active,rareWidth:rare?.image?.displayWidth || 0};
     });
     assert(fishing.fishCount>=4&&fishing.fishCount<=7,'No ambient fish');
     assert(fishing.widths.every(w=>w>=70&&w<=300),'Fish display size invalid');
     assert(fishing.gameState==='APPROACH','Fishing did not start');
+    assert(fishing.rareReveal&&fishing.rareWidth>200&&fishing.rareWidth<=446,'Rare fish art reveal failed');
     await page.screenshot({path:path.join(outputDir,'mobile-fishing.png'),fullPage:true});
     assert(pageErrors.length===0,'Page errors: '+pageErrors.join(' | '));
     assert(consoleErrors.length===0,'Console errors: '+consoleErrors.join(' | '));

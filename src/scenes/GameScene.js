@@ -2050,6 +2050,41 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    /** A brief reward close-up uses the SAME PNG as the normal fish sprite. */
+    showCatchReveal(fishData, isBossCatch = false) {
+        if (!fishData || fishData.isSpecialItem ||
+            (!isBossCatch && !fishData.eventOnly && !['SR', 'SSR'].includes(fishData.grade))) return null;
+
+        if (this.catchReveal) {
+            this.catchReveal.image?.destroy();
+            this.catchReveal.backdrop?.destroy();
+            this.catchReveal = null;
+        }
+        const x = this.scale.width / 2;
+        const y = this.scale.height * 0.42;
+        const targetWidth = Math.min(this.scale.width * 0.62,
+            getFishDisplayWidth(fishData, 'catch') * 1.05);
+        const theme = getEventFishTheme(fishData);
+        const ringColor = theme?.halo || (fishData.grade === 'SSR' ? 0xffd76b : 0x94dfff);
+        const backdrop = this.add.ellipse(x, y, targetWidth * 1.35, targetWidth * 0.92,
+            ringColor, 0.14).setStrokeStyle(3, ringColor, 0.78).setDepth(14);
+        const image = this.add.image(x, y, this.getFishTextureKey(fishData))
+            .setDepth(15).setAlpha(0);
+        this.applyFishVisual(image, fishData, targetWidth);
+        image.setScale(image.scaleX * 0.72, image.scaleY * 0.72);
+        this.catchReveal = { image, backdrop };
+        this.tweens.add({ targets: image, alpha: 1,
+            scaleX: image.scaleX / 0.72, scaleY: image.scaleY / 0.72,
+            duration: 280, ease: 'Back.easeOut' });
+        this.tweens.add({ targets: [image, backdrop], alpha: 0, delay: 1100, duration: 430,
+            onComplete: () => {
+                image.destroy();
+                backdrop.destroy();
+                if (this.catchReveal?.image === image) this.catchReveal = null;
+            } });
+        return this.catchReveal;
+    }
+
     showEventCatchEffect(fishData) {
         const theme = getEventFishTheme(fishData);
         if (!theme) return;
@@ -2143,6 +2178,7 @@ export default class GameScene extends Phaser.Scene {
         this.uiElements.instruction.setText(`${this.currentFish.name}를 잡았어!`);
         this.showFloatingNotice(catchFeel.successNotice, '#ffe082');
         this.showEventCatchEffect(this.currentFish);
+        this.showCatchReveal(this.currentFish, isBossCatch);
 
         // ?꾩떆 ?뚰떚????＝ (?ㅽ섏뼱 紐⑥뼇)
         const particles = this.add.particles(0, 0, 'dummy', {
