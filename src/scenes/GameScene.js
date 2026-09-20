@@ -986,7 +986,7 @@ export default class GameScene extends Phaser.Scene {
         this.wanderingFishes = [];
         const numFishes = Phaser.Math.Between(4, 7);
         for (let i = 0; i < numFishes; i++) {
-            const fData = getRandomFish(0, this.region);
+            const fData = getRandomFish(0, this.region, 1, 0, 1, { avoidSpecialItems: true });
 
             const x = Phaser.Math.Between(-200, this.scale.width + 200);
             const y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
@@ -1300,7 +1300,7 @@ export default class GameScene extends Phaser.Scene {
             const isBiter = (i === biterIndex);
 
             // 臾쇨퀬湲?醫낅쪟: 臾대뒗 ?덉? currentFish, ?섎㉧吏???쒕뜡
-            const fData = isBiter ? this.currentFish : getRandomFish(0, this.region);
+            const fData = isBiter ? this.currentFish : getRandomFish(0, this.region, 1, 0, 1, { avoidSpecialItems: true });
 
             // ?щ갑?먯꽌 ?깆옣?섎룄濡??쒕뜡 ?쒖옉 ?꾩튂
             const side = Phaser.Math.Between(0, 3);
@@ -2817,7 +2817,7 @@ export default class GameScene extends Phaser.Scene {
                 if (fish.direction === 1 && fish.x > this.scale.width + 200) {
                     fish.x = -200;
                     fish.y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
-                    const fData = getRandomFish(0, this.region);
+                    const fData = getRandomFish(0, this.region, 1, 0, 1, { avoidSpecialItems: true });
                     this.applyFishVisual(fish, fData, fData.scale * 0.8);
                     fish.setTint(0x000000);
                     fish.setAlpha(0.15);
@@ -2825,7 +2825,7 @@ export default class GameScene extends Phaser.Scene {
                 } else if (fish.direction === -1 && fish.x < -200) {
                     fish.x = this.scale.width + 200;
                     fish.y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
-                    const fData = getRandomFish(0, this.region);
+                    const fData = getRandomFish(0, this.region, 1, 0, 1, { avoidSpecialItems: true });
                     this.applyFishVisual(fish, fData, fData.scale * 0.8);
                     fish.setTint(0x000000);
                     fish.setAlpha(0.15);

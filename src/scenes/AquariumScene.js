@@ -1,4 +1,5 @@
 import { FISH_TYPES } from '../models/FishData.js';
+import { getAquariumRegionHeights } from '../utils/AquariumLayout.js';
 import {
     AQUARIUM_TANK_UPGRADES,
     HONOR_TROPHY_ITEMS,
@@ -226,9 +227,8 @@ class AquariumScene extends Phaser.Scene {
         this.topUiSafeY = 226;
 
         const height = this.scale.height;
-        this.regionCounts = [8, 10, 15, 14];
-        const totalFishCount = this.regionCounts.reduce((sum, count) => sum + count, 0);
-        this.regionHeights = this.regionCounts.map((count) => (count / totalFishCount) * height);
+        this.regionCounts = [9, 10, 16, 14]; // Includes the two event-only species.
+        this.regionHeights = getAquariumRegionHeights(height, this.regionCounts);
         this.regionYStarts = [0];
         for (let i = 0; i < this.regionHeights.length - 1; i += 1) {
             this.regionYStarts.push(this.regionYStarts[i] + this.regionHeights[i]);
@@ -616,8 +616,9 @@ class AquariumScene extends Phaser.Scene {
             fish.growthCompanion = this.add.image(
                 fish.x - 24,
                 fish.y + 10,
-                fishData.id
+                this.getFishTextureKey(fishData)
             ).setScale(baseScale * 0.42).setDepth(1.9).setAlpha(0.72);
+            this.applyFishVisual(fish.growthCompanion, fishData);
             fish.growthCompanion.flipX = fish.flipX;
         }
 
