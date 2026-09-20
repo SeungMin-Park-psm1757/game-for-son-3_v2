@@ -95,6 +95,18 @@ async function openOnlyScene(page, key, config) {
     assert(stages.fish_pirami===0&&stages.fish_carp===1&&stages.fish_tuna===2,'Fish growth stages wrong');
     assert(aquarium.decor>=5&&aquarium.shopCount>0,'Aquarium decoration/shop not rendered');
     assert(aquarium.isFeeding&&aquarium.reacted>0&&aquarium.recognition,'Aquarium snack reaction failed');
+    const stickerLayout=await page.evaluate(()=>{
+      const burst=document.querySelector('.combo-sticker-burst');
+      const cards=[...(burst?.querySelectorAll('.combo-sticker-burst-card')||[])].map(el=>{
+        const r=el.getBoundingClientRect();
+        return {left:r.left,right:r.right,width:r.width};
+      });
+      return {viewport:innerWidth,documentWidth:document.documentElement.scrollWidth,
+        burst:!!burst,cards};
+    });
+    assert(stickerLayout.documentWidth<=stickerLayout.viewport+1,'Combo stickers cause horizontal scrolling');
+    assert(stickerLayout.cards.every(r=>r.left>=-1&&r.right<=stickerLayout.viewport+1),
+      'Combo sticker card rendered outside the phone viewport');
     await page.screenshot({path:path.join(outputDir,'mobile-aquarium.png'),fullPage:true});
     await openOnlyScene(page,'GameScene',{region:1});
     const fishing=await page.evaluate(()=>{
@@ -122,6 +134,6 @@ async function openOnlyScene(page, key, config) {
     }
     assert(pageErrors.length===0,'Page errors: '+pageErrors.join(' | '));
     assert(consoleErrors.length===0,'Console errors: '+consoleErrors.join(' | '));
-    console.log(JSON.stringify({header,combos,aquarium,fishing,pageErrors,consoleErrors},null,2));
+    console.log(JSON.stringify({header,combos,aquarium,stickerLayout,fishing,pageErrors,consoleErrors},null,2));
   } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
