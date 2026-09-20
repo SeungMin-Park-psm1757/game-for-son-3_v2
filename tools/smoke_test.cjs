@@ -16,6 +16,23 @@ const saveData = {
   aquariumMomentsSeen:{homeSeaStory:true,coralThemeStory:true},firstPlayStartedAt:Date.now()-600000,tutorialBoostEndsAt:Date.now()-300000
 };
 function assert(ok, message) {if(!ok) throw new Error(message);}
+
+/** SceneManager.start does NOT stop another concurrently active scene. The
+ * previous smoke test rendered the aquarium on top of all four fishing regions.
+ * Stop every active scene first and ensure at least two actual render frames. */
+async function openOnlyScene(page, key, config) {
+  await page.evaluate(({key,config})=>{
+    const manager=window.gameManagers._phaserGame.scene;
+    for(const scene of manager.getScenes(true)) manager.stop(scene.scene.key);
+    manager.start(key,config);
+  },{key,config});
+  await page.waitForFunction(key=>{
+    const manager=window.gameManagers?._phaserGame?.scene;
+    return manager?.isActive(key)&&manager.getScenes(true).length===1;
+  },key,{timeout:12000});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await page.waitForTimeout(100);
+}
 (async () => {
   fs.mkdirSync(outputDir,{recursive:true});
   const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
@@ -51,11 +68,7 @@ function assert(ok, message) {if(!ok) throw new Error(message);}
       document.getElementById('combo-book-close-btn').click();return ret;
     });
     assert(combos.goals>=1&&combos.cards>=10,'Combo book fails to render');
-    await page.evaluate(()=>window.gameManagers._phaserGame.scene.start('AquariumScene'));
-    await page.waitForFunction(()=>window.gameManagers?._phaserGame?.scene?.isActive('AquariumScene'),null,{timeout:8000}).catch(async (error) => {
-      const states=await page.evaluate(()=>window.gameManagers?._phaserGame?.scene?.getScenes(true).map(s=>s.scene.key));
-      throw new Error('Aquarium did not stay active; active scenes: '+JSON.stringify(states)+'; pageErrors='+JSON.stringify(pageErrors)+'; consoleErrors='+JSON.stringify(consoleErrors)+'; '+error.message);
-    });
+    await openOnlyScene(page,'AquariumScene');
     const aquarium=await page.evaluate(()=>{
       const scene=window.gameManagers._phaserGame.scene.getScene('AquariumScene');
       scene.toggleMagnifier(true);
@@ -83,8 +96,7 @@ function assert(ok, message) {if(!ok) throw new Error(message);}
     assert(aquarium.decor>=5&&aquarium.shopCount>0,'Aquarium decoration/shop not rendered');
     assert(aquarium.isFeeding&&aquarium.reacted>0&&aquarium.recognition,'Aquarium snack reaction failed');
     await page.screenshot({path:path.join(outputDir,'mobile-aquarium.png'),fullPage:true});
-    await page.evaluate(()=>window.gameManagers._phaserGame.scene.start('GameScene',{region:1}));
-    await page.waitForFunction(()=>window.gameManagers?._phaserGame?.scene?.isActive('GameScene'));
+    await openOnlyScene(page,'GameScene',{region:1});
     const fishing=await page.evaluate(()=>{
       const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
       const fishCount=scene.wanderingFishes.length;
@@ -101,7 +113,7 @@ function assert(ok, message) {if(!ok) throw new Error(message);}
     await page.screenshot({path:path.join(outputDir,'mobile-fishing.png'),fullPage:true});
     // Check all original background assets in-game; do not infer visual quality from MIME type alone.
     for (const [region,key] of [[2,'bg_coast'],[3,'bg_sea'],[4,'bg_treasure_island']]) {
-      await page.evaluate(r=>window.gameManagers._phaserGame.scene.start('GameScene',{region:r}),region);
+      await openOnlyScene(page,'GameScene',{region});
       await page.waitForFunction(({region,key})=>{
         const s=window.gameManagers?._phaserGame?.scene?.getScene('GameScene');
         return s?.scene?.isActive() && s.region===region && s.bg?.texture?.key===key;
