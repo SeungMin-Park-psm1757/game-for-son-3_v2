@@ -74,7 +74,7 @@ jobs:
   asset-normalize:
     # Only validated sources are eligible for modification; no work on main.
     needs: [node-regression, phone-smoke, asset-audit]
-    if: github.ref == 'refs/heads/feat/mobile-fishing-v3-phased'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/mobile-fishing-v3-phased'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
