@@ -214,6 +214,19 @@ async function openOnlyScene(page, key, config) {
       });
       assert(Math.abs(background.sx-background.sy)<0.001 &&
         background.width>=720 && background.height>=1280,'Backdrop distorted in region '+region);
+      if (region===4) {
+        const layout=await page.evaluate(()=>{
+          const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
+          const goal=scene.uiElements.goalText.getBounds();
+          const instruction=scene.uiElements.instruction.getBounds();
+          const character=scene.character.getBounds();
+          return {goal:{top:goal.top,bottom:goal.bottom},
+            instruction:{bottom:instruction.bottom},character:{top:character.top}};
+        });
+        assert(layout.goal.top>=layout.instruction.bottom+1 &&
+          layout.goal.bottom<=layout.character.top-1,
+          'Current chapter goal covers instruction or character: '+JSON.stringify(layout));
+      }
       await page.screenshot({path:path.join(outputDir,'mobile-region-'+region+'.png'),fullPage:true});
     }
     for (const width of [360,390,412]) {
