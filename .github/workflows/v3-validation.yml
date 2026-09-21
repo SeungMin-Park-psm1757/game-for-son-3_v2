@@ -1,7 +1,7 @@
 name: Fishing v3 regression
 on:
   push:
-    branches: [feat/mobile-fishing-v3-phased]
+    branches: [feat/mobile-fishing-v3-phased, feat/fishing-v3-hires-art]
   workflow_dispatch:
 jobs:
   node-regression:
