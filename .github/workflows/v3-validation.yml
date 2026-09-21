@@ -1,7 +1,7 @@
 name: Fishing v3 regression
 on:
   push:
-    branches: [feat/mobile-fishing-v3-phased]
+    branches: [feat/mobile-fishing-v3-phased, feat/fishing-v3-hires-art]
   workflow_dispatch:
 jobs:
   node-regression:
@@ -62,6 +62,7 @@ jobs:
           python3 -m unittest discover -s tools -p 'test_asset_pipeline.py' -v
           npm run audit:fish-assets
           python3 tools/audit_scene_assets.py
+          python3 tools/render_art_review.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -69,6 +70,7 @@ jobs:
           path: |
             reports/fish_asset_*
             reports/scene_asset_*
+            reports/fish_art_review.png
           if-no-files-found: ignore
 
   asset-normalize:

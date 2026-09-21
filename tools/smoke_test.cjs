@@ -35,7 +35,7 @@ async function openOnlyScene(page, key, config) {
 }
 (async () => {
   fs.mkdirSync(outputDir,{recursive:true});
-  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+  const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE||undefined,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:2,hasTouch:true,isMobile:true});
   const pageErrors=[];const consoleErrors=[];
   page.on('pageerror',e=>pageErrors.push(e.message));
@@ -161,6 +161,16 @@ async function openOnlyScene(page, key, config) {
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await page.evaluate(()=>window.gameManagers.uiManager.clearComboStickerCelebration());
     await openOnlyScene(page,'GameScene',{region:1});
+    const quietHeader=await page.evaluate(()=>{
+      const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
+      const banner=scene.eventBannerText;
+      return {goalText:scene.uiElements.goalText?.text,
+        banner:banner?{y:banner.y,bottom:banner.getBounds().bottom,height:scene.scale.height}:null};
+    });
+    assert(quietHeader.goalText==='','Unlocked-area label should not repeat the phone HUD');
+    if (quietHeader.banner) assert(quietHeader.banner.y>=quietHeader.banner.height*.90 &&
+      quietHeader.banner.bottom<=quietHeader.banner.height+5,
+      'Weekly banner must stay in lower safe area: '+JSON.stringify(quietHeader));
     const fishing=await page.evaluate(()=>{
       const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
       const fishCount=scene.wanderingFishes.length;
@@ -204,7 +214,34 @@ async function openOnlyScene(page, key, config) {
       });
       assert(Math.abs(background.sx-background.sy)<0.001 &&
         background.width>=720 && background.height>=1280,'Backdrop distorted in region '+region);
+      if (region===4) {
+        const layout=await page.evaluate(()=>{
+          const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
+          const goal=scene.uiElements.goalText.getBounds();
+          const instruction=scene.uiElements.instruction.getBounds();
+          const character=scene.character.getBounds();
+          return {goal:{top:goal.top,bottom:goal.bottom},
+            instruction:{bottom:instruction.bottom},character:{top:character.top}};
+        });
+        assert(layout.goal.top>=layout.instruction.bottom+1 &&
+          layout.goal.bottom<=layout.character.top-1,
+          'Current chapter goal covers instruction or character: '+JSON.stringify(layout));
+      }
       await page.screenshot({path:path.join(outputDir,'mobile-region-'+region+'.png'),fullPage:true});
+    }
+    for (const width of [360,390,412]) {
+      await page.setViewportSize({width,height:844});
+      await openOnlyScene(page,'IntroScene');
+      await page.screenshot({path:path.join(outputDir,`mobile-${width}-intro.png`),fullPage:true});
+      await openOnlyScene(page,'AquariumScene');
+      await page.screenshot({path:path.join(outputDir,`mobile-${width}-aquarium.png`),fullPage:true});
+      for (const region of [1,2,3,4]) {
+        await openOnlyScene(page,'GameScene',{region});
+        await page.screenshot({path:path.join(outputDir,`mobile-${width}-region-${region}.png`),fullPage:true});
+      }
+      await page.evaluate(()=>window.gameManagers._phaserGame.scene
+        .getScene('GameScene').showCatchReveal({id:'fish_whale_shark',grade:'SSR'}));
+      await page.screenshot({path:path.join(outputDir,`mobile-${width}-rare-reveal.png`),fullPage:true});
     }
     assert(pageErrors.length===0,'Page errors: '+pageErrors.join(' | '));
     assert(consoleErrors.length===0,'Console errors: '+consoleErrors.join(' | '));

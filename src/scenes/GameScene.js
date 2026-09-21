@@ -533,7 +533,9 @@ export default class GameScene extends Phaser.Scene {
         if (!this.isWeeklyEventActive) return;
 
         const extraLine = this.isWeekendEvent ? ` · ${this.weeklyEvent.weekendBossLabel} 주의` : '';
-        this.eventBannerText = this.add.text(width - 20, this.scale.height * 0.18, `${this.weeklyEvent.banner}${extraLine}`, {
+        const isPhone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 500px)').matches;
+        const eventY = this.scale.height * (isPhone ? 0.95 : 0.18);
+        this.eventBannerText = this.add.text(width - 20, eventY, `${this.weeklyEvent.banner}${extraLine}`, {
             fontSize: '18px',
             fontFamily: 'Arial',
             fontStyle: 'bold',
@@ -541,9 +543,11 @@ export default class GameScene extends Phaser.Scene {
             stroke: '#12253b',
             strokeThickness: 5,
             align: 'right'
-        }).setOrigin(1, 0.5).setDepth(24);
+        }).setOrigin(1, isPhone ? 1 : 0.5).setDepth(24);
 
-        this.showFloatingNotice(
+        // On a phone the persistent bottom badge is sufficient; the large entrance
+        // notice overlaps the chapter goal and instruction at the top of the canvas.
+        if (!isPhone) this.showFloatingNotice(
             `${this.weeklyEvent.banner}\n${this.isWeekendEvent ? `${this.weeklyEvent.weekendBossLabel}가 깨어날지도 몰라!` : this.weeklyEvent.description}`,
             this.weeklyEvent.accentColor,
             0.18,
@@ -555,7 +559,8 @@ export default class GameScene extends Phaser.Scene {
         if (!this.isWeeklyEventActive || this.weeklyEventFx.length === 0) return;
 
         if (this.eventBannerText) {
-            this.eventBannerText.y = (this.scale.height * 0.18) + Math.sin(time * 0.0024) * 4;
+            const isPhone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 500px)').matches;
+            this.eventBannerText.y = (this.scale.height * (isPhone ? 0.95 : 0.18)) + Math.sin(time * 0.0024) * 4;
         }
 
         if (this.weeklyEvent.id === 'event_weekly_moon') {
@@ -2677,8 +2682,10 @@ export default class GameScene extends Phaser.Scene {
 
     updateGoalText() {
         if (!this.uiElements.goalText) {
-            this.uiElements.goalText = this.add.text(this.scale.width / 2, this.scale.height * 0.15, '', {
-                fontSize: '24px', fontFamily: 'Arial', color: '#FFD700', stroke: '#000000', strokeThickness: 3
+            const isPhone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 500px)').matches;
+            this.uiElements.goalText = this.add.text(this.scale.width / 2, this.scale.height * (isPhone ? 0.11 : 0.15), '', {
+                fontSize: isPhone ? '19px' : '24px', fontFamily: 'Arial', color: '#FFD700',
+                stroke: '#000000', strokeThickness: 3
             }).setOrigin(0.5);
         }
 
@@ -2700,7 +2707,9 @@ export default class GameScene extends Phaser.Scene {
 
             this.uiElements.goalText.setText(`목표 ${label}: ${currentGold} / ${goal} G (${percent}%)`);
         } else if (this.region < model.currentChapter) {
-            this.uiElements.goalText.setText('이미 연 지역이야. 편하게 낚시를 즐겨!');
+            // The phone already has a persistent goal bar; suppress repeated unlocked-area prose.
+            const isPhone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 500px)').matches;
+            this.uiElements.goalText.setText(isPhone ? '' : '이미 연 지역이야. 편하게 낚시를 즐겨!');
         } else {
             this.uiElements.goalText.setText('');
         }
