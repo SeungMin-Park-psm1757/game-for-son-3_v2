@@ -2682,8 +2682,10 @@ export default class GameScene extends Phaser.Scene {
 
     updateGoalText() {
         if (!this.uiElements.goalText) {
-            this.uiElements.goalText = this.add.text(this.scale.width / 2, this.scale.height * 0.15, '', {
-                fontSize: '24px', fontFamily: 'Arial', color: '#FFD700', stroke: '#000000', strokeThickness: 3
+            const isPhone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 500px)').matches;
+            this.uiElements.goalText = this.add.text(this.scale.width / 2, this.scale.height * (isPhone ? 0.12 : 0.15), '', {
+                fontSize: isPhone ? '19px' : '24px', fontFamily: 'Arial', color: '#FFD700',
+                stroke: '#000000', strokeThickness: 3
             }).setOrigin(0.5);
         }
 
