@@ -35,7 +35,7 @@ async function openOnlyScene(page, key, config) {
 }
 (async () => {
   fs.mkdirSync(outputDir,{recursive:true});
-  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+  const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE||undefined,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:2,hasTouch:true,isMobile:true});
   const pageErrors=[];const consoleErrors=[];
   page.on('pageerror',e=>pageErrors.push(e.message));
@@ -205,6 +205,20 @@ async function openOnlyScene(page, key, config) {
       assert(Math.abs(background.sx-background.sy)<0.001 &&
         background.width>=720 && background.height>=1280,'Backdrop distorted in region '+region);
       await page.screenshot({path:path.join(outputDir,'mobile-region-'+region+'.png'),fullPage:true});
+    }
+    for (const width of [360,390,412]) {
+      await page.setViewportSize({width,height:844});
+      await openOnlyScene(page,'IntroScene');
+      await page.screenshot({path:path.join(outputDir,`mobile-${width}-intro.png`),fullPage:true});
+      await openOnlyScene(page,'AquariumScene');
+      await page.screenshot({path:path.join(outputDir,`mobile-${width}-aquarium.png`),fullPage:true});
+      for (const region of [1,2,3,4]) {
+        await openOnlyScene(page,'GameScene',{region});
+        await page.screenshot({path:path.join(outputDir,`mobile-${width}-region-${region}.png`),fullPage:true});
+      }
+      await page.evaluate(()=>window.gameManagers._phaserGame.scene
+        .getScene('GameScene').showCatchReveal({id:'fish_whale_shark',grade:'SSR'}));
+      await page.screenshot({path:path.join(outputDir,`mobile-${width}-rare-reveal.png`),fullPage:true});
     }
     assert(pageErrors.length===0,'Page errors: '+pageErrors.join(' | '));
     assert(consoleErrors.length===0,'Console errors: '+consoleErrors.join(' | '));
