@@ -161,6 +161,16 @@ async function openOnlyScene(page, key, config) {
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await page.evaluate(()=>window.gameManagers.uiManager.clearComboStickerCelebration());
     await openOnlyScene(page,'GameScene',{region:1});
+    const quietHeader=await page.evaluate(()=>{
+      const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
+      const banner=scene.eventBannerText;
+      return {goalText:scene.uiElements.goalText?.text,
+        banner:banner?{y:banner.y,bottom:banner.getBounds().bottom,height:scene.scale.height}:null};
+    });
+    assert(quietHeader.goalText==='','Unlocked-area label should not repeat the phone HUD');
+    if (quietHeader.banner) assert(quietHeader.banner.y>=quietHeader.banner.height*.90 &&
+      quietHeader.banner.bottom<=quietHeader.banner.height+5,
+      'Weekly banner must stay in lower safe area: '+JSON.stringify(quietHeader));
     const fishing=await page.evaluate(()=>{
       const scene=window.gameManagers._phaserGame.scene.getScene('GameScene');
       const fishCount=scene.wanderingFishes.length;
