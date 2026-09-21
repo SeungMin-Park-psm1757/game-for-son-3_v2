@@ -1,3 +1,4 @@
+import { fitBackgroundCover } from '../utils/ImagePresentation.js';
 import { getLateGameGoal } from '../data/LateGameContentData.js';
 
 export default class IntroScene extends Phaser.Scene {
@@ -32,7 +33,7 @@ export default class IntroScene extends Phaser.Scene {
 
         // 배경 적용 (타이틀용으로 bg_coast 사용하고 어둡게 처리)
         this.bg = this.add.image(width / 2, (height / 2) - 48, 'bg_coast');
-        this.bg.setDisplaySize(width, height + 96);
+        fitBackgroundCover(this.bg, width, height + 96);
         this.bg.setTint(0x777777); // 인트로 화면은 조금 어둡게
 
         const titleFontSize = Math.max(32, Math.round(width * 0.09)) + 'px';
@@ -208,7 +209,7 @@ export default class IntroScene extends Phaser.Scene {
         const maxBtnWidth = 320; // Reduced from 400
         const minBtnWidth = 240;
         const btnWidth = Phaser.Math.Clamp(Math.round(this.scale.width * 0.8), minBtnWidth, maxBtnWidth);
-        const btnHeight = 66; // Reduced from 80
+        const btnHeight = 84; // ~45 CSS px on a 390px-wide phone
         // Adjust font size for small screens
         const btnFontSize = this.scale.width < 360 ? '20px' : '24px'; // Reduced from 24px/28px
 
@@ -308,7 +309,7 @@ export default class IntroScene extends Phaser.Scene {
 
     createMenuActionButton(x, y, label, color, onClick, delay = 0) {
         const buttonWidth = Phaser.Math.Clamp(Math.round(this.scale.width * 0.34), 150, 220);
-        const buttonHeight = this.scale.width < 360 ? 56 : 62;
+        const buttonHeight = this.scale.width < 360 ? 76 : 82; // comfortable touch targets on phones
         const fontSize = this.scale.width < 360 ? '18px' : '22px';
 
         const container = this.add.container(x, y);

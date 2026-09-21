@@ -1,8 +1,12 @@
+import { fitBackgroundCover } from '../utils/ImagePresentation.js';
 import { getRandomFish, FISH_TYPES } from '../models/FishData.js';
 import { BOSS_STORIES, FIRST_CATCH_STORIES } from '../models/StoryData.js';
 import { getFishSizeTier } from '../data/ComboBookData.js';
 import { getCurrentWeeklyEvent, isWeekendEventDay, isWeeklyEventRegion } from '../data/WeeklyEventData.js';
 import { SPECIAL_BAIT_BY_ID } from '../data/LateGameContentData.js';
+import { getFishDisplayWidth } from '../utils/FishPresentation.js';
+import { getFishBehavior, makeAmbientMotion, advanceAmbientFish } from '../utils/FishBehavior.js';
+import { getEventFishTheme } from '../utils/EventFishVisual.js';
 
 const CATCH_BALANCE = {
     gradeDrain: { N: 15, R: 30, SR: 58, SSR: 88 },
@@ -15,7 +19,10 @@ const CATCH_BALANCE = {
     lowGaugeDrainMultiplier: 0.86,
     fatigueDrainMultiplier: 0.82,
     longFightTapMultiplier: 1.1,
-    failAssistDrainMultiplier: 0.9
+    failAssistDrainMultiplier: 0.9,
+    targetSeconds: { N: 2.2, R: 3.2, SR: 5.3, SSR: 7.5, boss: 10.0 },
+    expectedTapRate: { N: 3.0, R: 3.5, SR: 4.0, SSR: 4.6, boss: 4.8 },
+    minimumTaps: { N: 4, R: 6, SR: 9, SSR: 14, boss: 18 }
 };
 
 export default class GameScene extends Phaser.Scene {
@@ -158,7 +165,7 @@ export default class GameScene extends Phaser.Scene {
         else if (this.region === 4) bgKey = 'bg_treasure_island';
 
         this.bg = this.add.image(width / 2, height / 2, bgKey);
-        this.bg.setDisplaySize(width, height);
+        fitBackgroundCover(this.bg, width, height);
         this.bg.setInteractive(); // 諛곌꼍 ?대┃?쇰줈 ?싳떆 ?쒖옉
         this.water = this.bg; // 湲곗〈 肄붾뱶 ?명솚???꾪빐 water 蹂?섏뿉 ?좊떦
         this.createPanoramaLayers(width, height);
@@ -248,13 +255,13 @@ export default class GameScene extends Phaser.Scene {
         this.repositionTargetRing();
 
         // ?ㅻ줈 媛湲?踰꾪듉 (?꾩튂 ?섑뼢 議곗젙: 24, 80 - 紐⑤컮???몄튂 ?뚰뵾)
-        const backBtnFontSize = width < 360 ? '16px' : '20px';
-        const backBtn = this.add.text(24, 80, '← 집으로', {
+        const backBtnFontSize = width < 360 ? '24px' : '28px';
+        const backBtn = this.add.text(24, 8, '← 집으로', {
             fontSize: backBtnFontSize,
             fontFamily: 'Arial', color: '#FFFFFF',
             stroke: '#000000', strokeThickness: 4,
             backgroundColor: '#222222',
-            padding: { x: 10, y: 6 }
+            padding: { x: 14, y: 14 }
         }).setDepth(30).setInteractive({ useHandCursor: true });
 
         backBtn.on('pointerover', () => backBtn.setBackgroundColor('#666666'));
@@ -410,7 +417,8 @@ export default class GameScene extends Phaser.Scene {
         sprite.clearTint();
 
         if (scale !== null) {
-            sprite.setScale(scale);
+            // The argument is a logical display width, not a source-image scale.
+            sprite.setDisplaySize(scale, scale * sprite.height / Math.max(1, sprite.width));
         }
 
         if (fishData.id === 'fish_moon_carp') {
@@ -982,25 +990,37 @@ export default class GameScene extends Phaser.Scene {
     }
 
 
+    playAmbientEncounter(lureX, lureY) {
+        if (Math.random() >= 0.12) return;
+        const notices = {
+            1: ['작은 물고기 떼가 찌를 살펴보고 있어!', '잔물결이 번져! 누가 다가올까?'],
+            2: ['조개껍데기가 반짝였어!', '물고기 그림자가 미끼 주변을 지나갔어!'],
+            3: ['먼바다에서 커다란 그림자가 스쳤어!', '물살이 잠시 빨라졌어!'],
+            4: ['보물섬 물속에서 작은 빛이 반짝였어!', '신비한 물결이 찌 주위를 감싸네!']
+        };
+        const list = notices[this.region] || notices[1];
+        this.showFloatingNotice(Phaser.Utils.Array.GetRandom(list), '#d5f5ff', 0.34, '21px');
+        const ripple = this.add.circle(lureX, lureY, 22, 0xa9edff, 0.12).setDepth(1.5);
+        this.tweens.add({ targets: ripple, scale: 2, alpha: 0, duration: 650,
+            onComplete: () => ripple.destroy() });
+    }
+
     createWanderingFishes() {
         this.wanderingFishes = [];
         const numFishes = Phaser.Math.Between(4, 7);
+        const schoolSpecies = FISH_TYPES.filter(f => f.region === this.region && !f.eventOnly && getFishBehavior(f) === 'school');
+        const chosenSchool = schoolSpecies.length ? Phaser.Utils.Array.GetRandom(schoolSpecies) : null;
         for (let i = 0; i < numFishes; i++) {
-            const fData = getRandomFish(0, this.region);
-
-            const x = Phaser.Math.Between(-200, this.scale.width + 200);
-            const y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
-
+            const fData = chosenSchool && i < 3 ? chosenSchool : getRandomFish(0, this.region, 1, 0, 1, { avoidSpecialItems: true });
+            const x = Phaser.Math.Between(-100, this.scale.width + 100) + (chosenSchool && i < 3 ? (i * 42) : 0);
+            const y = Phaser.Math.Between(Math.round(this.scale.height * 0.4), Math.round(this.scale.height * 0.88));
             const fish = this.add.image(x, y, this.getFishTextureKey(fData));
-            fish.setTint(0x000000); // 寃???
-            fish.setAlpha(0.15); // ?ㅻ（???щ챸??
-            fish.setScale(fData.scale);
-            fish.setDepth(0); // 諛곌꼍 諛붾줈 ?? 李뚮낫???꾨옒
-
-            fish.speed = Phaser.Math.Between(20, 60);
-            fish.direction = (Math.random() > 0.5) ? 1 : -1;
-            fish.flipX = fish.direction === 1; // 1?대㈃ ?ㅻⅨ履? -1?대㈃ ?쇱そ ?대룞
-
+            this.applyFishVisual(fish, fData, getFishDisplayWidth(fData, 'water'));
+            fish.setTint(0x000000).setAlpha(0.23).setDepth(0);
+            fish.direction = Math.random() > 0.5 ? 1 : -1;
+            fish.motion = makeAmbientMotion(fData);
+            fish.motion.baseY = y;
+            fish.flipX = fish.direction === 1;
             this.wanderingFishes.push(fish);
         }
     }
@@ -1290,6 +1310,9 @@ export default class GameScene extends Phaser.Scene {
 
         const catchFeel = this.getCatchFeelProfile(this.currentFish);
         this.showApproachPreview(lureX, lureY);
+        if (this.currentFish && !this.currentFish.isSpecialItem && !this.isBossFight) {
+            this.playAmbientEncounter(lureX, lureY);
+        }
 
         // --- 3~5留덈━ 臾쇨퀬湲??묎렐 ?곗텧 ---
         this.approachFishes = [];
@@ -1300,7 +1323,7 @@ export default class GameScene extends Phaser.Scene {
             const isBiter = (i === biterIndex);
 
             // 臾쇨퀬湲?醫낅쪟: 臾대뒗 ?덉? currentFish, ?섎㉧吏???쒕뜡
-            const fData = isBiter ? this.currentFish : getRandomFish(0, this.region);
+            const fData = isBiter ? this.currentFish : getRandomFish(0, this.region, 1, 0, 1, { avoidSpecialItems: true });
 
             // ?щ갑?먯꽌 ?깆옣?섎룄濡??쒕뜡 ?쒖옉 ?꾩튂
             const side = Phaser.Math.Between(0, 3);
@@ -1311,7 +1334,7 @@ export default class GameScene extends Phaser.Scene {
             else { startX = lureX + Phaser.Math.Between(-100, 100); startY = lureY - Phaser.Math.Between(100, 200); }
 
             const fishSprite = this.add.image(startX, startY, this.getFishTextureKey(fData));
-            this.applyFishVisual(fishSprite, fData, fData.scale * (isBiter ? catchFeel.biterScale : 1.18));
+            this.applyFishVisual(fishSprite, fData, getFishDisplayWidth(fData, 'approach', isBiter ? catchFeel.biterScale : 1));
             fishSprite.setDepth(isBiter ? 1.2 : 1);
             fishSprite.setAlpha(isBiter ? 0.95 : 0.76);
             fishSprite.flipX = (startX > lureX); // 李뚮? 諛붾씪蹂대룄濡?
@@ -1330,8 +1353,7 @@ export default class GameScene extends Phaser.Scene {
                     }
                 });
                 // 硫붿씤 fish ?ㅽ봽?쇱씠?몄뿉??諛섏쁺 (?낆쭏 ?곗텧??
-                this.applyFishVisual(this.fish, this.currentFish, this.currentFish.scale * 1.5);
-                console.log(`[DEBUG FISH] ${this.currentFish.id} | FishData scale: ${this.currentFish.scale} | applied: ${this.currentFish.scale * 1.5} | sprite displayW: ${this.fish.displayWidth}, displayH: ${this.fish.displayHeight}`);
+                this.applyFishVisual(this.fish, this.currentFish, getFishDisplayWidth(this.currentFish, 'catch'));
                 this.fish.setVisible(false); // ?묎렐 以묒뿉??approachFish媛 蹂댁씠誘濡??④?
             } else {
                 // === ??臾대뒗 臾쇨퀬湲? ?ㅼ뼇???됰룞 ===
@@ -1652,36 +1674,35 @@ export default class GameScene extends Phaser.Scene {
         const castingBonus = options.castingBonus ?? this.castingBonus ?? 1;
         const consecutiveFails = options.consecutiveFails ?? this.consecutiveFails ?? 0;
 
+        const runtimeCatchMax = Number(options.catchMax ?? ((fish === this.currentFish && this.catchMax) ? this.catchMax : (fish?.catchMax || 100)));
+        const runtimeStartGauge = Number(options.startGauge ?? ((fish === this.currentFish && this.catchGauge) ? this.catchGauge : runtimeCatchMax * (isBoss ? 0.22 : 0.15)));
+        const timeLimit = Number(options.timeLimit ?? (isBoss ? (this.bossTimeLimit || 18) : 0));
+        const remainingGauge = Math.max(0, runtimeCatchMax - runtimeStartGauge);
+
         const baseDrain = CATCH_BALANCE.gradeDrain[grade] || CATCH_BALANCE.gradeDrain.N;
         const regionDrain = CATCH_BALANCE.regionDrainBonus[region] || 0;
-        let drainPerSecond = Math.max(
-            CATCH_BALANCE.minDrain,
-            baseDrain + regionDrain - (reelSpeed * CATCH_BALANCE.reelDrainReduction)
-        );
-        if (isBoss) {
-            drainPerSecond *= CATCH_BALANCE.bossDrainMultiplier[bossVariant] || CATCH_BALANCE.bossDrainMultiplier.normal;
-        }
-        if (consecutiveFails >= 2) {
-            drainPerSecond *= CATCH_BALANCE.failAssistDrainMultiplier;
-        }
+        let drainPerSecond = Math.max(CATCH_BALANCE.minDrain,
+            baseDrain + regionDrain - (reelSpeed * CATCH_BALANCE.reelDrainReduction));
+        if (isBoss) drainPerSecond *= CATCH_BALANCE.bossDrainMultiplier[bossVariant] || CATCH_BALANCE.bossDrainMultiplier.normal;
+        if (consecutiveFails >= 2) drainPerSecond *= CATCH_BALANCE.failAssistDrainMultiplier;
+        // Very small early fish must not drain their entire gauge in one second.
+        drainPerSecond = Math.min(drainPerSecond, runtimeCatchMax * (isBoss ? 0.10 : 0.20));
 
         const castingMultiplier = castingBonus >= 3 ? 1.08 : (castingBonus === 2 ? 1.04 : 1);
         const focusMultiplier = 1 + Math.max(0, focusRing - 1) * 0.04;
         let tapGain = Math.max(5, (rodPower * reelSpeed) / difficulty) *
             CATCH_BALANCE.tapGainMultiplier * castingMultiplier * focusMultiplier;
-
-        const runtimeCatchMax = Number(options.catchMax ?? ((fish === this.currentFish && this.catchMax) ? this.catchMax : (fish?.catchMax || 100)));
-        const runtimeStartGauge = Number(options.startGauge ?? ((fish === this.currentFish && this.catchGauge) ? this.catchGauge : runtimeCatchMax * (isBoss ? 0.22 : 0.15)));
-        const timeLimit = Number(options.timeLimit ?? (isBoss ? (this.bossTimeLimit || 18) : 0));
-        const fillPerSecond = timeLimit > 0
-            ? Math.max(0, runtimeCatchMax - runtimeStartGauge) / Math.max(8, timeLimit)
-            : 0;
-        const requiredPressurePerSecond = drainPerSecond + fillPerSecond;
-        const requiredCap = this.getCatchTargetTaps(fish, { isBoss, bossVariant, region, grade, difficulty });
-        if (requiredPressurePerSecond / Math.max(0.1, tapGain) > requiredCap) {
-            tapGain = requiredPressurePerSecond / requiredCap;
-        }
-
+        const expectedRate = CATCH_BALANCE.expectedTapRate[isBoss ? 'boss' : grade];
+        const targetSeconds = isBoss
+            ? Math.min(CATCH_BALANCE.targetSeconds.boss, Math.max(6, timeLimit * 0.75))
+            : CATCH_BALANCE.targetSeconds[grade];
+        const targetFillPerSecond = remainingGauge / Math.max(1, targetSeconds);
+        const requiredPressurePerSecond = drainPerSecond + targetFillPerSecond;
+        // Adjust the average playtime while retaining a minimum number of visible reel actions.
+        tapGain = Math.max(tapGain, requiredPressurePerSecond / expectedRate);
+        tapGain = Math.min(tapGain, remainingGauge / CATCH_BALANCE.minimumTaps[isBoss ? 'boss' : grade]);
+        const fillPerSecond = timeLimit > 0 ? remainingGauge / Math.max(1, timeLimit) : 0;
+        const requiredCap = expectedRate;
         const requiredTapsPerSecond = requiredPressurePerSecond / Math.max(0.1, tapGain);
         const result = requiredTapsPerSecond <= 4
             ? 'easy'
@@ -2030,6 +2051,61 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    /** A brief reward close-up uses the SAME PNG as the normal fish sprite. */
+    showCatchReveal(fishData, isBossCatch = false) {
+        if (!fishData || fishData.isSpecialItem ||
+            (!isBossCatch && !fishData.eventOnly && !['SR', 'SSR'].includes(fishData.grade))) return null;
+
+        if (this.catchReveal) {
+            this.catchReveal.image?.destroy();
+            this.catchReveal.backdrop?.destroy();
+            this.catchReveal = null;
+        }
+        const x = this.scale.width / 2;
+        const y = this.scale.height * 0.42;
+        const targetWidth = Math.min(this.scale.width * 0.62,
+            getFishDisplayWidth(fishData, 'catch') * 1.05);
+        const theme = getEventFishTheme(fishData);
+        const ringColor = theme?.halo || (fishData.grade === 'SSR' ? 0xffd76b : 0x94dfff);
+        const backdrop = this.add.ellipse(x, y, targetWidth * 1.35, targetWidth * 0.92,
+            ringColor, 0.14).setStrokeStyle(3, ringColor, 0.78).setDepth(14);
+        const image = this.add.image(x, y, this.getFishTextureKey(fishData))
+            .setDepth(15).setAlpha(0);
+        this.applyFishVisual(image, fishData, targetWidth);
+        image.setScale(image.scaleX * 0.72, image.scaleY * 0.72);
+        this.catchReveal = { image, backdrop };
+        this.tweens.add({ targets: image, alpha: 1,
+            scaleX: image.scaleX / 0.72, scaleY: image.scaleY / 0.72,
+            duration: 280, ease: 'Back.easeOut' });
+        this.tweens.add({ targets: [image, backdrop], alpha: 0, delay: 1100, duration: 430,
+            onComplete: () => {
+                image.destroy();
+                backdrop.destroy();
+                if (this.catchReveal?.image === image) this.catchReveal = null;
+            } });
+        return this.catchReveal;
+    }
+
+    showEventCatchEffect(fishData) {
+        const theme = getEventFishTheme(fishData);
+        if (!theme) return;
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
+        const halo = this.add.ellipse(centerX, centerY, 110, 110,
+            theme.halo, theme.alpha).setStrokeStyle(4, theme.halo, 0.86).setDepth(16);
+        this.tweens.add({ targets: halo, scale: 3.4, alpha: 0,
+            duration: 1100, ease: 'Sine.easeOut', onComplete: () => halo.destroy() });
+        for (let i = 0; i < 5; i++) {
+            const angle = (Math.PI * 2 * i) / 5;
+            const spark = this.add.circle(centerX, centerY, i % 2 ? 5 : 7,
+                i % 2 ? theme.glint : theme.spark, 0.92).setDepth(17);
+            this.tweens.add({ targets: spark,
+                x: centerX + Math.cos(angle) * 155, y: centerY + Math.sin(angle) * 155,
+                alpha: 0, scale: 0.4, duration: 850,
+                onComplete: () => spark.destroy() });
+        }
+    }
+
     successFishing() {
         const catchFeel = this.getCatchFeelProfile(this.currentFish);
         const rewardRoundId = this.fishingRoundId;
@@ -2102,6 +2178,8 @@ export default class GameScene extends Phaser.Scene {
 
         this.uiElements.instruction.setText(`${this.currentFish.name}를 잡았어!`);
         this.showFloatingNotice(catchFeel.successNotice, '#ffe082');
+        this.showEventCatchEffect(this.currentFish);
+        this.showCatchReveal(this.currentFish, isBossCatch);
 
         // ?꾩떆 ?뚰떚????＝ (?ㅽ섏뼱 紐⑥뼇)
         const particles = this.add.particles(0, 0, 'dummy', {
@@ -2812,29 +2890,25 @@ export default class GameScene extends Phaser.Scene {
 
         // 臾쇨퀬湲??ㅻ（???대룞
         if (this.wanderingFishes) {
+            const bounds = { minY: this.scale.height * 0.4, maxY: this.scale.height * 0.89 };
             this.wanderingFishes.forEach(fish => {
-                fish.x += fish.speed * fish.direction * (delta / 1000);
-                if (fish.direction === 1 && fish.x > this.scale.width + 200) {
-                    fish.x = -200;
-                    fish.y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
-                    const fData = getRandomFish(0, this.region);
-                    this.applyFishVisual(fish, fData, fData.scale * 0.8);
-                    fish.setTint(0x000000);
-                    fish.setAlpha(0.15);
-                    fish.flipX = true;
-                } else if (fish.direction === -1 && fish.x < -200) {
-                    fish.x = this.scale.width + 200;
-                    fish.y = Phaser.Math.Between(this.scale.height * 0.4, this.scale.height * 0.9);
-                    const fData = getRandomFish(0, this.region);
-                    this.applyFishVisual(fish, fData, fData.scale * 0.8);
-                    fish.setTint(0x000000);
-                    fish.setAlpha(0.15);
-                    fish.flipX = false;
+                advanceAmbientFish(fish, delta, time, bounds);
+                const halfWidth = fish.displayWidth / 2;
+                if ((fish.direction === 1 && fish.x > this.scale.width + halfWidth) ||
+                    (fish.direction === -1 && fish.x < -halfWidth)) {
+                    const fData = getRandomFish(0, this.region, 1, 0, 1, { avoidSpecialItems: true });
+                    this.applyFishVisual(fish, fData, getFishDisplayWidth(fData, 'water'));
+                    fish.setTint(0x000000).setAlpha(0.23);
+                    fish.motion = makeAmbientMotion(fData);
+                    fish.x = fish.direction === 1 ? -fish.displayWidth / 2 : this.scale.width + fish.displayWidth / 2;
+                    fish.y = Phaser.Math.Between(Math.round(bounds.minY), Math.round(bounds.maxY));
+                    fish.motion.baseY = fish.y;
+                    fish.direction = Math.random() > 0.5 ? 1 : -1;
+                    fish.flipX = fish.direction === 1;
                 }
             });
         }
 
-        // CATCH ?곹깭?먯꽌??寃뚯씠吏 ?먯뿰 媛먯냼 濡쒖쭅 諛?誘몃땲寃뚯엫 猷⑦봽
         if (this.gameState === 'CATCH') {
             if (this.catchAssist) this.catchAssist.elapsedMs += delta;
             // 蹂댁뒪 ???由щ컠 泥섎━
@@ -2887,10 +2961,7 @@ export default class GameScene extends Phaser.Scene {
                 // ?ㅽ꺈 Reel Speed???섑빐 珥덈떦 媛먯냼???꾪솕 (?덈꺼??1.5 諛⑹뼱, Lv20 湲곗? 30 諛⑹뼱 = 湲곗〈 Lv10)
                 const catchConfig = this.activeCatchConfig || this.getCatchConfig(this.currentFish);
                 this.activeCatchConfig = catchConfig;
-                const dropRate = Math.max(
-                    CATCH_BALANCE.minDrain,
-                    catchConfig.drainPerSecond * this.getCatchAssistDrainMultiplier()
-                );
+                const dropRate = Math.max(0.3, catchConfig.drainPerSecond * this.getCatchAssistDrainMultiplier());
 
                 // 0.3珥??ъ쑀 ?쒓컙 (catchGraceTimer) ?곸슜
                 if (this.catchGraceTimer > 0) {

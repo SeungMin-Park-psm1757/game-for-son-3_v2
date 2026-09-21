@@ -128,7 +128,7 @@ export const getRandomFish = (rodLuckLevel, currentRegion, castingBonus = 1, com
     }
 
     // 1. 현재 지역에 맞는 물고기만 필터링
-    const regionFishes = FISH_TYPES.filter(fish => fish.region === currentRegion);
+    const regionFishes = FISH_TYPES.filter(fish => fish.region === currentRegion && !fish.eventOnly);
 
     // 2. Rod Luck, 캐스팅 보너스, 콤보에 따른 가중치(Weight) 조정
     let totalWeight = 0;

@@ -1,3 +1,4 @@
+import { fitBackgroundCover } from '../utils/ImagePresentation.js';
 export default class StoryScene extends Phaser.Scene {
     constructor() {
         super('StoryScene');
@@ -20,7 +21,7 @@ export default class StoryScene extends Phaser.Scene {
 
         // 배경 이미지 (가족이 있는 집 분위기 — 게임 배경을 어둡고 따뜻하게 처리)
         this.bg = this.add.image(width / 2, height / 2, 'bg_freshwater');
-        this.bg.setDisplaySize(width, height);
+        fitBackgroundCover(this.bg, width, height);
         this.bg.setTint(0x665544); // 따뜻한 갈색 톤으로 어둡게
 
         // 반투명 오버레이 (대화에 집중할 수 있도록)
