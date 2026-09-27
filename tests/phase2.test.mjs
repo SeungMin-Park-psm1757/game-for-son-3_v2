@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-test('mobile header has separate goal row and always-visible gold', () => {
+test('mobile header stays on one compact row with visible gold and goal', () => {
     const css = read('styles/main.css');
-    assert.match(css, /grid-template-areas:\s*"gold book mute shop" "goal goal goal goal"/);
+    assert.match(css, /grid-template-areas:\s*"gold goal book mute shop"/);
     assert.match(css, /#gold-display\s*\{\s*grid-area:\s*gold/);
     assert.match(css, /#late-goal-display\s*\{\s*grid-area:\s*goal/);
-    assert.match(css, /#book-open-btn, #shop-open-btn, #mute-btn\s*\{[\s\S]*?min-height:\s*44px/);
+    assert.match(css, /#book-open-btn, #shop-open-btn, #mute-btn\s*\{[\s\S]*?min-height:\s*42px/);
+    assert.match(css, /#late-goal-display\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
 });
 test('mobile popups scroll within the screen', () => {
     const css = read('styles/main.css');
