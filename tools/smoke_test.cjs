@@ -48,18 +48,22 @@ async function openOnlyScene(page, key, config) {
     await page.waitForFunction(()=>window.gameManagers?._phaserGame?.scene?.isActive('IntroScene'),{timeout:30000});
     const header=await page.evaluate(()=>{
       const bar=document.getElementById('persistent-ui');
-      const gold=document.getElementById('gold-display').getBoundingClientRect();
-      const goal=document.getElementById('late-goal-display').getBoundingClientRect();
-      const buttons=['book-open-btn','mute-btn','shop-open-btn'].map(id=>document.getElementById(id).getBoundingClientRect());
+      const rects=['gold-display','late-goal-display','book-open-btn','mute-btn','shop-open-btn']
+        .map(id=>({id,...(()=>{const r=document.getElementById(id).getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};})()}));
+      const barRect=bar.getBoundingClientRect();
       return {childIds:[...bar.children].map(n=>n.id),display:getComputedStyle(bar).display,
-        gold:{left:gold.left,right:gold.right},goal:{left:goal.left,right:goal.right},
-        buttons:buttons.map(r=>({left:r.left,right:r.right,height:r.height})),viewport:innerWidth};
+        rects,bar:{left:barRect.left,right:barRect.right,top:barRect.top,bottom:barRect.bottom,height:barRect.height},
+        viewport:innerWidth,documentWidth:document.documentElement.scrollWidth};
     });
     assert(header.childIds.join(',')==='gold-display,late-goal-display,book-open-btn,mute-btn,shop-open-btn','Unexpected mobile header structure');
-    assert(header.display==='grid','Expected two-row mobile grid');
-    assert(header.gold.left>=0&&header.gold.right<=header.viewport,'Gold clipped on handset');
-    assert(header.goal.left>=0&&header.goal.right<=header.viewport,'Goal clipped on handset');
-    assert(header.buttons.every(x=>x.left>=0&&x.right<=header.viewport&&x.height>=43),'Tap target clipped/too short');
+    assert(header.display==='grid','Expected compact mobile grid');
+    assert(header.documentWidth<=header.viewport+1,'Header causes horizontal scrolling');
+    assert(header.bar.left>=-1&&header.bar.right<=header.viewport+1&&header.bar.height<=46,'Header container too large');
+    assert(header.rects.every(x=>x.left>=-1&&x.right<=header.viewport+1&&x.height>=40&&x.height<=44),
+      'Header item clipped or wrong height: '+JSON.stringify(header.rects));
+    const headerTop=Math.min(...header.rects.map(x=>x.top));
+    const headerBottom=Math.max(...header.rects.map(x=>x.bottom));
+    assert(headerBottom-headerTop<=44,'Header wrapped to multiple rows: '+JSON.stringify(header.rects));
     const introFit=await page.evaluate(()=>{
       const s=window.gameManagers._phaserGame.scene.getScene('IntroScene');
       return {sx:s.bg.scaleX,sy:s.bg.scaleY,width:s.bg.displayWidth,height:s.bg.displayHeight};
@@ -147,11 +151,18 @@ async function openOnlyScene(page, key, config) {
         const header=document.getElementById('persistent-ui').getBoundingClientRect();
         const cards=[...document.querySelectorAll('.combo-sticker-burst-card')]
           .map(el=>el.getBoundingClientRect()).map(r=>({left:r.left,right:r.right}));
+        const headerItems=['gold-display','late-goal-display','book-open-btn','mute-btn','shop-open-btn']
+          .map(id=>document.getElementById(id).getBoundingClientRect())
+          .map(r=>({left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height}));
         return {viewport:innerWidth,documentWidth:document.documentElement.scrollWidth,
-          header:{left:header.left,right:header.right},cards};
+          header:{left:header.left,right:header.right,height:header.height},headerItems,cards};
       });
       assert(layout.documentWidth<=width+1,'Horizontal overflow at '+width+'px');
-      assert(layout.header.left>=-1&&layout.header.right<=width+1,'Header clipped at '+width+'px');
+      assert(layout.header.left>=-1&&layout.header.right<=width+1&&layout.header.height<=46,'Header clipped/wrapped at '+width+'px');
+      const rowTop=Math.min(...layout.headerItems.map(x=>x.top));
+      const rowBottom=Math.max(...layout.headerItems.map(x=>x.bottom));
+      assert(rowBottom-rowTop<=44&&layout.headerItems.every(x=>x.left>=-1&&x.right<=width+1&&x.height>=40),
+        'Header is not one row at '+width+'px: '+JSON.stringify(layout.headerItems));
       assert(layout.cards.length===3&&layout.cards.every(c=>c.left>=-1&&c.right<=width+1),
         'Sticker clipped at '+width+'px: '+JSON.stringify(layout));
       alternateWidths.push({width,layout});
