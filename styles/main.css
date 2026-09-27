@@ -2117,6 +2117,10 @@ body.modal-open #game-container canvas {
         padding-left: 0;
         padding-right: 0;
     }
+    #persistent-ui .pulse-anim {
+        animation: none;
+        transform: none;
+    }
     .ui-modal-backdrop {
         padding: 10px max(8px, env(safe-area-inset-right, 0px)) 10px max(8px, env(safe-area-inset-left, 0px));
     }
