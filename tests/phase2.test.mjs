@@ -16,6 +16,6 @@ test('mobile popups scroll within the screen', () => {
     assert.match(css, /overscroll-behavior:\s*contain/);
 });
 test('Phaser menu buttons have handset-friendly logical hit areas', () => {
-    assert.match(read('src/scenes/IntroScene.js'), /const btnHeight = 84;/);
-    assert.match(read('src/scenes/IntroScene.js'), /\? 76 : 82;/);
+    assert.match(read('src/scenes/IntroScene.js'), /Math\.min\(88, Math\.max\(70, 44 \/ unit\)\)/);
+    assert.match(read('src/scenes/IntroScene.js'), /const buttonHeight = requestedHeight;/);
 });

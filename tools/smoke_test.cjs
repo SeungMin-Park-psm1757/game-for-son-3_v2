@@ -242,7 +242,44 @@ async function openOnlyScene(page, key, config) {
     }
     for (const width of [360,390,412]) {
       await page.setViewportSize({width,height:844});
+      await page.evaluate(()=>{window.gameManagers.playerModel.currentChapter=5;});
       await openOnlyScene(page,'IntroScene');
+      const intro=await page.evaluate(()=>{
+        const scene=window.gameManagers._phaserGame.scene.getScene('IntroScene');
+        const canvas=scene.game.canvas.getBoundingClientRect();
+        const sx=canvas.width/scene.scale.width,sy=canvas.height/scene.scale.height;
+        const box=o=>{const r=o.getBounds();return {left:canvas.left+r.left*sx,right:canvas.left+r.right*sx,
+          top:canvas.top+r.top*sy,bottom:canvas.top+r.bottom*sy,height:r.height*sy};};
+        const group=items=>({top:Math.min(...items.map(x=>x.top)),bottom:Math.max(...items.map(x=>x.bottom))});
+        const e=scene.introElements;
+        const chapters=e.chapters.map(box),notices=e.notices.map(box),actions=e.actions.map(box);
+        return {viewport:innerWidth,documentWidth:document.documentElement.scrollWidth,
+          title:box(e.title),subtitle:box(e.subtitle),chapters:group(chapters),chapterButtons:chapters,
+          notices:group(notices),noticeLines:notices,actions:group(actions),actionButtons:actions,
+          noticeText:e.notices.map(n=>n.text),
+          headerBottom:document.getElementById('persistent-ui').getBoundingClientRect().bottom,
+          canvasTop:canvas.top,canvasBottom:canvas.bottom};
+      });
+      assert(intro.documentWidth<=width+1,'Intro causes horizontal scrolling at '+width+'px');
+      assert(intro.title.top>=intro.headerBottom+15,'Title overlaps header at '+width+'px: '+JSON.stringify(intro));
+      assert(intro.title.bottom+15<=intro.subtitle.top&&intro.subtitle.bottom<intro.chapters.top&&
+        intro.chapters.bottom<intro.notices.top&&intro.notices.bottom<intro.actions.top,
+        'Intro sections overlap at '+width+'px: '+JSON.stringify(intro));
+      assert(intro.chapterButtons.length===4&&intro.chapterButtons.every(b=>b.height>=40),
+        'Chapter buttons too small at '+width+'px: '+JSON.stringify(intro.chapterButtons));
+      assert(intro.actionButtons.length===6&&intro.actionButtons.every(b=>b.height>=40),
+        'Menu buttons too small at '+width+'px: '+JSON.stringify(intro.actionButtons));
+      for (const buttons of [intro.chapterButtons,intro.actionButtons]) {
+        assert(buttons.every((a,i)=>buttons.slice(i+1).every(b=>
+          a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top)),
+          'Buttons overlap at '+width+'px: '+JSON.stringify(buttons));
+        assert(buttons.every(b=>b.left>=0&&b.right<=width),
+          'Button extends beyond viewport at '+width+'px: '+JSON.stringify(buttons));
+      }
+      assert(intro.actions.bottom<intro.canvasBottom-20,
+        'Menu overlaps reset/safe area at '+width+'px: '+JSON.stringify(intro));
+      assert(intro.noticeText[0].includes('모든 챕터 클리어')&&intro.noticeText.length===2,
+        'Completed-game notice/extension is missing at '+width+'px: '+JSON.stringify(intro.noticeText));
       await page.screenshot({path:path.join(outputDir,`mobile-${width}-intro.png`),fullPage:true});
       await openOnlyScene(page,'AquariumScene');
       await page.screenshot({path:path.join(outputDir,`mobile-${width}-aquarium.png`),fullPage:true});
@@ -254,6 +291,7 @@ async function openOnlyScene(page, key, config) {
         .getScene('GameScene').showCatchReveal({id:'fish_whale_shark',grade:'SSR'}));
       await page.screenshot({path:path.join(outputDir,`mobile-${width}-rare-reveal.png`),fullPage:true});
     }
+    await page.evaluate(()=>{window.gameManagers.playerModel.currentChapter=4;});
     assert(pageErrors.length===0,'Page errors: '+pageErrors.join(' | '));
     assert(consoleErrors.length===0,'Console errors: '+consoleErrors.join(' | '));
     console.log(JSON.stringify({header,combos,aquarium,stickerLayout,alternateWidths,fishing,pageErrors,consoleErrors},null,2));
